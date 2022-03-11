@@ -1,0 +1,10 @@
+.bloop/
+.idea/
+.metals/
+.vscode/
+*.iml
+out
+out.*
+tmp.*
+test.*
+
