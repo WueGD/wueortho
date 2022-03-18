@@ -7,10 +7,21 @@ import scala.util.Random
 import drawings.io.Svg
 import java.nio.file.Files
 import java.nio.file.Paths
+import drawings.overlaps.triangulate
 
 val config = ForceDirected.defaultConfig.copy(iterCap = 500)
 
-@main def main(): Unit =
+@main def main(): Unit = startTriangulate
+
+def startTriangulate: Unit =
+  val vertices = ForceDirected.initLayout(Random(0xFFC0FFEE), 24)
+  val edges = triangulate(vertices.nodes)
+  val graph = EdgeWeightedSimpleGraph.fromEdgeList(edges.map(de => Edge(de.u, de.v, 1)))
+  val svg = Svg.draw(graph, vertices)
+  Files.writeString(Paths.get("out.svg"), svg)
+
+
+def startFDLayout: Unit =
   val graph = p12
   val init = ForceDirected.initLayout(Random(0xDEADBEEF), graph.nodes.size)
   val layout = ForceDirected.layout(config)(graph, init)
