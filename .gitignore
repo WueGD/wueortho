@@ -7,4 +7,5 @@ out
 out.*
 tmp.*
 test.*
+*.svg
 

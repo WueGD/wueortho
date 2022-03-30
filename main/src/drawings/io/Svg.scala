@@ -43,6 +43,6 @@ object Svg:
         ^.fill := "blue",
         ^.cx := (node.x1 * 100),
         ^.cy := (node.x2 * 100),
-        ^.r := 3,
+        ^.r := 5,
       )
     )

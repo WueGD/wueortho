@@ -1,4 +1,4 @@
-package drawings.overlaps
+package drawings.util
 
 import drawings.data.VertexLayout
 import org.tinfour.{common => tinfour}

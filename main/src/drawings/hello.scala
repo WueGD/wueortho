@@ -7,18 +7,34 @@ import scala.util.Random
 import drawings.io.Svg
 import java.nio.file.Files
 import java.nio.file.Paths
-import drawings.overlaps.triangulate
+import drawings.util.triangulate
+import drawings.util.MinimumSpanningTree
+import drawings.data.AdjacencyList
 
 val config = ForceDirected.defaultConfig.copy(iterCap = 500)
 
-@main def main(): Unit = startTriangulate
+@main def main(): Unit =
+  startTriangulate
+  startMst
+
+def startMst: Unit =
+  val vertices = ForceDirected.initLayout(Random(0xFFC0FFEE), 24)
+  val edges = triangulate(vertices.nodes)
+  val graph = EdgeWeightedSimpleGraph.fromEdgeList(edges.map(de =>
+    Edge(de.u, de.v, (vertices.nodes(de.u) - vertices.nodes(de.v)).len)))
+  val mst = MinimumSpanningTree.create(AdjacencyList.fromEWSG(graph))
+  val svg = Svg.draw(EdgeWeightedSimpleGraph.fromEdgeList(mst.vertices.zipWithIndex flatMap { case (adj, u) =>
+    adj.neighbors map { case (v, w) => Edge(u, v, w) }
+  }), vertices)
+  Files.writeString(Paths.get("mst.svg"), svg)
+
 
 def startTriangulate: Unit =
   val vertices = ForceDirected.initLayout(Random(0xFFC0FFEE), 24)
   val edges = triangulate(vertices.nodes)
   val graph = EdgeWeightedSimpleGraph.fromEdgeList(edges.map(de => Edge(de.u, de.v, 1)))
   val svg = Svg.draw(graph, vertices)
-  Files.writeString(Paths.get("out.svg"), svg)
+  Files.writeString(Paths.get("delauny.svg"), svg)
 
 
 def startFDLayout: Unit =
@@ -27,7 +43,7 @@ def startFDLayout: Unit =
   val layout = ForceDirected.layout(config)(graph, init)
   println(layout)
   val svg = Svg.draw(graph, layout)
-  Files.writeString(Paths.get("out.svg"), svg)
+  Files.writeString(Paths.get("fd.svg"), svg)
 
 val k4 = EdgeWeightedSimpleGraph.fromEdgeList(List(
   Edge(0, 1, 1),
