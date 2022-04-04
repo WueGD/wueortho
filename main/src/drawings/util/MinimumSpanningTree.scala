@@ -41,14 +41,13 @@ object MinimumSpanningTree:
         state(u) = state(u).bind
 
     mkTree(state)
-        
-  
+
   private def mkTree(s: Seq[VertexState]) =
     val adjList = Array.fill(s.size)(mutable.ListBuffer.empty[(Int, Double)])
     s.zipWithIndex foreach {
-      case (VertexState.Bound(w, u), v) => adjList(v) += (u -> w)
-      case (VertexState.Root, _) =>
-      case x => sys.error(s"unbound vertex $x in MST")
+      case (VertexState.Bound(w, u), v) => adjList(u) += (v -> -w)
+      case (VertexState.Root, _)        =>
+      case x                            => sys.error(s"unbound vertex $x in MST")
     }
     AdjacencyList(adjList.map(l => Vertex(l.toList)))
 
