@@ -27,28 +27,51 @@ object Nachmanson:
       val xs = tree.vertices(i).neighbors flatMap { (j, w) =>
         val n = rects(j)
         if w < 0 then
-          val d = (n.center - r.center).scale(translationFactor(r, n))
-          go(j, d)
+          val d = (n.center - r.center).scale(translationFactor(r, n) - 0.99) // fixme: ugly
+          go(j, disp + d)
         else go(j, disp)
       }
       (i -> x) +: xs
 
+    debugSvg(rects, tree)
     go(0, Vec2D(0, 0)).sortBy(_._1).map(_._2).toArray
 
   def step(rects: IndexedSeq[Rect2D]): Option[IndexedSeq[Rect2D]] =
     val triangulated = triangulate(rects.map(_.center))
-    val edges        = triangulated.map(de => Edge(de.u, de.v, overlapCost(rects(de.u), rects(de.v))))
-    if edges.exists(_.weight < 0) then
+    val edges        = triangulated.map(se => se.withWeight(overlapCost(rects(se.u), rects(se.v))))
+
+    val augmented = if edges.forall(_.weight >= 0) then
+      val augments = Overlaps.overlappingPairs(rects).map(se => se.withWeight(overlapCost(rects(se.u), rects(se.v))))
+      println(augments)
+      if augments.isEmpty then None
+      else Some(edges ++ augments)
+    else Some(edges)
+
+    println(s"number of edges to process: ${augmented.map(_.size)}")
+
+    augmented.map(edges =>
       val adjacencies = AdjacencyList.fromEWSG(EdgeWeightedSimpleGraph.fromEdgeList(edges))
       val mst         = MinimumSpanningTree.create(adjacencies)
-      Some(grow(mst, rects))
-    else None
+      grow(mst, rects),
+    )
 
   @tailrec
-  def align(rects: IndexedSeq[Rect2D]): IndexedSeq[Rect2D] =
-    println(rects.size)
-    step(rects) match
-      case Some(rs) => align(rs)
-      case None     => rects
+  def align(rects: IndexedSeq[Rect2D]): IndexedSeq[Rect2D] = step(rects) match
+    case Some(rs) => align(rs)
+    case None     => rects
+
+  def debugSvg(rects: IndexedSeq[Rect2D], mst: AdjacencyList) =
+    val tree = drawings.io.Svg.draw(
+      EdgeWeightedSimpleGraph.fromEdgeList(mst.vertices.zipWithIndex flatMap { case (adj, u) =>
+        adj.neighbors map { case (v, w) => Edge(u, v, w) }
+      }),
+      VertexLayout(rects.map(_.center)),
+    )
+    val rect = drawings.io.Svg.draw(rects)
+    java.nio.file.Files
+      .writeString(java.nio.file.Path.of(s"dbg${cnt}.svg"), (rect ++ tree).svgString)
+    cnt += 1
+
+  var cnt = 0
 
 end Nachmanson

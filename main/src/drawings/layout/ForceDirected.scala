@@ -15,17 +15,16 @@ object ForceDirected:
       else
         // repulsive forces:
         val afterRep =
-          for v <- g.nodes yield
-            (for u <- g.nodes if u != v yield
-              val delta = pos(v) - pos(u) // todo ensure a gap
-              delta.scale(cfg.repulsive(delta.len) / delta.len)
-            ).fold(Vec2D(0, 0))(_ + _)
+          for v <- g.nodes yield (for u <- g.nodes if u != v yield
+            val delta = pos(v) - pos(u) // todo ensure a gap
+            delta.scale(cfg.repulsive(delta.len) / delta.len)
+          ).fold(Vec2D(0, 0))(_ + _)
 
         // attractive forces:
         val disp = g.edges.foldLeft(afterRep.toVector)((d, edge) =>
           val delta = pos(edge.to) - pos(edge.from) // todo ensure non-zero length edge
           val force = delta.scale(cfg.attractive(delta.len) / delta.len * edge.weight)
-          d.updated(edge.to, d(edge.to) - force).updated(edge.from, d(edge.from) + force)
+          d.updated(edge.to, d(edge.to) - force).updated(edge.from, d(edge.from) + force),
         )
 
         val newPos = pos.zip(disp).map { case (p, d) =>
@@ -39,11 +38,11 @@ object ForceDirected:
   end layout
 
   case class Config(
-    startingTemp: Double,
-    iterCap: Int,
-    cooling: Double => Double,
-    repulsive: Double => Double,
-    attractive: Double => Double,
+      startingTemp: Double,
+      iterCap: Int,
+      cooling: Double => Double,
+      repulsive: Double => Double,
+      attractive: Double => Double,
   )
 
   val defaultConfig = Config(

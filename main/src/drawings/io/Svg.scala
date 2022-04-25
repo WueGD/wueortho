@@ -4,38 +4,30 @@ import drawings.data._
 import scalatags.Text.{Frag, svgAttrs as ^}
 import scalatags.Text.svgTags._
 import scalatags.Text.implicits._
+import scala.annotation.targetName
 
 object Svg:
-  val ppu = 100
+  val ppu = 50
 
-  def draw(g: EdgeWeightedSimpleGraph, vl: VertexLayout): String =
-    val translated = translateToQ1(vl)
-    val (w, h)     = (translated.nodes.map(_.x1).max, translated.nodes.map(_.x2).max)
-    val ctnt       = edges(g, translated) ++ nodes(translated)
-    root(w * ppu, h * ppu, 50)(ctnt)
+  case class SvgFrag(bbox: Rect2D, frags: Seq[Frag]):
+    def scaledBox = Rect2D(bbox.center.scale(ppu), bbox.span.scale(ppu))
+    def svgString = root(scaledBox, 50)(frags)
+    @targetName("join")
+    def ++(other: SvgFrag) = SvgFrag(Rect2D.boundingBoxOfRects(bbox, other.bbox), frags ++ other.frags)
 
-  def draw(rects: Seq[Rect2D]) =
-    val translated = translateToQ1(rects)
-    val w          = translated.map(r => r.center.x1 + r.span.x1).max
-    val h          = translated.map(r => r.center.x2 + r.span.x2).max
-    root(w * ppu, h * ppu, 50)(drawRects(translated))
+  def draw(g: EdgeWeightedSimpleGraph, vl: VertexLayout) =
+    val ctnt = edges(g, vl) ++ nodes(vl)
+    val bbox = Rect2D.boundingBox(vl.nodes)
+    SvgFrag(bbox, ctnt)
 
-  private def root(w: Double, h: Double, margin: Double)(ctnt: Seq[Frag]): String =
+  def draw(rects: Seq[Rect2D]) = SvgFrag(Rect2D.boundingBoxOfRects(rects: _*), drawRects(rects))
+
+  private def root(vp: Rect2D, margin: Double)(ctnt: Seq[Frag]): String =
     val pad = margin / 2
     s"""<?xml version="1.0" standalone="no"?>
-       |<svg viewBox="${-pad} ${-pad} ${w + margin} ${h + margin}" version="1.1" xmlns="http://www.w3.org/2000/svg">
+       |<svg viewBox="${vp.center.x1 - vp.span.x1 - pad} ${vp.center.x2 - vp.span.x2 - pad} ${2 * vp.span.x1 + margin} ${2 * vp.span.x2 + margin}" version="1.1" xmlns="http://www.w3.org/2000/svg">
        |  ${ctnt.map(_.render).mkString("\n")}
        |</svg>""".stripMargin
-
-  private def translateToQ1(vl: VertexLayout) =
-    val (minX, minY) = (vl.nodes.map(_.x1).min, vl.nodes.map(_.x2).min)
-    val v            = Vec2D(-minX, -minY)
-    VertexLayout(vl.nodes.map(_ + v))
-
-  private def translateToQ1(rs: Seq[Rect2D]) =
-    val (minX, minY) = (rs.map(r => r.center.x1 - r.span.x1).min, rs.map(r => r.center.x2 - r.span.x2).min)
-    val v            = Vec2D(-minX, -minY)
-    rs.map(r => r.copy(center = r.center + v))
 
   private def edges(g: EdgeWeightedSimpleGraph, vl: VertexLayout) =
     g.edges.map(edge =>

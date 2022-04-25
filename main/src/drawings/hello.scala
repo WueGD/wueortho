@@ -12,6 +12,7 @@ import drawings.util.MinimumSpanningTree
 import drawings.data.AdjacencyList
 import drawings.data.Rect2D
 import drawings.overlaps.Nachmanson
+import drawings.overlaps.Overlaps
 
 val config = ForceDirected.defaultConfig.copy(iterCap = 500)
 
@@ -19,16 +20,16 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 500)
   startOverlaps
 
 def startOverlaps: Unit =
-  val points  = ForceDirected.initLayout(Random(0xc0ffee01), 24 * 2).nodes
+  val points  = ForceDirected.initLayout(Random(0xc0ffee04), 42 * 2).nodes
   val rects   = (points.grouped(2) map { case Seq(center, Vec2D(w, h)) =>
     Rect2D(center, Vec2D(w.abs / 2, h.abs / 2))
   }).toArray
   val before  = Svg.draw(rects)
   val aligned = Nachmanson.align(rects)
-  println(aligned)
   val after   = Svg.draw(aligned)
-  Files.writeString(Paths.get("rects.svg"), before)
-  Files.writeString(Paths.get("aligned.svg"), after)
+  Files.writeString(Paths.get("rects.svg"), before.svgString)
+  Files.writeString(Paths.get("aligned.svg"), after.svgString)
+  println(Overlaps.overlappingPairs(aligned).mkString("\n"))
 
 def startMst: Unit =
   val vertices = ForceDirected.initLayout(Random(0xffc0ffee), 24)
@@ -44,13 +45,13 @@ def startMst: Unit =
     }),
     vertices,
   )
-  Files.writeString(Paths.get("mst.svg"), svg)
+  Files.writeString(Paths.get("mst.svg"), svg.svgString)
 
 def startTriangulate: Unit =
   val vertices = ForceDirected.initLayout(Random(0xffc0ffee), 24)
   val edges    = triangulate(vertices.nodes)
   val graph    = EdgeWeightedSimpleGraph.fromEdgeList(edges.map(de => Edge(de.u, de.v, 1)))
-  val svg      = Svg.draw(graph, vertices)
+  val svg      = Svg.draw(graph, vertices).svgString
   Files.writeString(Paths.get("delauny.svg"), svg)
 
 def startFDLayout: Unit =
@@ -58,7 +59,7 @@ def startFDLayout: Unit =
   val init   = ForceDirected.initLayout(Random(0xdeadbeef), graph.nodes.size)
   val layout = ForceDirected.layout(config)(graph, init)
   println(layout)
-  val svg    = Svg.draw(graph, layout)
+  val svg    = Svg.draw(graph, layout).svgString
   Files.writeString(Paths.get("fd.svg"), svg)
 
 val k4  = EdgeWeightedSimpleGraph.fromEdgeList(
