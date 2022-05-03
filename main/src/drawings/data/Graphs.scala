@@ -16,6 +16,8 @@ case class Edge(from: Int, to: Int, weight: Double)
 case class SimpleEdge(u: Int, v: Int):
   def withWeight(w: Double) = Edge(u, v, w)
 
+case class EdgeTerminals(uTerm: Vec2D, vTerm: Vec2D)
+
 case class VertexLayout(nodes: IndexedSeq[Vec2D])
 
 case class AdjacencyList(vertices: IndexedSeq[Vertex])
