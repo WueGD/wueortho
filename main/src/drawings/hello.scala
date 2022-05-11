@@ -9,15 +9,29 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import drawings.util.triangulate
 import drawings.util.MinimumSpanningTree
-import drawings.data.AdjacencyList
-import drawings.data.Rect2D
+import drawings.data.*
 import drawings.overlaps.Nachmanson
 import drawings.overlaps.Overlaps
+import drawings.routing.OrthogonalVisibilityGraph
 
 val config = ForceDirected.defaultConfig.copy(iterCap = 500)
 
 @main def main(): Unit =
-  startOverlaps
+  startOVG
+
+def startOVG: Unit =
+  val rects = Vector(
+    Rect2D(Vec2D(5.5, 1), Vec2D(3.5, 1)),
+    Rect2D(Vec2D(9, 5.5), Vec2D(2, 1.5)),
+    Rect2D(Vec2D(1.5, 7.5), Vec2D(1.5, 1.5)),
+  )
+  val ports = Vector(
+    EdgeTerminals(Vec2D(5, 2), Vec2D(9, 4)),
+    EdgeTerminals(Vec2D(7, 5), Vec2D(3, 7)),
+    EdgeTerminals(Vec2D(1, 6), Vec2D(9, 7)),
+  )
+  val res   = OrthogonalVisibilityGraph.create(rects, ports)
+  println(res.mkString("\n"))
 
 def startOverlaps: Unit =
   val points  = ForceDirected.initLayout(Random(0xc0ffee04), 42 * 2).nodes

@@ -17,6 +17,7 @@ case class Rect2D(center: Vec2D, span: Vec2D):
   infix def overlaps(other: Rect2D) =
     left < other.right && right > other.left && top > other.bottom && bottom < other.top
 
+  /* 0 if rects overlap, shortest distance of any two points on the boundry of the rects else */
   infix def dist(other: Rect2D) =
     if this overlaps other then 0.0
     else

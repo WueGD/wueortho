@@ -13,7 +13,7 @@ object Overlaps:
     case End(y: Double, idx: Int)
 
   def overlappingPairs(rects: IndexedSeq[Rect2D]) =
-    case class State(sweepline: Set[Int], results: List[SimpleEdge])
+    case class State(scanline: Set[Int], results: List[SimpleEdge])
 
     val queue = rects.zipWithIndex
       .flatMap { case (r, i) =>
@@ -23,11 +23,11 @@ object Overlaps:
 
     val res = queue.foldLeft(State(Set.empty[Int], Nil))((state, item) =>
       item match
-        case QueueItem.End(_, i)   => state.copy(sweepline = state.sweepline - i)
+        case QueueItem.End(_, i)   => state.copy(scanline = state.scanline - i)
         case QueueItem.Start(_, i) =>
           val rect      = rects(i)
-          val conflicts = state.sweepline.filter(j => rects(j).overlaps(rect)).map(SimpleEdge(_, i)).toList
-          State(state.sweepline + i, conflicts ++ state.results),
+          val conflicts = state.scanline.filter(j => rects(j).overlaps(rect)).map(SimpleEdge(_, i)).toList
+          State(state.scanline + i, conflicts ++ state.results),
     )
 
     res.results
