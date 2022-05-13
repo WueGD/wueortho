@@ -20,18 +20,25 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 500)
   startOVG
 
 def startOVG: Unit =
-  val rects = Vector(
+  val rects      = Vector(
     Rect2D(Vec2D(5.5, 1), Vec2D(3.5, 1)),
     Rect2D(Vec2D(9, 5.5), Vec2D(2, 1.5)),
     Rect2D(Vec2D(1.5, 7.5), Vec2D(1.5, 1.5)),
   )
-  val ports = Vector(
-    EdgeTerminals(Vec2D(5, 2), Vec2D(9, 4)),
+  val ports      = Vector(
+    EdgeTerminals(Vec2D(5, 2), Vec2D(8, 4)),
     EdgeTerminals(Vec2D(7, 5), Vec2D(3, 7)),
     EdgeTerminals(Vec2D(1, 6), Vec2D(9, 7)),
   )
-  val res   = OrthogonalVisibilityGraph.create(rects, ports)
-  println(res.mkString("\n"))
+  val (adj, lay) = OrthogonalVisibilityGraph.create(rects, ports)
+  val svg        = Svg.draw(
+    EdgeWeightedSimpleGraph.fromEdgeList(adj.vertices.zipWithIndex flatMap { case (adj, u) =>
+      adj.neighbors map { case (v, w) => Edge(u, v, w) }
+    }),
+    lay,
+  )
+  println((adj.vertices zip lay.nodes).zipWithIndex.map { case ((nb, p), i) => s"${i}: @${p} ${nb}" }.mkString("\n"))
+  Files.writeString(Paths.get("ovg.svg"), svg.svgString)
 
 def startOverlaps: Unit =
   val points  = ForceDirected.initLayout(Random(0xc0ffee04), 42 * 2).nodes
