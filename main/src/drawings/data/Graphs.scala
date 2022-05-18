@@ -18,7 +18,10 @@ case class SimpleEdge(u: Int, v: Int):
 
 case class EdgeTerminals(uTerm: Vec2D, vTerm: Vec2D)
 
-case class VertexLayout(nodes: IndexedSeq[Vec2D])
+case class VertexLayout(nodes: IndexedSeq[Vec2D]):
+  def yInverted =
+    val (ymin, ymax) = (nodes.map(_.x2).min, nodes.map(_.x2).max)
+    VertexLayout(nodes.map(p => p.copy(x2 = ymax - p.x2 + ymin)))
 
 case class AdjacencyList(vertices: IndexedSeq[Vertex])
 

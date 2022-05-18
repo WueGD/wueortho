@@ -160,4 +160,15 @@ object OrthogonalVisibilityGraph:
 
     buildGraph
 
+  def debugFindPorts(layout: VertexLayout, ports: IndexedSeq[EdgeTerminals]) =
+    def findP(p: Vec2D) = layout.nodes.indexOf(p)
+    def str(i: Int)     = if i < 0 then "oh no!"
+    else
+      val Vec2D(x, y) = layout.nodes(i)
+      s"$i@($x, $y)"
+
+    for (terms, i) <- ports.zipWithIndex do
+      val (u, v) = (findP(terms.uTerm), findP(terms.vTerm))
+      println(s"$i: ${str(u)} -> ${str(v)}")
+
 end OrthogonalVisibilityGraph

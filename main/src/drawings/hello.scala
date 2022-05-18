@@ -31,13 +31,14 @@ def startOVG: Unit =
     EdgeTerminals(Vec2D(1, 6), Vec2D(9, 7)),
   )
   val (adj, lay) = OrthogonalVisibilityGraph.create(rects, ports)
+  OrthogonalVisibilityGraph.debugFindPorts(lay, ports)
   val svg        = Svg.draw(
     EdgeWeightedSimpleGraph.fromEdgeList(adj.vertices.zipWithIndex flatMap { case (adj, u) =>
       adj.neighbors map { case (v, w) => Edge(u, v, w) }
     }),
-    lay,
+    lay.yInverted,
   )
-  println((adj.vertices zip lay.nodes).zipWithIndex.map { case ((nb, p), i) => s"${i}: @${p} ${nb}" }.mkString("\n"))
+  // println((adj.vertices zip lay.nodes).zipWithIndex.map { case ((nb, p), i) => s"${i}: @${p} ${nb}" }.mkString("\n"))
   Files.writeString(Paths.get("ovg.svg"), svg.svgString)
 
 def startOverlaps: Unit =
