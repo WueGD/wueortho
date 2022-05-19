@@ -26,7 +26,7 @@ object MinimumSpanningTree:
       case Undiscovered       => sys.error(s"faild to bind undiscovered vertex $this")
 
   def create(g: AdjacencyList): AdjacencyList =
-    val state = Array.fill(g.vertices.size)(VertexState.Undiscovered)
+    val state = mutable.ArraySeq.fill(g.vertices.size)(VertexState.Undiscovered)
     state(0) = VertexState.Root
     val queue = mutable.PriorityQueue(0.0 -> 0)
 
@@ -40,15 +40,15 @@ object MinimumSpanningTree:
         }
         state(u) = state(u).bind
 
-    mkTree(state)
+    mkTree(state.toSeq)
 
   private def mkTree(s: Seq[VertexState]) =
-    val adjList = Array.fill(s.size)(mutable.ListBuffer.empty[(Int, Double)])
+    val adjList = mutable.ArraySeq.fill(s.size)(mutable.ListBuffer.empty[(Int, Double)])
     s.zipWithIndex foreach {
       case (VertexState.Bound(w, u), v) => adjList(u) += (v -> -w)
       case (VertexState.Root, _)        =>
       case x                            => sys.error(s"unbound vertex $x in MST")
     }
-    AdjacencyList(adjList.map(l => Vertex(l.toList)))
+    AdjacencyList(adjList.map(l => Vertex(l.toList)).toIndexedSeq)
 
 end MinimumSpanningTree

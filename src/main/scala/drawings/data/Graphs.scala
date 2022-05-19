@@ -29,7 +29,7 @@ object AdjacencyList:
   import scala.collection.mutable
 
   def fromEWSG(g: EdgeWeightedSimpleGraph) =
-    val lut = g.nodes.map(_ => mutable.ListBuffer.empty[(Int, Double)]).toArray
+    val lut = g.nodes.map(_ => mutable.ListBuffer.empty[(Int, Double)]).toIndexedSeq
     g.edges foreach { case Edge(from, to, weight) =>
       lut(from).addOne(to -> weight)
       lut(to).addOne(from -> weight)

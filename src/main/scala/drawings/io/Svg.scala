@@ -59,6 +59,7 @@ object Svg:
         ^.width       := r.span.x1 * 2 * ppu,
         ^.height      := r.span.x2 * 2 * ppu,
         ^.fill        := "transparent",
+        ^.fillOpacity := "0",
         ^.stroke      := "blue",
         ^.strokeWidth := "2",
       ),

@@ -36,3 +36,7 @@ object Rect2D:
 
   def boundingBoxOfRects(interior: Rect2D*) =
     Rect2D.boundingBox(interior.flatMap(r => Seq(r.center - r.span, r.center + r.span)))
+
+  def yInverted(rects: Seq[Rect2D]) =
+    val (ymin, ymax) = (rects.map(_.center.x2).min, rects.map(_.center.x2).max)
+    rects.map(r => r.copy(center = r.center.copy(x2 = ymax - r.center.x2 + ymin)))

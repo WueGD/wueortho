@@ -6,6 +6,8 @@ import drawings.util.MinimumSpanningTree
 import scala.annotation.tailrec
 
 object Nachmanson:
+  private val EPS = 1e-8
+
   private def translationFactor(a: Rect2D, b: Rect2D) =
     val dx = (a.center.x1 - b.center.x1).abs
     val dy = (a.center.x2 - b.center.x2).abs
@@ -25,24 +27,32 @@ object Nachmanson:
       val r  = rects(i)
       val x  = r.copy(center = r.center + disp)
       val xs = tree.vertices(i).neighbors flatMap { (j, w) =>
-        val n = rects(j)
-        if w < 0 then
-          val d = (n.center - r.center).scale(translationFactor(r, n) - 0.99) // fixme: ugly
+        if w < EPS then
+          val n = rects(j)
+          println(s"t = ${translationFactor(r, n)}")
+          val d = (n.center - r.center).scale(translationFactor(r, n) - 1)
           go(j, disp + d)
         else go(j, disp)
       }
       (i -> x) +: xs
 
     debugSvg(rects, tree)
-    go(0, Vec2D(0, 0)).sortBy(_._1).map(_._2).toArray
+    go(0, Vec2D(0, 0)).sortBy(_._1).map(_._2).toIndexedSeq
 
   def step(rects: IndexedSeq[Rect2D]): Option[IndexedSeq[Rect2D]] =
     val triangulated = triangulate(rects.map(_.center))
     val edges        = triangulated.map(se => se.withWeight(overlapCost(rects(se.u), rects(se.v))))
 
-    val augmented = if edges.forall(_.weight >= 0) then
-      val augments = Overlaps.overlappingPairs(rects).map(se => se.withWeight(overlapCost(rects(se.u), rects(se.v))))
-      println(augments)
+    println(s"weights: ${edges.map(_.weight)}")
+
+    val augmented = if edges.forall(_.weight > -EPS) then
+      val augments = for
+        se @ SimpleEdge(u, v) <- Overlaps.overlappingPairs(rects)
+        weight                 = overlapCost(rects(u), rects(v))
+        edge                  <- Option.when(weight < -EPS)(se.withWeight(weight))
+      yield edge
+
+      println(s"augments: $augments")
       if augments.isEmpty then None
       else Some(edges ++ augments)
     else Some(edges)

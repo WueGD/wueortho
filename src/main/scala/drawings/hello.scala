@@ -16,10 +16,7 @@ import drawings.routing.OrthogonalVisibilityGraph
 
 val config = ForceDirected.defaultConfig.copy(iterCap = 500)
 
-@main def main(): Unit =
-  startOVG
-
-def startOVG: Unit =
+@main def runOVG: Unit =
   val rects      = Vector(
     Rect2D(Vec2D(5.5, 1), Vec2D(3.5, 1)),
     Rect2D(Vec2D(9, 5.5), Vec2D(2, 1.5)),
@@ -32,20 +29,21 @@ def startOVG: Unit =
   )
   val (adj, lay) = OrthogonalVisibilityGraph.create(rects, ports)
   OrthogonalVisibilityGraph.debugFindPorts(lay, ports)
-  val svg        = Svg.draw(
+  val rectsSvg   = Svg.draw(rects)
+  val ovgSvg     = Svg.draw(
     EdgeWeightedSimpleGraph.fromEdgeList(adj.vertices.zipWithIndex flatMap { case (adj, u) =>
       adj.neighbors map { case (v, w) => Edge(u, v, w) }
     }),
-    lay.yInverted,
+    lay, // lay.yInverted,
   )
   // println((adj.vertices zip lay.nodes).zipWithIndex.map { case ((nb, p), i) => s"${i}: @${p} ${nb}" }.mkString("\n"))
-  Files.writeString(Paths.get("ovg.svg"), svg.svgString)
+  Files.writeString(Paths.get("ovg.svg"), (ovgSvg ++ rectsSvg).svgString)
 
-def startOverlaps: Unit =
-  val points  = ForceDirected.initLayout(Random(0xc0ffee04), 42 * 2).nodes
+@main def runOverlaps: Unit =
+  val points  = ForceDirected.initLayout(Random(0x92c0ffee), 12 * 2).nodes
   val rects   = (points.grouped(2) map { case Seq(center, Vec2D(w, h)) =>
     Rect2D(center, Vec2D(w.abs / 2, h.abs / 2))
-  }).toArray
+  }).toIndexedSeq
   val before  = Svg.draw(rects)
   val aligned = Nachmanson.align(rects)
   val after   = Svg.draw(aligned)
@@ -53,7 +51,7 @@ def startOverlaps: Unit =
   Files.writeString(Paths.get("aligned.svg"), after.svgString)
   println(Overlaps.overlappingPairs(aligned).mkString("\n"))
 
-def startMst: Unit =
+@main def runMst: Unit =
   val vertices = ForceDirected.initLayout(Random(0xffc0ffee), 24)
   val edges    = triangulate(vertices.nodes)
   val graph    = EdgeWeightedSimpleGraph.fromEdgeList(
@@ -69,14 +67,14 @@ def startMst: Unit =
   )
   Files.writeString(Paths.get("mst.svg"), svg.svgString)
 
-def startTriangulate: Unit =
+@main def runTriangulate: Unit =
   val vertices = ForceDirected.initLayout(Random(0xffc0ffee), 24)
   val edges    = triangulate(vertices.nodes)
   val graph    = EdgeWeightedSimpleGraph.fromEdgeList(edges.map(de => Edge(de.u, de.v, 1)))
   val svg      = Svg.draw(graph, vertices).svgString
   Files.writeString(Paths.get("delauny.svg"), svg)
 
-def startFDLayout: Unit =
+@main def runFDLayout: Unit =
   val graph  = p12
   val init   = ForceDirected.initLayout(Random(0xdeadbeef), graph.nodes.size)
   val layout = ForceDirected.layout(config)(graph, init)
