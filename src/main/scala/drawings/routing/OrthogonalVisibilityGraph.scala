@@ -7,6 +7,7 @@ import scala.util.Random
 import drawings.data.AdjacencyList
 import drawings.data.VertexLayout
 import org.w3c.dom.Node
+import drawings.data.SimpleEdge
 
 object OrthogonalVisibilityGraph:
 
@@ -159,6 +160,10 @@ object OrthogonalVisibilityGraph:
     end buildGraph
 
     buildGraph
+
+  def matchPorts(layout: VertexLayout, ports: IndexedSeq[EdgeTerminals]) =
+    def findP(p: Vec2D) = layout.nodes.indexOf(p)
+    ports.map(terms => SimpleEdge(findP(terms.uTerm), findP(terms.vTerm)))
 
   def debugFindPorts(layout: VertexLayout, ports: IndexedSeq[EdgeTerminals]) =
     def findP(p: Vec2D) = layout.nodes.indexOf(p)
