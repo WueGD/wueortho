@@ -20,7 +20,16 @@ object Svg:
     val bbox = Rect2D.boundingBox(vl.nodes)
     SvgFrag(bbox, ctnt)
 
-  def draw(rects: Seq[Rect2D]) = SvgFrag(Rect2D.boundingBoxOfRects(rects: _*), drawRects(rects))
+  def drawRects(rects: Seq[Rect2D]) = SvgFrag(Rect2D.boundingBoxOfRects(rects: _*), this.rects(rects))
+
+  def drawGraphWithPorts(g: EdgeWeightedSimpleGraph, vl: VertexLayout, terminals: Seq[EdgeTerminals]) =
+    val points = terminals.flatMap(et => Seq(et.uTerm, et.vTerm))
+    val bbox   = Rect2D.boundingBox(vl.nodes ++ points)
+    SvgFrag(bbox, edges(g, vl) ++ ports(points) ++ nodes(vl))
+
+  def drawPorts(terminals: Seq[EdgeTerminals]) =
+    val points = terminals.flatMap(et => Seq(et.uTerm, et.vTerm))
+    SvgFrag(Rect2D.boundingBox(points), ports(points))
 
   private def root(vp: Rect2D, margin: Double)(ctnt: Seq[Frag]): String =
     val pad = margin / 2
@@ -51,7 +60,19 @@ object Svg:
       ),
     )
 
-  private def drawRects(rs: Seq[Rect2D]) =
+  private def ports(ps: Seq[Vec2D]) =
+    ps.map(port =>
+      rect(
+        ^.fill   := "black",
+        ^.x      := (port.x1 * ppu - 5),
+        ^.y      := (port.x2 * ppu - 5),
+        ^.width  := 10,
+        ^.height := 10,
+        ^.stroke := "black",
+      ),
+    )
+
+  private def rects(rs: Seq[Rect2D]) =
     rs.map(r =>
       rect(
         ^.x           := (r.center.x1 - r.span.x1) * ppu,

@@ -77,7 +77,7 @@ object Nachmanson:
       }),
       VertexLayout(rects.map(_.center)),
     )
-    val rect = drawings.io.Svg.draw(rects)
+    val rect = drawings.io.Svg.drawRects(rects)
     java.nio.file.Files
       .writeString(java.nio.file.Path.of(s"dbg${cnt}.svg"), (rect ++ tree).svgString)
     cnt += 1

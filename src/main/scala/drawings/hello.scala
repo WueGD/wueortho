@@ -14,7 +14,7 @@ import drawings.overlaps.Nachmanson
 import drawings.overlaps.Overlaps
 import drawings.routing.OrthogonalVisibilityGraph
 
-val config = ForceDirected.defaultConfig.copy(iterCap = 500)
+val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 
 @main def runOVG: Unit =
   val rects      = Vector(
@@ -29,30 +29,38 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 500)
   )
   val (adj, lay) = OrthogonalVisibilityGraph.create(rects, ports)
   OrthogonalVisibilityGraph.debugFindPorts(lay, ports)
-  val rectsSvg   = Svg.draw(rects)
-  val ovgSvg     = Svg.draw(
+  val rectsSvg   = Svg.drawRects(rects)
+  val ovgSvg     = Svg.drawGraphWithPorts(
     EdgeWeightedSimpleGraph.fromEdgeList(adj.vertices.zipWithIndex flatMap { case (adj, u) =>
       adj.neighbors map { case (v, w) => Edge(u, v, w) }
     }),
     lay, // lay.yInverted,
+    ports,
   )
   // println((adj.vertices zip lay.nodes).zipWithIndex.map { case ((nb, p), i) => s"${i}: @${p} ${nb}" }.mkString("\n"))
   Files.writeString(Paths.get("ovg.svg"), (ovgSvg ++ rectsSvg).svgString)
+  Files.writeString(Paths.get("ovg-input.svg"), (rectsSvg ++ Svg.drawPorts(ports)).svgString)
 
 @main def runOverlaps: Unit =
-  val points  = ForceDirected.initLayout(Random(0x92c0ffee), 12 * 2).nodes
-  val rects   = (points.grouped(2) map { case Seq(center, Vec2D(w, h)) =>
+  val points      = ForceDirected.initLayout(Random(0x92c0ffee), 12 * 2).nodes
+  val rects       = (points.grouped(2) map { case Seq(center, Vec2D(w, h)) =>
     Rect2D(center, Vec2D(w.abs / 2, h.abs / 2))
   }).toIndexedSeq
-  val before  = Svg.draw(rects)
-  val aligned = Nachmanson.align(rects)
-  val after   = Svg.draw(aligned)
-  Files.writeString(Paths.get("rects.svg"), before.svgString)
-  Files.writeString(Paths.get("aligned.svg"), after.svgString)
+  val withMargin  = rects.map(r => r.copy(span = r.span + Vec2D(0.5, 0.5)))
+  val alignedFat  = Nachmanson.align(withMargin)
+  val aligned     = alignedFat.map(r => r.copy(span = r.span - Vec2D(0.5, 0.5)))
+  val triag0      = triangulate(rects.map(_.center))
+  val graph0      = EdgeWeightedSimpleGraph.fromEdgeList(triag0.map(de => Edge(de.u, de.v, 1)))
+  val triag0Drawn = Svg.draw(graph0, VertexLayout(rects.map(_.center)))
+  Files.writeString(Paths.get("rects.svg"), Svg.drawRects(rects).svgString)
+  Files.writeString(Paths.get("aligned-fat.svg"), Svg.drawRects(alignedFat).svgString)
+  Files.writeString(Paths.get("aligned.svg"), Svg.drawRects(aligned).svgString)
+  Files.writeString(Paths.get("triangualted-fat.svg"), (Svg.drawRects(withMargin) ++ triag0Drawn).svgString)
+  Files.writeString(Paths.get("triangualted.svg"), (Svg.drawRects(rects) ++ triag0Drawn).svgString)
   println(Overlaps.overlappingPairs(aligned).mkString("\n"))
 
 @main def runMst: Unit =
-  val vertices = ForceDirected.initLayout(Random(0xffc0ffee), 24)
+  val vertices = ForceDirected.initLayout(Random(0x00c0ffee), 24)
   val edges    = triangulate(vertices.nodes)
   val graph    = EdgeWeightedSimpleGraph.fromEdgeList(
     edges.map(de => Edge(de.u, de.v, (vertices.nodes(de.u) - vertices.nodes(de.v)).len)),
@@ -76,7 +84,7 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 500)
 
 @main def runFDLayout: Unit =
   val graph  = p12
-  val init   = ForceDirected.initLayout(Random(0xdeadbeef), graph.nodes.size)
+  val init   = ForceDirected.initLayout(Random(0x99c0ffee), graph.nodes.size)
   val layout = ForceDirected.layout(config)(graph, init)
   println(layout)
   val svg    = Svg.draw(graph, layout).svgString
