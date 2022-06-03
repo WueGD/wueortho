@@ -13,8 +13,26 @@ import drawings.data.*
 import drawings.overlaps.Nachmanson
 import drawings.overlaps.Overlaps
 import drawings.routing.OrthogonalVisibilityGraph
+import drawings.util.Dijkstra
+import drawings.util.Dijkstra.DijkstraCost
 
 val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
+
+@main def runDijkstra =
+  given dc: DijkstraCost[Double] = (_, _, w, w0) => w + w0
+
+  // see https://upload.wikimedia.org/wikipedia/commons/5/57/Dijkstra_Animation.gif
+  val graph = AdjacencyList(
+    IndexedSeq(
+      Vertex(List(5 -> 14, 2 -> 9, 1 -> 7)),
+      Vertex(List(0 -> 7, 2 -> 10, 3 -> 15)),
+      Vertex(List(0 -> 9, 1 -> 10, 3 -> 11, 5 -> 2)),
+      Vertex(List(1 -> 15, 2 -> 11, 4 -> 6)),
+      Vertex(List(3 -> 6, 5 -> 9)),
+      Vertex(List(0 -> 14, 2 -> 2, 4 -> 9)),
+    ),
+  )
+  println(Dijkstra.shortestPath(graph, 0, 4, 0.0))
 
 @main def runOVG: Unit =
   val rects      = Vector(

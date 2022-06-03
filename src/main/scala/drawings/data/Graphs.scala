@@ -37,3 +37,5 @@ object AdjacencyList:
     AdjacencyList(lut.map(adj => Vertex(adj.toList)))
 
 case class Vertex(neighbors: Seq[(Int, Double)])
+
+case class Path(nodes: Seq[Int])
