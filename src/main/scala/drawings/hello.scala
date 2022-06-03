@@ -15,8 +15,11 @@ import drawings.overlaps.Overlaps
 import drawings.routing.OrthogonalVisibilityGraph
 import drawings.util.Dijkstra
 import drawings.util.Dijkstra.DijkstraCost
+import drawings.ports.PortHeuristic
 
 val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
+
+@main def runPorts = PortHeuristic.equidistantPorts(Rect2D(Vec2D(0, 0), Vec2D(2, 1)), IndexedSeq.empty)
 
 @main def runDijkstra =
   given dc: DijkstraCost[Double] = (_, _, w, w0) => w + w0
