@@ -8,6 +8,7 @@ case class Vec2D(x1: Double, x2: Double):
   lazy val len                         = Math.hypot(x1, x2)
   def scale(a: Double)                 = Vec2D(x1 * a, x2 * a)
 
+/** span must be nonnegative */
 case class Rect2D(center: Vec2D, span: Vec2D):
   def left   = center.x1 - span.x1
   def right  = center.x1 + span.x1

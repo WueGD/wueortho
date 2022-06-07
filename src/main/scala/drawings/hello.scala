@@ -19,7 +19,10 @@ import drawings.ports.PortHeuristic
 
 val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 
-@main def runPorts = PortHeuristic.equidistantPorts(Rect2D(Vec2D(0, 0), Vec2D(2, 1)), IndexedSeq.empty)
+@main def runPorts =
+  val neighbors = ForceDirected.initLayout(Random(0x99c0ffee), 12).nodes
+  val layout    = PortHeuristic.equidistantPorts(Rect2D(Vec2D(0, 0), Vec2D(2, 1)), neighbors)
+  println(layout)
 
 @main def runDijkstra =
   given dc: DijkstraCost[Double] = (_, _, w, w0) => w + w0
