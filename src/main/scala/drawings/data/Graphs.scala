@@ -14,13 +14,11 @@ object EdgeWeightedSimpleGraph:
       override def edges      = l
 
   def fromAdjacencyList(l: AdjacencyList): EdgeWeightedSimpleGraph =
-    val edges = mutable.ListBuffer.empty[Edge]
-    for
-      (v, i) <- l.vertices.zipWithIndex
-      (u, w) <- v.neighbors
-      if i < u
-    do edges += Edge(i, u, w)
-    fromEdgeList(edges.result)
+    fromEdgeList(for
+      (tmp, u) <- l.vertices.zipWithIndex
+      (v, w)   <- tmp.neighbors
+      if u < v
+    yield Edge(u, v, w))
 
 case class Edge(from: Int, to: Int, weight: Double)
 
@@ -55,3 +53,10 @@ object AdjacencyList:
 case class Vertex(neighbors: Seq[(Int, Double)])
 
 case class Path(nodes: Seq[Int])
+
+case class EdgeRoute(terminals: EdgeTerminals, route: Seq[EdgeRoute.OrthoSegs])
+
+object EdgeRoute:
+  enum OrthoSegs:
+    case HSeg(dx: Double)
+    case VSeg(dy: Double)

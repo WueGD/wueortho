@@ -16,8 +16,22 @@ import drawings.routing.OrthogonalVisibilityGraph
 import drawings.util.Dijkstra
 import drawings.util.Dijkstra.DijkstraCost
 import drawings.ports.PortHeuristic
+import drawings.routing.Routing
 
 val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
+
+@main def runRandomized = GraphDrawing.runRandomSample(0x99c0ffee)
+
+@main def runRouting =
+  val (routes, grid) = Routing.edgeRoutes(Obstacles(OvgSample.rects), OvgSample.ports)
+  routes foreach { case EdgeRoute(terminals, route) =>
+    println(s"From ${terminals.uTerm} to ${terminals.vTerm}: ${route.mkString("[", ", ", "]")}")
+  }
+
+  val rectsSvg = Svg.drawRects(OvgSample.rects)
+  val portsSvg = Svg.drawPorts(OvgSample.ports)
+  val edgesSvg = routes.zip(Svg.colors).map(Svg.drawEdgeRoute(_, _)).reduce(_ ++ _)
+  Files.writeString(Paths.get("routing.svg"), (rectsSvg ++ portsSvg ++ edgesSvg).svgString)
 
 @main def runPorts =
   val neighbors = ForceDirected.initLayout(Random(0x99c0ffee), 12).nodes
@@ -41,29 +55,20 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   println(Dijkstra.shortestPath(graph, 0, 4, 0.0))
 
 @main def runOVG: Unit =
-  val rects      = Vector(
-    Rect2D(Vec2D(5.5, 1), Vec2D(3.5, 1)),
-    Rect2D(Vec2D(9, 5.5), Vec2D(2, 1.5)),
-    Rect2D(Vec2D(1.5, 7.5), Vec2D(1.5, 1.5)),
-  )
-  val ports      = Vector(
-    EdgeTerminals(Vec2D(5, 2), Vec2D(8, 4)),
-    EdgeTerminals(Vec2D(7, 5), Vec2D(3, 7)),
-    EdgeTerminals(Vec2D(1, 6), Vec2D(9, 7)),
-  )
-  val (adj, lay) = OrthogonalVisibilityGraph.create(rects, ports)
-  OrthogonalVisibilityGraph.debugFindPorts(lay, ports)
-  val rectsSvg   = Svg.drawRects(rects)
-  val ovgSvg     = Svg.drawGraphWithPorts(
+  val (adj, lay) = OrthogonalVisibilityGraph.create(OvgSample.rects, OvgSample.ports)
+
+  OrthogonalVisibilityGraph.debugFindPorts(lay, OvgSample.ports)
+  val rectsSvg = Svg.drawRects(OvgSample.rects)
+  val ovgSvg   = Svg.drawGraphWithPorts(
     EdgeWeightedSimpleGraph.fromEdgeList(adj.vertices.zipWithIndex flatMap { case (adj, u) =>
       adj.neighbors map { case (v, w) => Edge(u, v, w) }
     }),
     lay, // lay.yInverted,
-    ports,
+    OvgSample.ports,
   )
   // println((adj.vertices zip lay.nodes).zipWithIndex.map { case ((nb, p), i) => s"${i}: @${p} ${nb}" }.mkString("\n"))
   Files.writeString(Paths.get("ovg.svg"), (ovgSvg ++ rectsSvg).svgString)
-  Files.writeString(Paths.get("ovg-input.svg"), (rectsSvg ++ Svg.drawPorts(ports)).svgString)
+  Files.writeString(Paths.get("ovg-input.svg"), (rectsSvg ++ Svg.drawPorts(OvgSample.ports)).svgString)
 
 @main def runOverlaps: Unit =
   val points      = ForceDirected.initLayout(Random(0x92c0ffee), 12 * 2).nodes
@@ -166,3 +171,15 @@ val p12 = EdgeWeightedSimpleGraph.fromEdgeList(
     Edge(9, 11, 1),
   ),
 )
+
+object OvgSample:
+  val rects = Vector(
+    Rect2D(Vec2D(5.5, 1), Vec2D(3.5, 1)),
+    Rect2D(Vec2D(9, 5.5), Vec2D(2, 1.5)),
+    Rect2D(Vec2D(1.5, 7.5), Vec2D(1.5, 1.5)),
+  )
+  val ports = Vector(
+    EdgeTerminals(Vec2D(5, 2), Vec2D(8, 4)),
+    EdgeTerminals(Vec2D(7, 5), Vec2D(3, 7)),
+    EdgeTerminals(Vec2D(1, 6), Vec2D(9, 7)),
+  )

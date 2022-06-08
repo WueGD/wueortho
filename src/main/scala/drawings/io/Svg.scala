@@ -31,6 +31,26 @@ object Svg:
     val points = terminals.flatMap(et => Seq(et.uTerm, et.vTerm))
     SvgFrag(Rect2D.boundingBox(points), ports(points))
 
+  def drawEdgeRoute(route: EdgeRoute, color: String = "red") =
+    import EdgeRoute.OrthoSegs._
+    val points = route.route
+      .scanLeft(route.terminals.uTerm)((s, seg) =>
+        seg match
+          case HSeg(dx) => s.copy(x1 = s.x1 + dx)
+          case VSeg(dy) => s.copy(x2 = s.x2 + dy),
+      )
+    val lines  = points.sliding(2) map { case Seq(u, v) =>
+      line(
+        ^.x1          := u.x1 * ppu,
+        ^.y1          := u.x2 * ppu,
+        ^.x2          := v.x1 * ppu,
+        ^.y2          := v.x2 * ppu,
+        ^.stroke      := color,
+        ^.strokeWidth := "2",
+      )
+    }
+    SvgFrag(Rect2D.boundingBox(points), lines.toSeq)
+
   private def root(vp: Rect2D, margin: Double)(ctnt: Seq[Frag]): String =
     val pad = margin / 2
     s"""<?xml version="1.0" standalone="no"?>
@@ -85,3 +105,16 @@ object Svg:
         ^.strokeWidth := "2",
       ),
     )
+
+  val colors: LazyList[String] = LazyList(
+    "#293462",
+    "#c74b79",
+    "#ee5e67",
+    "#5e3d77",
+    "#ffaa2e",
+    "#95437f",
+    "#f7d716",
+    "#ff7f4d",
+  ) #::: colors
+
+end Svg

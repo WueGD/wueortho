@@ -36,14 +36,14 @@ object Nachmanson:
       }
       (i -> x) +: xs
 
-    debugSvg(rects, tree)
+    // debugSvg(rects, tree)
     go(0, Vec2D(0, 0)).sortBy(_._1).map(_._2).toIndexedSeq
 
   def step(rects: IndexedSeq[Rect2D]): Option[IndexedSeq[Rect2D]] =
     val triangulated = triangulate(rects.map(_.center))
     val edges        = triangulated.map(se => se.withWeight(overlapCost(rects(se.u), rects(se.v))))
 
-    println(s"weights: ${edges.map(_.weight)}")
+    // println(s"weights: ${edges.map(_.weight)}")
 
     val augmented = if edges.forall(_.weight > -EPS) then
       val augments = for
@@ -52,12 +52,12 @@ object Nachmanson:
         edge                  <- Option.when(weight < -EPS)(se.withWeight(weight))
       yield edge
 
-      println(s"augments: $augments")
+      // println(s"augments: $augments")
       if augments.isEmpty then None
       else Some(edges ++ augments)
     else Some(edges)
 
-    println(s"number of edges to process: ${augmented.map(_.size)}")
+    // println(s"number of edges to process: ${augmented.map(_.size)}")
 
     augmented.map(edges =>
       val adjacencies = AdjacencyList.fromEWSG(EdgeWeightedSimpleGraph.fromEdgeList(edges))
@@ -82,6 +82,6 @@ object Nachmanson:
       .writeString(java.nio.file.Path.of(s"dbg${cnt}.svg"), (rect ++ tree).svgString)
     cnt += 1
 
-  var cnt = 0
+  private var cnt = 0
 
 end Nachmanson

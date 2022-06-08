@@ -23,7 +23,7 @@ object MinimumSpanningTree:
     def bind = this match
       case Root | Bound(_, _) => this
       case Discovered(w, p)   => VertexState.Bound(w, p)
-      case Undiscovered       => sys.error(s"faild to bind undiscovered vertex $this")
+      case Undiscovered       => sys.error(s"cannot bind undiscovered vertex $this")
 
   def create(g: AdjacencyList): AdjacencyList =
     val state = mutable.ArraySeq.fill(g.vertices.size)(VertexState.Undiscovered)

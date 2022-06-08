@@ -161,6 +161,7 @@ object OrthogonalVisibilityGraph:
 
     buildGraph
 
+  // fixme: this is n² :(
   def matchPorts(layout: VertexLayout, ports: IndexedSeq[EdgeTerminals]) =
     def findP(p: Vec2D) = layout.nodes.indexOf(p)
     ports.map(terms => SimpleEdge(findP(terms.uTerm), findP(terms.vTerm)))
