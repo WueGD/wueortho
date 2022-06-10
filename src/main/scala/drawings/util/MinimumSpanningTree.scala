@@ -3,13 +3,14 @@ package drawings.util
 import drawings.data.AdjacencyList
 import scala.collection.mutable
 import drawings.data.Vertex
+import drawings.data.NodeIndex
 
 object MinimumSpanningTree:
   private enum VertexState:
     case Root
     case Undiscovered
-    case Discovered(key: Double, pred: Int)
-    case Bound(weight: Double, pred: Int)
+    case Discovered(key: Double, pred: NodeIndex)
+    case Bound(weight: Double, pred: NodeIndex)
 
     def isStillUnbound = this match
       case Bound(_, _) => false
@@ -28,24 +29,24 @@ object MinimumSpanningTree:
   def create(g: AdjacencyList): AdjacencyList =
     val state = mutable.ArraySeq.fill(g.vertices.size)(VertexState.Undiscovered)
     state(0) = VertexState.Root
-    val queue = mutable.PriorityQueue(0.0 -> 0)
+    val queue = mutable.PriorityQueue(0.0 -> NodeIndex(0))
 
     while queue.nonEmpty do
       val (key, u) = queue.dequeue()
-      if state(u).isStillUnbound then
-        g.vertices(u).neighbors foreach { case (v, weight) =>
-          if state(v).isCandidate(-weight) then
-            state(v) = VertexState.Discovered(-weight, u)
+      if state(u.toInt).isStillUnbound then
+        g.vertices(u.toInt).neighbors foreach { case (v, weight) =>
+          if state(v.toInt).isCandidate(-weight) then
+            state(v.toInt) = VertexState.Discovered(-weight, u)
             queue.enqueue(-weight -> v)
         }
-        state(u) = state(u).bind
+        state(u.toInt) = state(u.toInt).bind
 
     mkTree(state.toSeq)
 
   private def mkTree(s: Seq[VertexState]) =
-    val adjList = mutable.ArraySeq.fill(s.size)(mutable.ListBuffer.empty[(Int, Double)])
+    val adjList = mutable.ArraySeq.fill(s.size)(mutable.ListBuffer.empty[(NodeIndex, Double)])
     s.zipWithIndex foreach {
-      case (VertexState.Bound(w, u), v) => adjList(u) += (v -> -w)
+      case (VertexState.Bound(w, u), v) => adjList(u.toInt) += NodeIndex(v) -> -w
       case (VertexState.Root, _)        =>
       case x                            => sys.error(s"unbound vertex $x in MST")
     }

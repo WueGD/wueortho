@@ -1,29 +1,46 @@
 package drawings.data
 
-trait EdgeWeightedSimpleGraph:
-  def nodes: Seq[Int]
+trait EdgeWeightedGraph:
+  def nodes: Seq[NodeIndex]
   def edges: Seq[Edge]
 
-object EdgeWeightedSimpleGraph:
+object EdgeWeightedGraph:
   import scala.collection.mutable
 
-  def fromEdgeList(l: Seq[Edge]): EdgeWeightedSimpleGraph =
+  def fromEdgeList(l: Seq[Edge]): EdgeWeightedGraph =
     val maxIdx = l.flatMap(e => List(e.from, e.to)).max
-    new EdgeWeightedSimpleGraph:
-      override lazy val nodes = 0 to maxIdx
+    new EdgeWeightedGraph:
+      override lazy val nodes = NodeIndex(0) to maxIdx
       override def edges      = l
 
-  def fromAdjacencyList(l: AdjacencyList): EdgeWeightedSimpleGraph =
+  def fromAdjacencyList(l: AdjacencyList): EdgeWeightedGraph =
     fromEdgeList(for
       (tmp, u) <- l.vertices.zipWithIndex
       (v, w)   <- tmp.neighbors
-      if u < v
-    yield Edge(u, v, w))
+      if u < v.toInt
+    yield Edge(NodeIndex(u), v, w))
 
-case class Edge(from: Int, to: Int, weight: Double)
+case class Edge(from: NodeIndex, to: NodeIndex, weight: Double)
 
-case class SimpleEdge(u: Int, v: Int):
+case class SimpleEdge(u: NodeIndex, v: NodeIndex):
   def withWeight(w: Double) = Edge(u, v, w)
+
+case class AdjacencyList(vertices: IndexedSeq[Vertex])
+
+object AdjacencyList:
+  import scala.collection.mutable
+
+  def fromEWSG(g: EdgeWeightedGraph) =
+    val lut = g.nodes.map(_ => mutable.ListBuffer.empty[(NodeIndex, Double)]).toIndexedSeq
+    g.edges foreach { case Edge(from, to, weight) =>
+      lut(from.toInt) += to -> weight
+      lut(to.toInt) += from -> weight
+    }
+    AdjacencyList(lut.map(adj => Vertex(adj.toList)))
+
+case class Vertex(neighbors: Seq[(NodeIndex, Double)])
+
+case class Path(nodes: Seq[NodeIndex])
 
 case class EdgeTerminals(uTerm: Vec2D, vTerm: Vec2D)
 
@@ -36,23 +53,6 @@ case class Obstacles(nodes: IndexedSeq[Rect2D])
 
 object Obstacles:
   def fromVertexLayout(f: (Vec2D, Int) => Rect2D)(vl: VertexLayout) = Obstacles(vl.nodes.zipWithIndex.map(f.tupled))
-
-case class AdjacencyList(vertices: IndexedSeq[Vertex])
-
-object AdjacencyList:
-  import scala.collection.mutable
-
-  def fromEWSG(g: EdgeWeightedSimpleGraph) =
-    val lut = g.nodes.map(_ => mutable.ListBuffer.empty[(Int, Double)]).toIndexedSeq
-    g.edges foreach { case Edge(from, to, weight) =>
-      lut(from).addOne(to -> weight)
-      lut(to).addOne(from -> weight)
-    }
-    AdjacencyList(lut.map(adj => Vertex(adj.toList)))
-
-case class Vertex(neighbors: Seq[(Int, Double)])
-
-case class Path(nodes: Seq[Int])
 
 case class EdgeRoute(terminals: EdgeTerminals, route: Seq[EdgeRoute.OrthoSegs])
 

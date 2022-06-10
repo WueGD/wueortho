@@ -1,6 +1,6 @@
 package drawings
 
-import drawings.data.{Edge, EdgeWeightedSimpleGraph, Vec2D, VertexLayout}
+import drawings.data.*
 import drawings.layout.ForceDirected
 
 import scala.util.Random
@@ -17,6 +17,8 @@ import drawings.util.Dijkstra
 import drawings.util.Dijkstra.DijkstraCost
 import drawings.ports.PortHeuristic
 import drawings.routing.Routing
+
+import drawings.util.Debugging._
 
 val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 
@@ -44,25 +46,25 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   // see https://upload.wikimedia.org/wikipedia/commons/5/57/Dijkstra_Animation.gif
   val graph = AdjacencyList(
     IndexedSeq(
-      Vertex(List(5 -> 14, 2 -> 9, 1 -> 7)),
-      Vertex(List(0 -> 7, 2 -> 10, 3 -> 15)),
-      Vertex(List(0 -> 9, 1 -> 10, 3 -> 11, 5 -> 2)),
-      Vertex(List(1 -> 15, 2 -> 11, 4 -> 6)),
-      Vertex(List(3 -> 6, 5 -> 9)),
-      Vertex(List(0 -> 14, 2 -> 2, 4 -> 9)),
+      rawV(5 -> 14, 2 -> 9, 1  -> 7),
+      rawV(0 -> 7, 2  -> 10, 3 -> 15),
+      rawV(0 -> 9, 1  -> 10, 3 -> 11, 5 -> 2),
+      rawV(1 -> 15, 2 -> 11, 4 -> 6),
+      rawV(3 -> 6, 5  -> 9),
+      rawV(0 -> 14, 2 -> 2, 4  -> 9),
     ),
   )
-  println(Dijkstra.shortestPath(graph, 0, 4, 0.0))
+  println(Dijkstra.shortestPath(graph, NodeIndex(0), NodeIndex(4), 0.0))
 
 @main def runOVG: Unit =
   val (adj, lay) = OrthogonalVisibilityGraph.create(OvgSample.rects, OvgSample.ports)
 
-  OrthogonalVisibilityGraph.debugFindPorts(lay, OvgSample.ports)
+  debugFindPorts(lay, OvgSample.ports)
   val rectsSvg = Svg.drawRects(OvgSample.rects)
   val ovgSvg   = Svg.drawGraphWithPorts(
-    EdgeWeightedSimpleGraph.fromEdgeList(adj.vertices.zipWithIndex flatMap { case (adj, u) =>
-      adj.neighbors map { case (v, w) => Edge(u, v, w) }
-    }),
+    EdgeWeightedGraph.fromEdgeList(
+      adj.vertices.zipWithIndex.flatMap((adj, u) => adj.neighbors.map((v, w) => Edge(NodeIndex(u), v, w))),
+    ),
     lay, // lay.yInverted,
     OvgSample.ports,
   )
@@ -79,7 +81,7 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   val alignedFat  = Nachmanson.align(withMargin)
   val aligned     = alignedFat.map(r => r.copy(span = r.span - Vec2D(0.5, 0.5)))
   val triag0      = triangulate(rects.map(_.center))
-  val graph0      = EdgeWeightedSimpleGraph.fromEdgeList(triag0.map(de => Edge(de.u, de.v, 1)))
+  val graph0      = EdgeWeightedGraph.fromEdgeList(triag0.map(de => Edge(de.u, de.v, 1)))
   val triag0Drawn = Svg.draw(graph0, VertexLayout(rects.map(_.center)))
   Files.writeString(Paths.get("rects.svg"), Svg.drawRects(rects).svgString)
   Files.writeString(Paths.get("aligned-fat.svg"), Svg.drawRects(alignedFat).svgString)
@@ -91,15 +93,15 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 @main def runMst: Unit =
   val vertices = ForceDirected.initLayout(Random(0x00c0ffee), 24)
   val edges    = triangulate(vertices.nodes)
-  val graph    = EdgeWeightedSimpleGraph.fromEdgeList(
-    edges.map(de => Edge(de.u, de.v, (vertices.nodes(de.u) - vertices.nodes(de.v)).len)),
+  val graph    = EdgeWeightedGraph.fromEdgeList(
+    edges.map(de => Edge(de.u, de.v, (vertices.nodes(de.u.toInt) - vertices.nodes(de.v.toInt)).len)),
   )
   val mst      = MinimumSpanningTree.create(AdjacencyList.fromEWSG(graph))
   mst.vertices.foreach(l => println(l.neighbors.mkString("[", ", ", "]")))
   val svg      = Svg.draw(
-    EdgeWeightedSimpleGraph.fromEdgeList(mst.vertices.zipWithIndex flatMap { case (adj, u) =>
-      adj.neighbors map { case (v, w) => Edge(u, v, w) }
-    }),
+    EdgeWeightedGraph.fromEdgeList(
+      mst.vertices.zipWithIndex.flatMap((adj, u) => adj.neighbors.map((v, w) => Edge(NodeIndex(u), v, w))),
+    ),
     vertices,
   )
   Files.writeString(Paths.get("mst.svg"), svg.svgString)
@@ -107,7 +109,7 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 @main def runTriangulate: Unit =
   val vertices = ForceDirected.initLayout(Random(0xffc0ffee), 24)
   val edges    = triangulate(vertices.nodes)
-  val graph    = EdgeWeightedSimpleGraph.fromEdgeList(edges.map(de => Edge(de.u, de.v, 1)))
+  val graph    = EdgeWeightedGraph.fromEdgeList(edges.map(de => Edge(de.u, de.v, 1)))
   val svg      = Svg.draw(graph, vertices).svgString
   Files.writeString(Paths.get("delauny.svg"), svg)
 
@@ -119,56 +121,56 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   val svg    = Svg.draw(graph, layout).svgString
   Files.writeString(Paths.get("fd.svg"), svg)
 
-val k4  = EdgeWeightedSimpleGraph.fromEdgeList(
+val k4  = EdgeWeightedGraph.fromEdgeList(
   List(
-    Edge(0, 1, 1),
-    Edge(0, 2, 1),
-    Edge(0, 3, 1),
-    Edge(1, 2, 1),
-    Edge(1, 3, 1),
-    Edge(2, 3, 1),
+    rawE(0, 1, 1),
+    rawE(0, 2, 1),
+    rawE(0, 3, 1),
+    rawE(1, 2, 1),
+    rawE(1, 3, 1),
+    rawE(2, 3, 1),
   ),
 )
-val c4  = EdgeWeightedSimpleGraph.fromEdgeList(
+val c4  = EdgeWeightedGraph.fromEdgeList(
   List(
-    Edge(0, 1, 1),
-    Edge(1, 2, 1),
-    Edge(2, 3, 1),
-    Edge(3, 0, 1),
+    rawE(0, 1, 1),
+    rawE(1, 2, 1),
+    rawE(2, 3, 1),
+    rawE(3, 0, 1),
   ),
 )
-val p12 = EdgeWeightedSimpleGraph.fromEdgeList(
+val p12 = EdgeWeightedGraph.fromEdgeList(
   List(
-    Edge(0, 2, 1),
-    Edge(0, 4, 1),
-    Edge(0, 5, 1),
-    Edge(0, 8, 1),
-    Edge(0, 9, 1),
-    Edge(1, 3, 1),
-    Edge(1, 6, 1),
-    Edge(1, 7, 1),
-    Edge(1, 10, 1),
-    Edge(1, 11, 1),
-    Edge(2, 6, 1),
-    Edge(2, 7, 1),
-    Edge(2, 8, 1),
-    Edge(2, 9, 1),
-    Edge(3, 4, 1),
-    Edge(3, 5, 1),
-    Edge(3, 10, 1),
-    Edge(3, 11, 1),
-    Edge(4, 5, 1),
-    Edge(4, 8, 1),
-    Edge(4, 10, 1),
-    Edge(5, 9, 1),
-    Edge(5, 11, 1),
-    Edge(6, 7, 1),
-    Edge(6, 8, 1),
-    Edge(6, 10, 1),
-    Edge(7, 9, 1),
-    Edge(7, 11, 1),
-    Edge(8, 10, 1),
-    Edge(9, 11, 1),
+    rawE(0, 2, 1),
+    rawE(0, 4, 1),
+    rawE(0, 5, 1),
+    rawE(0, 8, 1),
+    rawE(0, 9, 1),
+    rawE(1, 3, 1),
+    rawE(1, 6, 1),
+    rawE(1, 7, 1),
+    rawE(1, 10, 1),
+    rawE(1, 11, 1),
+    rawE(2, 6, 1),
+    rawE(2, 7, 1),
+    rawE(2, 8, 1),
+    rawE(2, 9, 1),
+    rawE(3, 4, 1),
+    rawE(3, 5, 1),
+    rawE(3, 10, 1),
+    rawE(3, 11, 1),
+    rawE(4, 5, 1),
+    rawE(4, 8, 1),
+    rawE(4, 10, 1),
+    rawE(5, 9, 1),
+    rawE(5, 11, 1),
+    rawE(6, 7, 1),
+    rawE(6, 8, 1),
+    rawE(6, 10, 1),
+    rawE(7, 9, 1),
+    rawE(7, 11, 1),
+    rawE(8, 10, 1),
+    rawE(9, 11, 1),
   ),
 )
 

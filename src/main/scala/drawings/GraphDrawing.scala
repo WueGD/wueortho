@@ -18,9 +18,9 @@ object GraphDrawing:
     val m    = 50
 
     val graph =
-      val core = (0 until n).sliding(2) map { case Seq(u, v) => Edge(u, v, 1.0) }
-      val hull = for _ <- n until m yield Edge(rndm.nextInt(n), rndm.nextInt(n), 1.0)
-      EdgeWeightedSimpleGraph.fromEdgeList(core.toSeq ++ hull)
+      val core = (NodeIndex(0) until n).sliding(2) map { case Seq(u, v) => Edge(u, v, 1.0) }
+      val hull = for _ <- n until m yield Edge(NodeIndex(rndm.nextInt(n)), NodeIndex(rndm.nextInt(n)), 1.0)
+      EdgeWeightedGraph.fromEdgeList(core.toSeq ++ hull)
 
     val layout = ForceDirected.layout(config)(graph, ForceDirected.initLayout(rndm, graph.nodes.size))
 
@@ -37,4 +37,8 @@ object GraphDrawing:
     val rectsSvg = Svg.drawRects(obstacles.nodes)
     val portsSvg = Svg.drawPorts(ports)
     val edgesSvg = routes.zip(Svg.colors).map(Svg.drawEdgeRoute(_, _)).reduce(_ ++ _)
-    Files.writeString(Paths.get(s"res#${seed.toHexString}.svg"), (rectsSvg ++ portsSvg ++ edgesSvg).svgString)
+    val labelSvg = Svg.drawNodeLabels(VertexLayout(obstacles.nodes.map(_.center)))
+    Files.writeString(
+      Paths.get(s"res#${seed.toHexString}.svg"),
+      (rectsSvg ++ portsSvg ++ edgesSvg ++ labelSvg).svgString,
+    )

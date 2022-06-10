@@ -15,14 +15,14 @@ object Svg:
     @targetName("join")
     def ++(other: SvgFrag) = SvgFrag(Rect2D.boundingBoxOfRects(bbox, other.bbox), frags ++ other.frags)
 
-  def draw(g: EdgeWeightedSimpleGraph, vl: VertexLayout) =
+  def draw(g: EdgeWeightedGraph, vl: VertexLayout) =
     val ctnt = edges(g, vl) ++ nodes(vl)
     val bbox = Rect2D.boundingBox(vl.nodes)
     SvgFrag(bbox, ctnt)
 
   def drawRects(rects: Seq[Rect2D]) = SvgFrag(Rect2D.boundingBoxOfRects(rects: _*), this.rects(rects))
 
-  def drawGraphWithPorts(g: EdgeWeightedSimpleGraph, vl: VertexLayout, terminals: Seq[EdgeTerminals]) =
+  def drawGraphWithPorts(g: EdgeWeightedGraph, vl: VertexLayout, terminals: Seq[EdgeTerminals]) =
     val points = terminals.flatMap(et => Seq(et.uTerm, et.vTerm))
     val bbox   = Rect2D.boundingBox(vl.nodes ++ points)
     SvgFrag(bbox, edges(g, vl) ++ ports(points) ++ nodes(vl))
@@ -51,6 +51,9 @@ object Svg:
     }
     SvgFrag(Rect2D.boundingBox(points), lines.toSeq)
 
+  def drawNodeLabels(vl: VertexLayout) =
+    SvgFrag(Rect2D.boundingBox(vl.nodes), vl.nodes.zipWithIndex.map((p, i) => textLabel(p, i.toString)))
+
   private def root(vp: Rect2D, margin: Double)(ctnt: Seq[Frag]): String =
     val pad = margin / 2
     s"""<?xml version="1.0" standalone="no"?>
@@ -58,13 +61,13 @@ object Svg:
        |  ${ctnt.map(_.render).mkString("\n")}
        |</svg>""".stripMargin
 
-  private def edges(g: EdgeWeightedSimpleGraph, vl: VertexLayout) =
+  private def edges(g: EdgeWeightedGraph, vl: VertexLayout) =
     g.edges.map(edge =>
       line(
-        ^.x1          := vl.nodes(edge.from).x1 * ppu,
-        ^.y1          := vl.nodes(edge.from).x2 * ppu,
-        ^.x2          := vl.nodes(edge.to).x1 * ppu,
-        ^.y2          := vl.nodes(edge.to).x2 * ppu,
+        ^.x1          := vl.nodes(edge.from.toInt).x1 * ppu,
+        ^.y1          := vl.nodes(edge.from.toInt).x2 * ppu,
+        ^.x2          := vl.nodes(edge.to.toInt).x1 * ppu,
+        ^.y2          := vl.nodes(edge.to.toInt).x2 * ppu,
         ^.stroke      := "gray",
         ^.strokeWidth := "2",
       ),
@@ -104,6 +107,14 @@ object Svg:
         ^.stroke      := "blue",
         ^.strokeWidth := "2",
       ),
+    )
+
+  private def textLabel(at: Vec2D, s: String) =
+    text(
+      ^.x          := at.x1 * ppu,
+      ^.y          := at.x2 * ppu,
+      ^.textAnchor := "middle",
+      s,
     )
 
   val colors: LazyList[String] = LazyList(

@@ -23,13 +23,13 @@ object Nachmanson:
     else a dist b
 
   private def grow(tree: AdjacencyList, rects: IndexedSeq[Rect2D]) =
-    def go(i: Int, disp: Vec2D): Seq[(Int, Rect2D)] =
-      val r  = rects(i)
+    def go(i: NodeIndex, disp: Vec2D): Seq[(NodeIndex, Rect2D)] =
+      val r  = rects(i.toInt)
       val x  = r.copy(center = r.center + disp)
-      val xs = tree.vertices(i).neighbors flatMap { (j, w) =>
+      val xs = tree.vertices(i.toInt).neighbors flatMap { (j, w) =>
         if w < EPS then
-          val n = rects(j)
-          println(s"t = ${translationFactor(r, n)}")
+          val n = rects(j.toInt)
+          // println(s"t = ${translationFactor(r, n)}")
           val d = (n.center - r.center).scale(translationFactor(r, n) - 1)
           go(j, disp + d)
         else go(j, disp)
@@ -37,18 +37,18 @@ object Nachmanson:
       (i -> x) +: xs
 
     // debugSvg(rects, tree)
-    go(0, Vec2D(0, 0)).sortBy(_._1).map(_._2).toIndexedSeq
+    go(NodeIndex(0), Vec2D(0, 0)).sortBy(_._1).map(_._2).toIndexedSeq
 
   def step(rects: IndexedSeq[Rect2D]): Option[IndexedSeq[Rect2D]] =
     val triangulated = triangulate(rects.map(_.center))
-    val edges        = triangulated.map(se => se.withWeight(overlapCost(rects(se.u), rects(se.v))))
+    val edges        = triangulated.map(se => se.withWeight(overlapCost(rects(se.u.toInt), rects(se.v.toInt))))
 
     // println(s"weights: ${edges.map(_.weight)}")
 
     val augmented = if edges.forall(_.weight > -EPS) then
       val augments = for
         se @ SimpleEdge(u, v) <- Overlaps.overlappingPairs(rects)
-        weight                 = overlapCost(rects(u), rects(v))
+        weight                 = overlapCost(rects(u.toInt), rects(v.toInt))
         edge                  <- Option.when(weight < -EPS)(se.withWeight(weight))
       yield edge
 
@@ -60,7 +60,7 @@ object Nachmanson:
     // println(s"number of edges to process: ${augmented.map(_.size)}")
 
     augmented.map(edges =>
-      val adjacencies = AdjacencyList.fromEWSG(EdgeWeightedSimpleGraph.fromEdgeList(edges))
+      val adjacencies = AdjacencyList.fromEWSG(EdgeWeightedGraph.fromEdgeList(edges))
       val mst         = MinimumSpanningTree.create(adjacencies)
       grow(mst, rects),
     )
@@ -72,8 +72,8 @@ object Nachmanson:
 
   def debugSvg(rects: IndexedSeq[Rect2D], mst: AdjacencyList) =
     val tree = drawings.io.Svg.draw(
-      EdgeWeightedSimpleGraph.fromEdgeList(mst.vertices.zipWithIndex flatMap { case (adj, u) =>
-        adj.neighbors map { case (v, w) => Edge(u, v, w) }
+      EdgeWeightedGraph.fromEdgeList(mst.vertices.zipWithIndex flatMap { case (adj, u) =>
+        adj.neighbors map { case (v, w) => Edge(NodeIndex(u), v, w) }
       }),
       VertexLayout(rects.map(_.center)),
     )

@@ -47,15 +47,19 @@ object PortHeuristic:
 
     val ports = for
       (v, nb) <- nodes.nodes zip graph.vertices
-      centers  = nb.neighbors map { case (u, _) => nodes.nodes(u).center }
+      centers  = nb.neighbors map { case (u, _) => nodes.nodes(u.toInt).center }
     yield equidistantPorts(v, centers)
+
+    ports.zipWithIndex.foreach((vl, i) =>
+      println(s"Node $i @${nodes.nodes(i).center}: ${vl.nodes.mkString("[", ", ", "]")}"),
+    )
 
     // fixme this is n² :(
     for
       (tmp, u)    <- graph.vertices.zipWithIndex
       ((v, _), i) <- tmp.neighbors.zipWithIndex
-      if u < v
-      j            = graph.vertices(v).neighbors.indexWhere(_._1 == u)
-    yield EdgeTerminals(ports(u).nodes(i), ports(v).nodes(j))
+      if u < v.toInt
+      j            = graph.vertices(v.toInt).neighbors.indexWhere(_._1.toInt == u)
+    yield EdgeTerminals(ports(u).nodes(i), ports(v.toInt).nodes(j))
 
 end PortHeuristic

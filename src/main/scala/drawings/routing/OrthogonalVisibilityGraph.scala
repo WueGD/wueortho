@@ -8,6 +8,7 @@ import drawings.data.AdjacencyList
 import drawings.data.VertexLayout
 import org.w3c.dom.Node
 import drawings.data.SimpleEdge
+import drawings.data.NodeIndex
 
 object OrthogonalVisibilityGraph:
 
@@ -141,16 +142,16 @@ object OrthogonalVisibilityGraph:
           val ti = vPreNodes(vi)
           if ti == -1 then None
           else
-            nodes(ti) = nodes(ti).copy((i, rand.nextDouble) +: nodes(ti).neighbors)
-            Some(ti)
+            nodes(ti) = nodes(ti).copy((NodeIndex(i), rand.nextDouble) +: nodes(ti).neighbors)
+            Some(NodeIndex(ti))
         vPreNodes(vi) = i
 
         val left =
           val li = hPreNodes(hi)
           if li == -1 then None
           else
-            nodes(li) = nodes(li).copy((i, rand.nextDouble) +: nodes(li).neighbors)
-            Some(li)
+            nodes(li) = nodes(li).copy((NodeIndex(i), rand.nextDouble) +: nodes(li).neighbors)
+            Some(NodeIndex(li))
         hPreNodes(hi) = i
 
         nodes += Vertex((top ++ left).map(_ -> rand.nextDouble).toSeq)
@@ -161,19 +162,12 @@ object OrthogonalVisibilityGraph:
 
     buildGraph
 
-  // fixme: this is n² :(
+  // fixme: this is n³ :(
   def matchPorts(layout: VertexLayout, ports: IndexedSeq[EdgeTerminals]) =
-    def findP(p: Vec2D) = layout.nodes.indexOf(p)
+    def findP(p: Vec2D) =
+      val idx = layout.nodes.indexOf(p)
+      assert(idx >= 0, s"could not find node $p in layout")
+      NodeIndex(idx)
     ports.map(terms => SimpleEdge(findP(terms.uTerm), findP(terms.vTerm)))
-
-  def debugFindPorts(layout: VertexLayout, ports: IndexedSeq[EdgeTerminals]) =
-    def str(i: Int) = if i < 0 then "oh no!"
-    else
-      val Vec2D(x, y) = layout.nodes(i)
-      s"$i@($x, $y)"
-
-    matchPorts(layout, ports).zipWithIndex.foreach { case (SimpleEdge(u, v), i) =>
-      println(s"$i: ${str(u)} -> ${str(v)}")
-    }
 
 end OrthogonalVisibilityGraph
