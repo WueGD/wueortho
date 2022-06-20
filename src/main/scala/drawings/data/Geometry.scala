@@ -9,6 +9,10 @@ case class Vec2D(x1: Double, x2: Double):
   @targetName("minus") def -(o: Vec2D) = Vec2D(x1 - o.x1, x2 - o.x2)
   lazy val len                         = Math.hypot(x1, x2)
   def scale(a: Double)                 = Vec2D(x1 * a, x2 * a)
+  lazy val mainDirection               =
+    if x1.abs >= x2.abs then if x1 >= 0 then Direction.East else Direction.West
+    else if x2 >= 0 then Direction.North
+    else Direction.South
 
 /** span must be nonnegative */
 case class Rect2D(center: Vec2D, span: Vec2D):
@@ -43,3 +47,10 @@ object Rect2D:
   def yInverted(rects: Seq[Rect2D]) =
     val (ymin, ymax) = (rects.map(_.center.x2).min, rects.map(_.center.x2).max)
     rects.map(r => r.copy(center = r.center.copy(x2 = ymax - r.center.x2 + ymin)))
+
+enum Direction:
+  case North, East, South, West
+
+object Direction:
+  def numberOfBends(d1: Direction, d2: Direction) =
+    Math.floorMod(d1.ordinal - d2.ordinal, 4) min Math.floorMod(d2.ordinal - d1.ordinal, 4)

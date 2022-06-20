@@ -1,9 +1,7 @@
 package drawings.util
 
-import drawings.data.AdjacencyList
+import drawings.data._
 import scala.collection.mutable
-import drawings.data.Vertex
-import drawings.data.NodeIndex
 
 object MinimumSpanningTree:
   private enum VertexState:
@@ -26,7 +24,7 @@ object MinimumSpanningTree:
       case Discovered(w, p)   => VertexState.Bound(w, p)
       case Undiscovered       => sys.error(s"cannot bind undiscovered vertex $this")
 
-  def create(g: AdjacencyList): AdjacencyList =
+  def create(g: AdjacencyList): DiGraph =
     val state = mutable.ArraySeq.fill(g.vertices.size)(VertexState.Undiscovered)
     state(0) = VertexState.Root
     val queue = mutable.PriorityQueue(0.0 -> NodeIndex(0))
@@ -34,7 +32,7 @@ object MinimumSpanningTree:
     while queue.nonEmpty do
       val (key, u) = queue.dequeue()
       if state(u.toInt).isStillUnbound then
-        g.vertices(u.toInt).neighbors foreach { case (v, weight) =>
+        g.vertices(u.toInt).neighbors foreach { case Link(v, weight, _) =>
           if state(v.toInt).isCandidate(-weight) then
             state(v.toInt) = VertexState.Discovered(-weight, u)
             queue.enqueue(-weight -> v)
@@ -47,9 +45,9 @@ object MinimumSpanningTree:
     val adjList = mutable.ArraySeq.fill(s.size)(mutable.ListBuffer.empty[(NodeIndex, Double)])
     s.zipWithIndex foreach {
       case (VertexState.Bound(w, u), v) => adjList(u.toInt) += NodeIndex(v) -> -w
-      case (VertexState.Root, _)        =>
+      case (VertexState.Root, i)        => println(s"DEBUG: MST root is $i")
       case x                            => sys.error(s"unbound vertex $x in MST")
     }
-    AdjacencyList(adjList.map(l => Vertex(l.toList)).toIndexedSeq)
+    DiGraph(adjList.map(l => DiVertex(l.toList)).toIndexedSeq)
 
 end MinimumSpanningTree

@@ -4,7 +4,6 @@ import drawings.data.*
 import drawings.routing.OrthogonalVisibilityGraph
 
 object Debugging:
-  def rawV(nb: (Int, Double)*)        = Vertex(nb.map((i, w) => NodeIndex(i) -> w))
   def rawE(u: Int, v: Int, w: Double) = Edge(NodeIndex(u), NodeIndex(v), w)
 
   def debugFindPorts(layout: VertexLayout, ports: IndexedSeq[EdgeTerminals]) =

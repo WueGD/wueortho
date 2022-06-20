@@ -43,31 +43,14 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 @main def runDijkstra =
   given dc: DijkstraCost[Double] = (_, _, w, w0) => w + w0
 
-  // see https://upload.wikimedia.org/wikipedia/commons/5/57/Dijkstra_Animation.gif
-  val graph = AdjacencyList(
-    IndexedSeq(
-      rawV(5 -> 14, 2 -> 9, 1  -> 7),
-      rawV(0 -> 7, 2  -> 10, 3 -> 15),
-      rawV(0 -> 9, 1  -> 10, 3 -> 11, 5 -> 2),
-      rawV(1 -> 15, 2 -> 11, 4 -> 6),
-      rawV(3 -> 6, 5  -> 9),
-      rawV(0 -> 14, 2 -> 2, 4  -> 9),
-    ),
-  )
-  println(Dijkstra.shortestPath(graph, NodeIndex(0), NodeIndex(4), 0.0))
+  println(Dijkstra.shortestPath(dijkstraExample, NodeIndex(0), NodeIndex(4), 0.0))
 
 @main def runOVG: Unit =
   val (adj, lay) = OrthogonalVisibilityGraph.create(OvgSample.rects, OvgSample.ports)
 
   debugFindPorts(lay, OvgSample.ports)
   val rectsSvg = Svg.drawRects(OvgSample.rects)
-  val ovgSvg   = Svg.drawGraphWithPorts(
-    EdgeWeightedGraph.fromEdgeList(
-      adj.vertices.zipWithIndex.flatMap((adj, u) => adj.neighbors.map((v, w) => Edge(NodeIndex(u), v, w))),
-    ),
-    lay, // lay.yInverted,
-    OvgSample.ports,
-  )
+  val ovgSvg   = Svg.drawGraphWithPorts(EdgeWeightedGraph.fromAdjacencyList(adj), lay, OvgSample.ports)
   // println((adj.vertices zip lay.nodes).zipWithIndex.map { case ((nb, p), i) => s"${i}: @${p} ${nb}" }.mkString("\n"))
   Files.writeString(Paths.get("ovg.svg"), (ovgSvg ++ rectsSvg).svgString)
   Files.writeString(Paths.get("ovg-input.svg"), (rectsSvg ++ Svg.drawPorts(OvgSample.ports)).svgString)
@@ -96,7 +79,7 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   val graph    = EdgeWeightedGraph.fromEdgeList(
     edges.map(de => Edge(de.u, de.v, (vertices.nodes(de.u.toInt) - vertices.nodes(de.v.toInt)).len)),
   )
-  val mst      = MinimumSpanningTree.create(AdjacencyList.fromEWSG(graph))
+  val mst      = MinimumSpanningTree.create(AdjacencyList.fromEWG(graph))
   mst.vertices.foreach(l => println(l.neighbors.mkString("[", ", ", "]")))
   val svg      = Svg.draw(
     EdgeWeightedGraph.fromEdgeList(
@@ -174,6 +157,23 @@ val p12 = EdgeWeightedGraph.fromEdgeList(
   ),
 )
 
+// see https://upload.wikimedia.org/wikipedia/commons/5/57/Dijkstra_Animation.gif
+val dijkstraExample = AdjacencyList.fromEWG(
+  EdgeWeightedGraph.fromEdgeList(
+    IndexedSeq(
+      rawE(0, 5, 14),
+      rawE(0, 2, 9),
+      rawE(0, 1, 7),
+      rawE(1, 2, 10),
+      rawE(1, 3, 15),
+      rawE(2, 3, 11),
+      rawE(2, 5, 2),
+      rawE(3, 4, 6),
+      rawE(4, 5, 9),
+    ),
+  ),
+)
+
 object OvgSample:
   val rects = Vector(
     Rect2D(Vec2D(5.5, 1), Vec2D(3.5, 1)),
@@ -181,7 +181,7 @@ object OvgSample:
     Rect2D(Vec2D(1.5, 7.5), Vec2D(1.5, 1.5)),
   )
   val ports = Vector(
-    EdgeTerminals(Vec2D(5, 2), Vec2D(8, 4)),
-    EdgeTerminals(Vec2D(7, 5), Vec2D(3, 7)),
-    EdgeTerminals(Vec2D(1, 6), Vec2D(9, 7)),
+    EdgeTerminals(Vec2D(5, 2), Direction.North, Vec2D(8, 4), Direction.South),
+    EdgeTerminals(Vec2D(7, 5), Direction.West, Vec2D(3, 7), Direction.East),
+    EdgeTerminals(Vec2D(1, 6), Direction.South, Vec2D(9, 7), Direction.North),
   )

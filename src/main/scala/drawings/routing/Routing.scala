@@ -7,6 +7,15 @@ import drawings.util.Dijkstra
 object Routing:
   import scala.collection.mutable
 
+  case class DijState(dist: Double, bends: Int, nonce: Double, dir: Direction):
+    def transitionCost(from: Vec2D, to: Vec2D, nonce: Double) =
+      val vec   = to - from
+      val bends = Direction.numberOfBends(dir, vec.mainDirection)
+      DijState(dist + vec.len, this.bends + bends, this.nonce + nonce, vec.mainDirection)
+
+  object DijState:
+    given Ordering[DijState] = Ordering.by(s => (s._1, s._2, s._3))
+
   def edgeRoutes(obstacles: Obstacles, ports: IndexedSeq[EdgeTerminals]) =
     val (gridGraph, gridLayout) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
     val gridEdges               = OrthogonalVisibilityGraph.matchPorts(gridLayout, ports) // todo find a better solution

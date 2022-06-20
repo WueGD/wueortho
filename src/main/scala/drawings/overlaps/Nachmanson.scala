@@ -22,7 +22,7 @@ object Nachmanson:
       s - t * s
     else a dist b
 
-  private def grow(tree: AdjacencyList, rects: IndexedSeq[Rect2D]) =
+  private def grow(tree: DiGraph, rects: IndexedSeq[Rect2D]) =
     def go(i: NodeIndex, disp: Vec2D): Seq[(NodeIndex, Rect2D)] =
       val r  = rects(i.toInt)
       val x  = r.copy(center = r.center + disp)
@@ -60,7 +60,7 @@ object Nachmanson:
     // println(s"number of edges to process: ${augmented.map(_.size)}")
 
     augmented.map(edges =>
-      val adjacencies = AdjacencyList.fromEWSG(EdgeWeightedGraph.fromEdgeList(edges))
+      val adjacencies = AdjacencyList.fromEWG(EdgeWeightedGraph.fromEdgeList(edges))
       val mst         = MinimumSpanningTree.create(adjacencies)
       grow(mst, rects),
     )
@@ -71,12 +71,7 @@ object Nachmanson:
     case None     => rects
 
   def debugSvg(rects: IndexedSeq[Rect2D], mst: AdjacencyList) =
-    val tree = drawings.io.Svg.draw(
-      EdgeWeightedGraph.fromEdgeList(mst.vertices.zipWithIndex flatMap { case (adj, u) =>
-        adj.neighbors map { case (v, w) => Edge(NodeIndex(u), v, w) }
-      }),
-      VertexLayout(rects.map(_.center)),
-    )
+    val tree = drawings.io.Svg.draw(EdgeWeightedGraph.fromAdjacencyList(mst), VertexLayout(rects.map(_.center)))
     val rect = drawings.io.Svg.drawRects(rects)
     java.nio.file.Files
       .writeString(java.nio.file.Path.of(s"dbg${cnt}.svg"), (rect ++ tree).svgString)

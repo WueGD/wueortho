@@ -32,7 +32,7 @@ object Dijkstra:
         dist.get(u) match
           case Some(c) if pathCost > c =>
           case _                       =>
-            for (v, w) <- graph.vertices(u.toInt).neighbors do
+            for Link(v, w, _) <- graph.vertices(u.toInt).neighbors do
               val nc = DijkstraCost(u, v, w, pathCost)
               dist.get(v) match
                 case Some(mem) if nc > mem =>

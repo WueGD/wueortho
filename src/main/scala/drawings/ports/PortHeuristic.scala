@@ -1,20 +1,15 @@
 package drawings.ports
 
-import drawings.data.Vec2D
-import drawings.data.Rect2D
-import drawings.data.VertexLayout
-import drawings.data.AdjacencyList
-import drawings.data.Obstacles
-import drawings.data.EdgeTerminals
+import drawings.data.*
 
 object PortHeuristic:
   def angle(a: Vec2D, b: Vec2D) = Math.atan2(b.x2 * a.x1 - b.x1 * a.x2, b.x1 * a.x1 + b.x2 * a.x2)
 
-  def equidistantPorts(vertex: Rect2D, neighbors: Seq[Vec2D]): VertexLayout =
+  def equidistantPorts(vertex: Rect2D, neighbors: Seq[Vec2D]) =
     val tlAngle = angle(vertex.span, vertex.span.copy(x1 = -vertex.span.x1))
     val brAngle = angle(vertex.span, vertex.span.copy(x2 = -vertex.span.x2))
 
-    val segments = neighbors.zipWithIndex.foldLeft(Segments.empty[(Double, Int)]) { case (segs, (p, i)) =>
+    val segs = neighbors.zipWithIndex.foldLeft(Segments.empty[(Double, Int)]) { case (segs, (p, i)) =>
       val a = angle(vertex.span, p - vertex.center)
       if a < 0 then
         if a < brAngle then segs.copy(bottom = (a, i) :: segs.bottom)
@@ -24,12 +19,13 @@ object PortHeuristic:
     }
 
     val coords =
-      spreadEvenly(segments.top, x => Vec2D(x, vertex.top))(vertex.right, vertex.left)
-        ++ spreadEvenly(segments.right, y => Vec2D(vertex.right, y))(vertex.top, vertex.bottom)
-        ++ spreadEvenly(segments.left, y => Vec2D(vertex.left, y))(vertex.top, vertex.bottom)
-        ++ spreadEvenly(segments.bottom, x => Vec2D(x, vertex.bottom))(vertex.right, vertex.left)
+      spreadEvenly(segs.top, x => Vec2D(x, vertex.top))(vertex.right, vertex.left).eachWith(Direction.North)
+        ++ spreadEvenly(segs.right, y => Vec2D(vertex.right, y))(vertex.top, vertex.bottom).eachWith(Direction.East)
+        ++ spreadEvenly(segs.left, y => Vec2D(vertex.left, y))(vertex.top, vertex.bottom).eachWith(Direction.West)
+        ++ spreadEvenly(segs.bottom, x => Vec2D(x, vertex.bottom))(vertex.right, vertex.left).eachWith(Direction.South)
 
-    VertexLayout(coords.sortBy(_._1).map(_._2).toIndexedSeq)
+    PortLayout(coords.sortBy(_.head).map(_.tail).toIndexedSeq)
+  end equidistantPorts
 
   private def spreadEvenly(l: List[(Double, Int)], f: Double => Vec2D)(fromPos: Double, toPos: Double) =
     val step = (toPos - fromPos) / (l.size + 1)
@@ -40,26 +36,24 @@ object PortHeuristic:
   private object Segments:
     def empty[T]: Segments[T] = Segments(List.empty, List.empty, List.empty, List.empty)
 
+  extension [T <: Tuple](l: List[T]) def eachWith[A](a: A) = l.map(_ ++ Tuple1(a))
+
   def makePorts(nodes: Obstacles, graph: AdjacencyList) =
     import scala.collection.mutable
 
     assert(nodes.nodes.length == graph.vertices.length, "There must be as many obstacles as vertices in the graph!")
 
-    val ports = for
+    val vertices = for
       (v, nb) <- nodes.nodes zip graph.vertices
-      centers  = nb.neighbors map { case (u, _) => nodes.nodes(u.toInt).center }
+      centers  = nb.neighbors map { case Link(u, _, _) => nodes.nodes(u.toInt).center }
     yield equidistantPorts(v, centers)
 
-    ports.zipWithIndex.foreach((vl, i) =>
-      println(s"Node $i @${nodes.nodes(i).center}: ${vl.nodes.mkString("[", ", ", "]")}"),
-    )
-
-    // fixme this is n² :(
     for
-      (tmp, u)    <- graph.vertices.zipWithIndex
-      ((v, _), i) <- tmp.neighbors.zipWithIndex
+      (tmp, u)           <- graph.vertices.zipWithIndex
+      (Link(v, _, j), i) <- tmp.neighbors.zipWithIndex
       if u < v.toInt
-      j            = graph.vertices(v.toInt).neighbors.indexWhere(_._1.toInt == u)
-    yield EdgeTerminals(ports(u).nodes(i), ports(v.toInt).nodes(j))
+      (posU, dirU)        = vertices(u).ports(i)
+      (posV, dirV)        = vertices(v.toInt).ports(j.toInt)
+    yield EdgeTerminals(posU, dirU, posV, dirV)
 
 end PortHeuristic

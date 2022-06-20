@@ -1,14 +1,8 @@
 package drawings.routing
 
-import drawings.data.{Rect2D, EdgeTerminals}
-import drawings.data.Vec2D
-import drawings.data.Vertex
+import drawings.data.*
 import scala.util.Random
-import drawings.data.AdjacencyList
-import drawings.data.VertexLayout
 import org.w3c.dom.Node
-import drawings.data.SimpleEdge
-import drawings.data.NodeIndex
 
 object OrthogonalVisibilityGraph:
 
@@ -142,19 +136,19 @@ object OrthogonalVisibilityGraph:
           val ti = vPreNodes(vi)
           if ti == -1 then None
           else
-            nodes(ti) = nodes(ti).copy((NodeIndex(i), rand.nextDouble) +: nodes(ti).neighbors)
-            Some(NodeIndex(ti))
+            nodes(ti) = nodes(ti).copy(nodes(ti).neighbors :+ Link(NodeIndex(i), rand.nextDouble, 0))
+            Some(NodeIndex(ti) -> nodes(ti).neighbors.size)
         vPreNodes(vi) = i
 
         val left =
           val li = hPreNodes(hi)
           if li == -1 then None
           else
-            nodes(li) = nodes(li).copy((NodeIndex(i), rand.nextDouble) +: nodes(li).neighbors)
-            Some(NodeIndex(li))
+            nodes(li) = nodes(li).copy(nodes(li).neighbors :+ Link(NodeIndex(i), rand.nextDouble, top.size))
+            Some(NodeIndex(li) -> nodes(li).neighbors.size)
         hPreNodes(hi) = i
 
-        nodes += Vertex((top ++ left).map(_ -> rand.nextDouble).toSeq)
+        nodes += Vertex((top ++ left).map((ni, bi) => Link(ni, rand.nextDouble, bi)).toIndexedSeq)
       end for
 
       AdjacencyList(nodes.toIndexedSeq) -> VertexLayout(positions.toIndexedSeq)

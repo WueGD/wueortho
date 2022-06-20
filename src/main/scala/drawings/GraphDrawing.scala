@@ -30,7 +30,7 @@ object GraphDrawing:
         .map(_.copy(span = Vec2D(2.0, 1.0))),
     )
 
-    val ports = PortHeuristic.makePorts(obstacles, AdjacencyList.fromEWSG(graph))
+    val ports = PortHeuristic.makePorts(obstacles, AdjacencyList.fromEWG(graph))
 
     val (routes, _) = Routing.edgeRoutes(obstacles, ports)
 
