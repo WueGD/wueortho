@@ -3,6 +3,7 @@ package drawings.routing
 import drawings.data.*
 import drawings.util.Dijkstra.DijkstraCost
 import drawings.util.Dijkstra
+import drawings.util.Debugging
 
 object Routing:
   import scala.collection.mutable
@@ -19,6 +20,8 @@ object Routing:
   def edgeRoutes(obstacles: Obstacles, ports: IndexedSeq[EdgeTerminals]) =
     val (gridGraph, gridLayout) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
     val gridEdges               = OrthogonalVisibilityGraph.matchPorts(gridLayout, ports) // todo find a better solution
+
+    Debugging.debugOVG(obstacles, gridGraph, gridLayout, ports)
 
     given dc: DijkstraCost[(Double, Double)] = (u, v, w, w0) =>
       (w0._1 + (gridLayout.nodes(v.toInt) - gridLayout.nodes(u.toInt)).len, w0._2 + w)

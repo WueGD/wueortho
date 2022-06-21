@@ -2,6 +2,9 @@ package drawings.util
 
 import drawings.data.*
 import drawings.routing.OrthogonalVisibilityGraph
+import drawings.io.Svg
+import java.nio.file.Files
+import java.nio.file.Paths
 
 object Debugging:
   def rawE(u: Int, v: Int, w: Double) = Edge(NodeIndex(u), NodeIndex(v), w)
@@ -14,3 +17,9 @@ object Debugging:
     OrthogonalVisibilityGraph.matchPorts(layout, ports).zipWithIndex.foreach { case (SimpleEdge(u, v), i) =>
       println(s"$i: ${str(u)} -> ${str(v)}")
     }
+
+  def debugOVG(obstacles: Obstacles, graph: AdjacencyList, layout: VertexLayout, ports: IndexedSeq[EdgeTerminals]) =
+    val rectsSvg = Svg.drawRects(obstacles.nodes)
+    val ovgSvg   = Svg.drawGraphWithPorts(EdgeWeightedGraph.fromAdjacencyList(graph), layout, ports)
+    Files.writeString(Paths.get("debug-ovg.svg"), (ovgSvg ++ rectsSvg).svgString)
+    Files.writeString(Paths.get("debug-ovg-input.svg"), (rectsSvg ++ Svg.drawPorts(ports)).svgString)
