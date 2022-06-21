@@ -17,9 +17,14 @@ object GraphDrawing:
     val n    = 20
     val m    = 50
 
+    def randomNodePair: (NodeIndex, NodeIndex) =
+      val (u, v) = (rndm.nextInt(n), rndm.nextInt(n))
+      if u == v then randomNodePair
+      else NodeIndex(u) -> NodeIndex(v)
+
     val graph =
       val core = (NodeIndex(0) until n).sliding(2) map { case Seq(u, v) => Edge(u, v, 1.0) }
-      val hull = for _ <- n until m yield Edge(NodeIndex(rndm.nextInt(n)), NodeIndex(rndm.nextInt(n)), 1.0)
+      val hull = for _ <- n until m; (u, v) = randomNodePair yield Edge(u, v, 1.0)
       EdgeWeightedGraph.fromEdgeList(core.toSeq ++ hull)
 
     val layout = ForceDirected.layout(config)(graph, ForceDirected.initLayout(rndm, graph.nodes.size))

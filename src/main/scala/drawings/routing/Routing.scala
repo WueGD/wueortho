@@ -8,6 +8,8 @@ import drawings.util.Debugging
 object Routing:
   import scala.collection.mutable
 
+  val EPS = 1e-8
+
   case class DijState(dist: Double, bends: Int, nonce: Double, dir: Direction):
     def transitionCost(from: Vec2D, to: Vec2D, nonce: Double) =
       val vec   = to - from
@@ -15,7 +17,11 @@ object Routing:
       DijState(dist + vec.len, this.bends + bends, this.nonce + nonce, vec.mainDirection)
 
   object DijState:
-    given Ordering[DijState] = Ordering.by(s => (s._1, s._2, s._3))
+    given Ordering[DijState] = (a, b) =>
+      val d = a.dist - b.dist
+      if d < EPS then Ordering[(Int, Double)].compare(a.bends -> a.nonce, b.bends -> b.nonce)
+      else if d < 0 then -1
+      else 1
 
   def edgeRoutes(obstacles: Obstacles, ports: IndexedSeq[EdgeTerminals]) =
     val (gridGraph, gridLayout) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
@@ -23,13 +29,13 @@ object Routing:
 
     Debugging.debugOVG(obstacles, gridGraph, gridLayout, ports)
 
-    given dc: DijkstraCost[(Double, Double)] = (u, v, w, w0) =>
-      (w0._1 + (gridLayout.nodes(v.toInt) - gridLayout.nodes(u.toInt)).len, w0._2 + w)
+    given dc: DijkstraCost[DijState] = (u, v, w, w0) =>
+      w0.transitionCost(gridLayout.nodes(u.toInt), gridLayout.nodes(v.toInt), w)
 
     val paths =
-      for (SimpleEdge(u, v), i) <- gridEdges.zipWithIndex
+      for ((EdgeTerminals(_, dir, _, _), SimpleEdge(u, v)), i) <- (ports zip gridEdges).zipWithIndex
       yield Dijkstra
-        .shortestPath(gridGraph, u, v, 0.0 -> 0.0)
+        .shortestPath(gridGraph, u, v, DijState(0, 0, 0, dir))
         .fold(err => sys.error(s"cannot find shortest paht between $u and $v: $err"), identity)
 
     val edgeRoutes = for (path, terminals) <- paths zip ports yield pathToOrthoSegs(terminals, path, gridLayout)

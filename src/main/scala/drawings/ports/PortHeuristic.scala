@@ -40,7 +40,6 @@ object PortHeuristic:
 
   def makePorts(nodes: Obstacles, graph: AdjacencyList) =
     import scala.collection.mutable
-
     assert(nodes.nodes.length == graph.vertices.length, "There must be as many obstacles as vertices in the graph!")
 
     val vertices = for

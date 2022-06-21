@@ -39,16 +39,19 @@ object Svg:
           case HSeg(dx) => s.copy(x1 = s.x1 + dx)
           case VSeg(dy) => s.copy(x2 = s.x2 + dy),
       )
-    val lines  = points.sliding(2) map { case Seq(u, v) =>
-      line(
-        ^.x1          := u.x1 * ppu,
-        ^.y1          := u.x2 * ppu,
-        ^.x2          := v.x1 * ppu,
-        ^.y2          := v.x2 * ppu,
-        ^.stroke      := color,
-        ^.strokeWidth := "2",
-      )
-    }
+    val lines  =
+      if points.length > 1 then
+        points.sliding(2) map { case Seq(u, v) =>
+          line(
+            ^.x1          := u.x1 * ppu,
+            ^.y1          := u.x2 * ppu,
+            ^.x2          := v.x1 * ppu,
+            ^.y2          := v.x2 * ppu,
+            ^.stroke      := color,
+            ^.strokeWidth := "2",
+          )
+        }
+      else Seq.empty
     SvgFrag(Rect2D.boundingBox(points), lines.toSeq)
 
   def drawNodeLabels(vl: VertexLayout) =

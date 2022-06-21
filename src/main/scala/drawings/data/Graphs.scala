@@ -17,7 +17,7 @@ object EdgeWeightedGraph:
     fromEdgeList(for
       (tmp, u)      <- l.vertices.zipWithIndex
       Link(v, w, _) <- tmp.neighbors
-      if u <= v.toInt
+      if u < v.toInt
     yield Edge(NodeIndex(u), v, w))
 
 case class Edge(from: NodeIndex, to: NodeIndex, weight: Double)
@@ -33,6 +33,7 @@ object AdjacencyList:
   def fromEWG(g: EdgeWeightedGraph) =
     val lut = g.nodes.map(_ => mutable.ListBuffer.empty[Link]).toIndexedSeq
     g.edges foreach { case Edge(from, to, weight) =>
+      assert(from != to, s"AdjacencyList must not have loops (loop at node $to)")
       lut(from.toInt) += Link(to, weight, lut(to.toInt).length)
       lut(to.toInt) += Link(from, weight, lut(from.toInt).length - 1)
     }
