@@ -14,7 +14,6 @@ case class Vec2D(x1: Double, x2: Double):
     else if x2 >= 0 then Direction.North
     else Direction.South
 
-/** span must be nonnegative */
 case class Rect2D(center: Vec2D, span: Vec2D):
   assert(span.x1 >= 0 && span.x2 >= 0, s"span must be non-negative (but was: $span)")
 

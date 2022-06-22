@@ -48,6 +48,7 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 @main def runOVG: Unit =
   val (adj, lay) = OrthogonalVisibilityGraph.create(OvgSample.rects, OvgSample.ports)
 
+  debugConnectivity(adj, lay)
   debugFindPorts(lay, OvgSample.ports)
   val rectsSvg = Svg.drawRects(OvgSample.rects)
   val ovgSvg   = Svg.drawGraphWithPorts(EdgeWeightedGraph.fromAdjacencyList(adj), lay, OvgSample.ports)

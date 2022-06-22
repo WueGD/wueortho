@@ -23,3 +23,8 @@ object Debugging:
     val ovgSvg   = Svg.drawGraphWithPorts(EdgeWeightedGraph.fromAdjacencyList(graph), layout, ports)
     Files.writeString(Paths.get("debug-ovg.svg"), (ovgSvg ++ rectsSvg).svgString)
     Files.writeString(Paths.get("debug-ovg-input.svg"), (rectsSvg ++ Svg.drawPorts(ports)).svgString)
+
+  def debugConnectivity(adj: AdjacencyList, lay: VertexLayout) =
+    for (pos, u) <- lay.nodes.zipWithIndex do
+      val l = adj.vertices(u).neighbors.map { case Link(v, _, j) => s"$v [$j]" }.mkString("(", ", ", ")")
+      println(s"$u @ $pos -> $l")

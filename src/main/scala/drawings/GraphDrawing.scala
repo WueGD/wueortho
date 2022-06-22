@@ -14,8 +14,8 @@ object GraphDrawing:
 
   def runRandomSample(seed: Long) =
     val rndm = scala.util.Random(seed)
-    val n    = 20
-    val m    = 50
+    val n    = 10
+    val m    = 30
 
     def randomNodePair: (NodeIndex, NodeIndex) =
       val (u, v) = (rndm.nextInt(n), rndm.nextInt(n))
@@ -44,6 +44,6 @@ object GraphDrawing:
     val edgesSvg = routes.zip(Svg.colors).map(Svg.drawEdgeRoute(_, _)).reduce(_ ++ _)
     val labelSvg = Svg.drawNodeLabels(VertexLayout(obstacles.nodes.map(_.center)))
     Files.writeString(
-      Paths.get(s"res#${seed.toHexString}.svg"),
+      Paths.get(s"res_n${n}m${m}#${seed.toHexString}.svg"),
       (rectsSvg ++ portsSvg ++ edgesSvg ++ labelSvg).svgString,
     )

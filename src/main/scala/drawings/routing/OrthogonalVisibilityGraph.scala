@@ -137,7 +137,7 @@ object OrthogonalVisibilityGraph:
           if ti == -1 then None
           else
             nodes(ti) = nodes(ti).copy(nodes(ti).neighbors :+ Link(NodeIndex(i), rand.nextDouble, 0))
-            Some(NodeIndex(ti) -> nodes(ti).neighbors.size)
+            Some(NodeIndex(ti) -> (nodes(ti).neighbors.size - 1))
         vPreNodes(vi) = i
 
         val left =
@@ -145,7 +145,7 @@ object OrthogonalVisibilityGraph:
           if li == -1 then None
           else
             nodes(li) = nodes(li).copy(nodes(li).neighbors :+ Link(NodeIndex(i), rand.nextDouble, top.size))
-            Some(NodeIndex(li) -> nodes(li).neighbors.size)
+            Some(NodeIndex(li) -> (nodes(li).neighbors.size - 1))
         hPreNodes(hi) = i
 
         nodes += Vertex((top ++ left).map((ni, bi) => Link(ni, rand.nextDouble, bi)).toIndexedSeq)
