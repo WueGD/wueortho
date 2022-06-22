@@ -17,46 +17,51 @@ object Routing:
       DijState(dist + vec.len, this.bends + bends, this.nonce + nonce, vec.mainDirection)
 
   object DijState:
-    given Ordering[DijState] = Ordering.by(s => (s.dist, s.bends, s.nonce))
-  // given Ordering[DijState] = (a, b) =>
-  //   val d = a.dist - b.dist
-  //   if d < EPS then Ordering[(Int, Double)].compare(a.bends -> a.nonce, b.bends -> b.nonce)
-  //   else if d < 0 then -1
-  //   else 1
+    given Ordering[DijState] = (a, b) =>
+      val d = (a.dist - b.dist).abs
+      if d < EPS then Ordering[(Int, Double)].compare(a.bends -> a.nonce, b.bends -> b.nonce)
+      else a.dist.compare(b.dist)
 
   def edgeRoutes(obstacles: Obstacles, ports: IndexedSeq[EdgeTerminals]) =
     val (gridGraph, gridLayout) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
-    val gridEdges               = OrthogonalVisibilityGraph.matchPorts(gridLayout, ports) // todo find a better solution
+    val gridEdges               = OrthogonalVisibilityGraph.matchPorts(gridLayout, ports)
+    // val pseudoTerminals = OrthogonalVisibilityGraph.matchPorts(gridLayout, ports).zipWithIndex.flatMap { case (SimpleEdge(u, v), i) =>
+    // IndexedSeq(
+    // Vertex(IndexedSeq(Link(u, 0, -1))) -> SimpleEdge
+    // )
+    // }
 
-    Debugging.debugOVG(obstacles, gridGraph, gridLayout, ports)
+    // maybe augment gird graph with ports?
+
+    // Debugging.debugOVG(obstacles, gridGraph, gridLayout, ports)
     // Debugging.debugConnectivity(gridGraph, gridLayout)
 
     given dc: DijkstraCost[DijState] = (u, v, w, w0) =>
       w0.transitionCost(gridLayout.nodes(u.toInt), gridLayout.nodes(v.toInt), w)
 
     val paths =
-      for ((EdgeTerminals(_, dir, _, _), SimpleEdge(u, v)), i) <- (ports zip gridEdges).zipWithIndex
+      for ((EdgeTerminals(uPos, dir, vPos, _), SimpleEdge(u, v)), i) <- (ports zip gridEdges).zipWithIndex
       yield
         val path = Dijkstra
           .shortestPath(gridGraph, u, v, DijState(0, 0, 0, dir))
           .fold(err => sys.error(s"cannot find shortest paht between $u and $v: $err"), identity)
-        /*
-        val dbg =
-          if path.nodes.size < 2 then path.toString
-          else
-            path.nodes
-              .scanLeft(DijState(0, 0, 0, dir) -> u) { case ((s, u), v) =>
-                s.transitionCost(
-                  gridLayout.nodes(u.toInt),
-                  gridLayout.nodes(v.toInt),
-                  gridGraph.vertices(u.toInt).neighbors.find(_.toNode == v).map(_.weight).get,
-                ) -> v
-              }
-              .map((s, _) => s"|d=${s.dist}, b=${s.bends}, nc=${s.nonce}|")
-              .mkString("[", "->", "]")
 
-        println(s"$i: $dbg")
-         */
+        // val dbg =
+        //   if path.nodes.size < 2 then path.toString
+        //   else
+        //     path.nodes.tail
+        //       .scanLeft(DijState(0, 0, 0, dir) -> u) { case ((s, u), v) =>
+        //         s.transitionCost(
+        //           gridLayout.nodes(u.toInt),
+        //           gridLayout.nodes(v.toInt),
+        //           gridGraph.vertices(u.toInt).neighbors.find(_.toNode == v).map(_.weight).get,
+        //         ) -> v
+        //       }
+        //       .map((s, v) => s"|d=${s.dist}, b=${s.bends}, nc=${s.nonce}, to=$v|")
+        //       .mkString("[", "\n->", "]")
+
+        // println(s"$i: $u@$uPos to $v@$vPos\n$dbg")
+
         path
 
     val edgeRoutes = for (path, terminals) <- paths zip ports yield pathToOrthoSegs(terminals, path, gridLayout)
