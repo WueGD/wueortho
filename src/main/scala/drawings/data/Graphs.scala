@@ -1,5 +1,7 @@
 package drawings.data
 
+import drawings.routing.Routing
+
 trait EdgeWeightedGraph:
   def nodes: Seq[NodeIndex]
   def edges: Seq[Edge]
@@ -65,9 +67,11 @@ case class Obstacles(nodes: IndexedSeq[Rect2D])
 object Obstacles:
   def fromVertexLayout(f: (Vec2D, Int) => Rect2D)(vl: VertexLayout) = Obstacles(vl.nodes.zipWithIndex.map(f.tupled))
 
-case class EdgeRoute(terminals: EdgeTerminals, route: Seq[EdgeRoute.OrthoSegs])
+case class EdgeRoute(terminals: EdgeTerminals, route: Seq[EdgeRoute.OrthoSeg]):
+  assert(route.nonEmpty, "route must not be empty")
+  lazy val normalized = Routing.refineRoute(this)
 
 object EdgeRoute:
-  enum OrthoSegs:
+  enum OrthoSeg:
     case HSeg(dx: Double)
     case VSeg(dy: Double)

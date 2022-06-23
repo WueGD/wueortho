@@ -14,8 +14,8 @@ object GraphDrawing:
 
   def runRandomSample(seed: Long) =
     val rndm = scala.util.Random(seed)
-    val n    = 10
-    val m    = 30
+    val n    = 20
+    val m    = 50
 
     def randomNodePair: (NodeIndex, NodeIndex) =
       val (u, v) = (rndm.nextInt(n), rndm.nextInt(n))

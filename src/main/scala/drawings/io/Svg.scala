@@ -32,7 +32,7 @@ object Svg:
     SvgFrag(Rect2D.boundingBox(points), ports(points))
 
   def drawEdgeRoute(route: EdgeRoute, color: String = "red") =
-    import EdgeRoute.OrthoSegs._
+    import EdgeRoute.OrthoSeg._
     val points = route.route
       .scanLeft(route.terminals.uTerm)((s, seg) =>
         seg match
