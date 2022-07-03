@@ -53,6 +53,13 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   val rectsSvg = Svg.drawRects(OvgSample.rects)
   val ovgSvg   = Svg.drawGraphWithPorts(EdgeWeightedGraph.fromAdjacencyList(adj), lay, OvgSample.ports)
   // println((adj.vertices zip lay.nodes).zipWithIndex.map { case ((nb, p), i) => s"${i}: @${p} ${nb}" }.mkString("\n"))
+
+  val terminals = OrthogonalVisibilityGraph.calcOnlyTerminals(OvgSample.rects, OvgSample.ports)
+  for
+    ((seg, i), (pos, dir)) <-
+      terminals.zipWithIndex zip OvgSample.ports.flatMap(ps => Vector(ps.uTerm -> ps.uDir, ps.vTerm -> ps.vDir))
+  do println(s"$i @ $pos $dir: $seg")
+
   Files.writeString(Paths.get("ovg.svg"), (ovgSvg ++ rectsSvg).svgString)
   Files.writeString(Paths.get("ovg-input.svg"), (rectsSvg ++ Svg.drawPorts(OvgSample.ports)).svgString)
 

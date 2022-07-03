@@ -2,7 +2,7 @@ package drawings.routing
 
 import drawings.data.*
 import scala.util.Random
-import org.w3c.dom.Node
+import scala.Option.when
 
 object OrthogonalVisibilityGraph:
 
@@ -11,15 +11,25 @@ object OrthogonalVisibilityGraph:
   case class VSegment(x: Double, fromY: Double, toY: Double):
     def len = (Vec2D(x, toY) - Vec2D(x, fromY)).len
 
+  enum QueueItem extends Positioned1D:
+    case Start(pos: Double, rect: Rect2D)
+    case Mid(pos: Double, snd: Double, idx: Int)
+    case End(pos: Double, rect: Rect2D)
+
+  object QueueItem:
+    def fromPort(filter: Direction => Boolean, params: Vec2D => (Double, Double))(t: EdgeTerminals, i: Int) =
+      def mkMid(v: Vec2D, i: Int) =
+        val (pos, snd) = params(v)
+        QueueItem.Mid(pos, snd, i)
+      (when(filter(t.uDir))(mkMid(t.uTerm, 2 * i)) :: when(filter(t.vDir))(mkMid(t.vTerm, 2 * i + 1)) :: Nil).flatten
+
+    given Ordering[QueueItem] = Ordering.by((_: QueueItem).pos).orElseBy {
+      case _: QueueItem.Start => 2
+      case _: QueueItem.Mid   => 1
+      case _: QueueItem.End   => 0
+    }
+
   def create(nodes: IndexedSeq[Rect2D], ports: IndexedSeq[EdgeTerminals]) =
-    trait Positioned:
-      def pos: Double
-
-    enum QueueItem extends Positioned:
-      case Start(pos: Double, rect: Rect2D)
-      case Mid(pos: Double, snd: Double)
-      case End(pos: Double, rect: Rect2D)
-
     case class State[S <: HSegment | VSegment](posHP: Set[Double], negHP: Set[Double], segments: List[S])
 
     def calcLimits(state: State[_], high: Double, low: Double) = (
@@ -55,10 +65,10 @@ object OrthogonalVisibilityGraph:
 
     def horizontalSweep =
       val queue = (ports.zipWithIndex.flatMap { (p, i) =>
-        List(QueueItem.Mid(p.uTerm.x1, p.uTerm.x2), QueueItem.Mid(p.vTerm.x1, p.vTerm.x2))
+        QueueItem.fromPort(_.isVertical, v => v.x1 -> v.x2)(p, i)
       } ++ nodes.zipWithIndex.flatMap { (n, i) =>
         List(QueueItem.Start(n.left, n), QueueItem.End(n.right, n))
-      }).sortBy(_.pos)
+      }).sorted
 
       val res = queue.foldLeft(State[VSegment](Set.empty, Set.empty, Nil))((state, item) =>
         item match
@@ -68,7 +78,7 @@ object OrthogonalVisibilityGraph:
               state.negHP + rect.bottom,
               updateVSegments(state, x, rect.top, rect.bottom),
             )
-          case QueueItem.Mid(x, y)      =>
+          case QueueItem.Mid(x, y, _)   =>
             state.copy(segments = updateVSegments(state, x, y, y))
           case QueueItem.End(x, rect)   =>
             State(
@@ -82,10 +92,10 @@ object OrthogonalVisibilityGraph:
 
     def verticalSweep =
       val queue = (ports.zipWithIndex.flatMap { (p, i) =>
-        List(QueueItem.Mid(p.uTerm.x2, p.uTerm.x1), QueueItem.Mid(p.vTerm.x2, p.vTerm.x1))
+        QueueItem.fromPort(_.isHorizontal, v => v.x2 -> v.x1)(p, i)
       } ++ nodes.zipWithIndex.flatMap { (n, i) =>
         List(QueueItem.Start(n.bottom, n), QueueItem.End(n.top, n))
-      }).sortBy(_.pos)
+      }).sorted
 
       val res = queue.foldLeft(State[HSegment](Set.empty, Set.empty, Nil))((state, item) =>
         item match
@@ -95,7 +105,7 @@ object OrthogonalVisibilityGraph:
               state.negHP + rect.left,
               updateHSegments(state, y, rect.left, rect.right),
             )
-          case QueueItem.Mid(y, x)      =>
+          case QueueItem.Mid(y, x, _)   =>
             state.copy(segments = updateHSegments(state, y, x, x))
           case QueueItem.End(y, rect)   =>
             State(
@@ -156,12 +166,55 @@ object OrthogonalVisibilityGraph:
 
     buildGraph
 
-  // fixme: this is n³ :(
+  // fixme: this is n^3 :(
   def matchPorts(layout: VertexLayout, ports: IndexedSeq[EdgeTerminals]) =
     def findP(p: Vec2D) =
       val idx = layout.nodes.indexOf(p)
       assert(idx >= 0, s"could not find node $p in layout")
       NodeIndex(idx)
     ports.map(terms => SimpleEdge(findP(terms.uTerm), findP(terms.vTerm)))
+
+  def calcOnlyTerminals(nodes: IndexedSeq[Rect2D], ports: IndexedSeq[EdgeTerminals]): IndexedSeq[VSegment | HSegment] =
+    case class State[S <: HSegment | VSegment](posHP: Set[Double], negHP: Set[Double], segments: IndexedSeq[Option[S]])
+
+    def calcLimits(state: State[_], high: Double, low: Double) = (
+      state.negHP.filter(_ >= high).minOption.getOrElse(Double.PositiveInfinity),
+      state.posHP.filter(_ <= low).maxOption.getOrElse(Double.NegativeInfinity),
+    )
+
+    def horizontalSweep =
+      val queue = (ports.zipWithIndex.flatMap((p, i) =>
+        QueueItem.fromPort(_.isVertical, v => v.x1 -> v.x2)(p, i),
+      ) ++ nodes.flatMap(n => List(QueueItem.Start(n.left, n), QueueItem.End(n.right, n)))).sorted
+
+      queue.foldLeft(State[VSegment](Set.empty, Set.empty, Vector.fill(ports.length * 2)(None)))((s, item) =>
+        item match
+          case QueueItem.Start(x, rect) => State(s.posHP + rect.top, s.negHP + rect.bottom, s.segments)
+          case QueueItem.End(x, rect)   => State(s.posHP - rect.top, s.negHP - rect.bottom, s.segments)
+          case QueueItem.Mid(x, y, i)   =>
+            val (upper, lower) = calcLimits(s, y, y)
+            s.copy(segments = s.segments.updated(i, Some(VSegment(x, lower, upper)))),
+      )
+
+    def verticalSweep =
+      val queue = (ports.zipWithIndex.flatMap((p, i) =>
+        QueueItem.fromPort(_.isHorizontal, v => v.x2 -> v.x1)(p, i),
+      ) ++ nodes.flatMap(n => List(QueueItem.Start(n.bottom, n), QueueItem.End(n.top, n)))).sorted
+
+      queue.foldLeft(State[HSegment](Set.empty, Set.empty, Vector.fill(ports.length * 2)(None)))((s, item) =>
+        item match
+          case QueueItem.Start(y, rect) => State(s.posHP + rect.right, s.negHP + rect.left, s.segments)
+          case QueueItem.End(y, rect)   => State(s.posHP - rect.right, s.negHP - rect.left, s.segments)
+          case QueueItem.Mid(y, x, i)   =>
+            val (right, left) = calcLimits(s, x, x)
+            s.copy(segments = s.segments.updated(i, Some(HSegment(left, right, y)))),
+      )
+
+    for tmp <- horizontalSweep.segments zip verticalSweep.segments
+    yield tmp match
+      case (Some(vs), None)   => vs
+      case (None, Some(hs))   => hs
+      case (None, None)       => sys.error("could not calculate segment for one or more ports")
+      case (Some(a), Some(b)) => sys.error(s"ambitious segments $a and $b")
 
 end OrthogonalVisibilityGraph
