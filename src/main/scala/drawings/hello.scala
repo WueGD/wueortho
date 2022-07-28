@@ -19,6 +19,9 @@ import drawings.ports.PortHeuristic
 import drawings.routing.Routing
 
 import drawings.util.Debugging._
+import drawings.util.BellmanFord
+import drawings.routing.DifferenceConstraints.Constraint
+import drawings.routing.DifferenceConstraints
 
 val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 
@@ -43,7 +46,14 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 @main def runDijkstra =
   given dc: DijkstraCost[Double] = (_, _, w, w0) => w + w0
 
-  println(Dijkstra.shortestPath(dijkstraExample, NodeIndex(0), NodeIndex(4), 0.0))
+  println(Dijkstra.shortestPath(dijkstraExample.asDiGraph, NodeIndex(0), NodeIndex(4), 0.0))
+
+@main def runBellmanFord =
+  println("Dijkstra Sample:")
+  println(BellmanFord.distances(dijkstraExample.asDiGraph, NodeIndex(0)))
+  println()
+  println("Corman Sample:")
+  println(DifferenceConstraints.solve(constraints))
 
 @main def runOVG: Unit =
   val (adj, lay) = OrthogonalVisibilityGraph.create(OvgSample.rects, OvgSample.ports)
@@ -193,3 +203,15 @@ object OvgSample:
     EdgeTerminals(Vec2D(7, 5), Direction.West, Vec2D(3, 7), Direction.East),
     EdgeTerminals(Vec2D(1, 6), Direction.South, Vec2D(9, 7), Direction.North),
   )
+
+// see Corman et al. Intro to Algorithms, 3rd ed. p. 664--667
+val constraints = Seq(
+  Constraint(0, 1, 0),
+  Constraint(0, 4, -1),
+  Constraint(1, 4, 1),
+  Constraint(2, 0, 5),
+  Constraint(3, 0, 4),
+  Constraint(3, 2, -1),
+  Constraint(4, 2, -3),
+  Constraint(4, 3, -3),
+)

@@ -37,7 +37,7 @@ object Routing:
     val paths =
       for ((EdgeTerminals(uPos, dir, vPos, _), SimpleEdge(u, v)), i) <- (ports zip gridEdges).zipWithIndex
       yield Dijkstra
-        .shortestPath(gridGraph, u, v, DijState(0, 0, 0, dir))
+        .shortestPath(gridGraph.asDiGraph, u, v, DijState(0, 0, 0, dir))
         .fold(err => sys.error(s"cannot find shortest paht between $u and $v: $err"), identity)
 
     val edgeRoutes = for (path, terminals) <- paths zip ports yield pathToOrthoSegs(terminals, path, gridLayout)

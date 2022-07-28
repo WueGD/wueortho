@@ -8,7 +8,7 @@ import drawings.data._
 
 object Dijkstra:
   def shortestPath[C: Ordering: DijkstraCost](
-      graph: AdjacencyList,
+      graph: DiGraph,
       s: NodeIndex,
       t: NodeIndex,
       c0: C,
@@ -26,18 +26,16 @@ object Dijkstra:
 
     while !queue.isEmpty do
       val (pathCost, u) = queue.dequeue
-      // println(s"[DEBUG] retrieve node $u with cost $pathCost")
       if u == t then return bestPath
       else
         dist.get(u) match
           case Some(c) if pathCost > c =>
           case _                       =>
-            for Link(v, w, _) <- graph.vertices(u.toInt).neighbors do
+            for (v, w) <- graph.vertices(u.toInt).neighbors do
               val nc = DijkstraCost(u, v, w, pathCost)
               dist.get(v) match
                 case Some(mem) if nc > mem =>
                 case _                     =>
-                  // println(s"[DEBUG] add node $v with cost $nc")
                   dist += v   -> nc
                   ptrs += v   -> u.toInt
                   queue += nc -> v

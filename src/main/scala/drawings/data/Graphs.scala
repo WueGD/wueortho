@@ -27,7 +27,8 @@ case class Edge(from: NodeIndex, to: NodeIndex, weight: Double)
 case class SimpleEdge(u: NodeIndex, v: NodeIndex):
   def withWeight(w: Double) = Edge(u, v, w)
 
-case class AdjacencyList(vertices: IndexedSeq[Vertex])
+case class AdjacencyList(vertices: IndexedSeq[Vertex]):
+  def asDiGraph: DiGraph = DiGraph(vertices.map(u => DiVertex(u.neighbors map { case Link(v, w, _) => v -> w })))
 
 object AdjacencyList:
   import scala.collection.mutable
@@ -49,6 +50,18 @@ case class Link(toNode: NodeIndex, weight: Double, backIndex: Int):
 case class DiGraph(vertices: IndexedSeq[DiVertex])
 
 case class DiVertex(neighbors: Seq[(NodeIndex, Double)])
+
+object DiGraph:
+  import scala.collection.mutable
+
+  def fromEdgeList(edges: Seq[Edge]) =
+    val g   = EdgeWeightedGraph.fromEdgeList(edges)
+    val lut = g.nodes.map(_ => mutable.ListBuffer.empty[(NodeIndex, Double)]).toIndexedSeq
+    g.edges foreach { case Edge(from, to, weight) =>
+      assert(from != to, s"DiGraph must not have loops (loop at node $to)")
+      lut(from.toInt) += to -> weight
+    }
+    DiGraph(lut.map(adj => DiVertex(adj.toList)))
 
 case class Path(nodes: Seq[NodeIndex])
 

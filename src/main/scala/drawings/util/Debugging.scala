@@ -9,6 +9,8 @@ import java.nio.file.Paths
 object Debugging:
   def rawE(u: Int, v: Int, w: Double) = Edge(NodeIndex(u), NodeIndex(v), w)
 
+  def rawDV(nbrs: (Int, Double)*) = DiVertex(nbrs.map((v, w) => NodeIndex(v) -> w))
+
   def debugFindPorts(layout: VertexLayout, ports: IndexedSeq[EdgeTerminals]) =
     def str(i: NodeIndex) =
       val Vec2D(x, y) = layout.nodes(i.toInt)
