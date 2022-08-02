@@ -54,8 +54,8 @@ object Routing:
 
   private def pathToOrthoSegs(terminals: EdgeTerminals, path: Path, layout: VertexLayout) =
     import drawings.data.EdgeRoute.OrthoSeg.*
-    assert(layout.nodes(path.nodes.head.toInt) == terminals.uTerm, "1st terminal does not math path head")
-    assert(layout.nodes(path.nodes.last.toInt) == terminals.vTerm, "2nd terminal does not math path head")
+    assert(layout.nodes(path.nodes.head.toInt) == terminals.uTerm, "1st terminal does not match path head")
+    assert(layout.nodes(path.nodes.last.toInt) == terminals.vTerm, "2nd terminal does not match path head")
     val route = for Seq(u, v) <- path.nodes.sliding(2) yield
       val (uPos, vPos) = (layout.nodes(u.toInt), layout.nodes(v.toInt))
       if uPos.x1 == vPos.x1 then VSeg(vPos.x2 - uPos.x2)
