@@ -3,18 +3,244 @@ package drawings.routing
 import drawings.data.*
 import scala.util.Random
 import scala.Option.when
+import scala.collection.mutable
 
 object OrthogonalVisibilityGraph:
 
-  case class HSegment(fromX: Double, toX: Double, y: Double):
-    def len = (Vec2D(toX, y) - Vec2D(fromX, y)).len
-  case class VSegment(x: Double, fromY: Double, toY: Double):
-    def len = (Vec2D(x, toY) - Vec2D(x, fromY)).len
+  def create(
+      rects: IndexedSeq[Rect2D],
+      ports: IndexedSeq[EdgeTerminals],
+  ): (AdjacencyList, VertexLayout, IndexedSeq[SimpleEdge], IndexedSeq[OVGNode]) =
+    val (hSegs, vSegs) = buildSegments(rects, ports)
+    val (ovg, layout)  = buildGraph(hSegs, vSegs, rects, ports)
+    val adj            = adjacencies(ovg, ports)
+    val edges          = ((0 until 2 * ports.size by 2) zip (1 until 2 * ports.size by 2)).map((u, v) =>
+      SimpleEdge(NodeIndex(u), NodeIndex(v)),
+    )
+    (adj, layout, edges, ovg)
+
+  def buildSegments(nodes: IndexedSeq[Rect2D], ports: IndexedSeq[EdgeTerminals]) =
+    import QueueItem.*
+
+    case class State[S <: HSegment | VSegment](posHP: Set[Double], negHP: Set[Double], segments: List[S])
+
+    def nextNHP(s: State[_], start: Double) = s.negHP.filter(_ >= start).minOption.getOrElse(Double.PositiveInfinity)
+    def nextPHP(s: State[_], start: Double) = s.posHP.filter(_ <= start).maxOption.getOrElse(Double.NegativeInfinity)
+
+    val hSegs =
+      val queue = (nodes.zipWithIndex.flatMap((rect, i) => List(Start(rect.bottom, rect, i), End(rect.top, rect, i)))
+        ++ (ports.zipWithIndex flatMap QueueItem.fromPort(_.isHorizontal, v => v.x2 -> v.x1))).sorted
+
+      def mkObsSeg(state: State[HSegment], rect: Rect2D, y: Double, origin: Origin) =
+        HSegment(nextPHP(state, rect.left), nextNHP(state, rect.right), y, origin)
+
+      def mkPortSeg(state: State[HSegment], id: Int, x: Double, y: Double) =
+        val (term, dir) =
+          val tmp = ports(id / 2)
+          if id % 2 == 0 then tmp.uTerm -> tmp.uDir else tmp.vTerm -> tmp.vDir
+        dir match
+          case Direction.East => HSegment(x, nextNHP(state, x), y, Origin.Port(id))
+          case Direction.West => HSegment(nextPHP(state, x), x, y, Origin.Port(id))
+          case _              => sys.error(s"cannot build a horizontal segment for port with direction $dir")
+
+      queue
+        .foldLeft(State[HSegment](Set.empty, Set.empty, Nil))((s, item) =>
+          item match
+            case Start(y, rect, idx) =>
+              val orig = Origin.Obstacle(Direction.South, idx)
+              State(s.posHP + rect.right, s.negHP + rect.left, mkObsSeg(s, rect, rect.bottom, orig) :: s.segments)
+            case End(y, rect, idx)   =>
+              val orig = Origin.Obstacle(Direction.North, idx)
+              State(s.posHP - rect.right, s.negHP - rect.left, mkObsSeg(s, rect, rect.top, orig) :: s.segments)
+            case Mid(y, x, idx)      => s.copy(segments = mkPortSeg(s, idx, x, y) :: s.segments),
+        )
+        .segments
+
+    val vSegs =
+      val queue = (nodes.zipWithIndex.flatMap((rect, i) => List(Start(rect.left, rect, i), End(rect.right, rect, i)))
+        ++ (ports.zipWithIndex flatMap QueueItem.fromPort(_.isVertical, v => v.x1 -> v.x2))).sorted
+
+      def mkObsSeg(state: State[VSegment], rect: Rect2D, x: Double, origin: Origin.Obstacle) =
+        VSegment(x, nextPHP(state, rect.bottom), nextNHP(state, rect.top), origin)
+
+      def mkPortSeg(state: State[VSegment], id: Int, x: Double, y: Double) =
+        val (term, dir) =
+          val tmp = ports(id / 2)
+          if id % 2 == 0 then tmp.uTerm -> tmp.uDir else tmp.vTerm -> tmp.vDir
+        dir match
+          case Direction.North => VSegment(x, y, nextNHP(state, y), Origin.Port(id))
+          case Direction.South => VSegment(x, nextPHP(state, y), y, Origin.Port(id))
+          case _               => sys.error(s"cannot build a vertical segment for port with direction $dir")
+
+      queue
+        .foldLeft(State[VSegment](Set.empty, Set.empty, Nil))((s, item) =>
+          item match
+            case Start(x, rect, idx) =>
+              val orig: Origin.Obstacle = Origin.Obstacle(Direction.West, idx)
+              State(s.posHP + rect.top, s.negHP + rect.bottom, mkObsSeg(s, rect, rect.left, orig) :: s.segments)
+            case End(x, rect, idx)   =>
+              val orig: Origin.Obstacle = Origin.Obstacle(Direction.East, idx)
+              State(s.posHP - rect.top, s.negHP - rect.bottom, mkObsSeg(s, rect, rect.right, orig) :: s.segments)
+            case Mid(x, y, idx)      => s.copy(segments = mkPortSeg(s, idx, x, y) :: s.segments),
+        )
+        .segments
+
+    hSegs -> vSegs
+  end buildSegments
+
+  def buildGraph(
+      horizontal: List[HSegment],
+      vertical: List[VSegment],
+      rects: IndexedSeq[Rect2D],
+      ports: IndexedSeq[EdgeTerminals],
+  ) =
+    def intersect(h: HSegment, v: VSegment) =
+      Option.unless(h.y < v.fromY || h.y > v.toY || v.x < h.fromX || v.x > h.toX)(Vec2D(v.x, h.y))
+
+    def isPort(id: Int)(x: Double, y: Double, dir: Direction) =
+      val edge = ports(id / 2)
+      if id % 2 == 0 then edge.uTerm.x1 == x && edge.uTerm.x2 == y && edge.uDir == dir
+      else edge.vTerm.x1 == x && edge.vTerm.x2 == y && edge.vDir == dir
+
+    def isObstacleBorder(id: Int)(crossing: Vec2D, dir: Direction) =
+      val (r, Vec2D(x, y)) = rects(id) -> crossing
+      dir match
+        case Direction.West  => x == r.left && y < r.top && y > r.bottom
+        case Direction.North => y == r.top && x < r.right && x > r.left
+        case Direction.East  => x == r.right && y < r.top && y > r.bottom
+        case Direction.South => y == r.bottom && x < r.right && x > r.left
+
+    import scala.collection.mutable
+
+    val rand      = Random(0x99c0ffee)
+    val nodes     = mutable.ArrayBuffer.empty[PartialOVGNode]
+    val positions = mutable.ArrayBuffer.empty[Vec2D]
+
+    // horizontal sweepline -- bottom to top
+
+    val vSegs     = vertical.sortBy(seg => seg.x -> seg.fromY).toIndexedSeq
+    val hSegs     = horizontal.sortBy(seg => seg.y -> seg.fromX).toIndexedSeq
+    val vPreNodes = mutable.ArrayBuffer.fill(vSegs.length)(-1)
+    val hPreNodes = mutable.ArrayBuffer.fill(hSegs.length)(-1)
+
+    for
+      vi       <- 0 until vSegs.length
+      hi       <- 0 until hSegs.length
+      crossing <- intersect(hSegs(hi), vSegs(vi))
+    do
+      positions += crossing
+      val i = nodes.length
+
+      val bottom =
+        val bi = vPreNodes(vi)
+        if bi == -1 then // there is no bottom node
+          vSegs(vi) -> hSegs(hi) match
+            case (VSegment(_, fromY, _, _), _) if fromY.isInfinite                            => NavigableLink.EndOfWorld
+            case (VSegment(x, y, _, Origin.Port(id)), _) if isPort(id)(x, y, Direction.North) => NavigableLink.Port(id)
+            case (_, HSegment(_, _, _, Origin.Obstacle(Direction.North, id)))
+                if isObstacleBorder(id)(crossing, Direction.North) =>
+              NavigableLink.Obstacle(id)
+            case (vs, hs)                                                                     => sys.error(s"Cannot create bottom link for $vs x $hs")
+        else
+          nodes(bi) = nodes(bi).withTop(NavigableLink.Node(NodeIndex(i)))
+          NavigableLink.Node(NodeIndex(bi))
+      vPreNodes(vi) = i
+
+      val left =
+        val li = hPreNodes(hi)
+        if li == -1 then // there is no left node
+          hSegs(hi) -> vSegs(vi) match
+            case (HSegment(fromX, _, _, _), _) if fromX.isInfinite                           => NavigableLink.EndOfWorld
+            case (HSegment(x, _, y, Origin.Port(id)), _) if isPort(id)(x, y, Direction.East) => NavigableLink.Port(id)
+            case (_, VSegment(_, _, _, Origin.Obstacle(Direction.East, id)))
+                if isObstacleBorder(id)(crossing, Direction.East) =>
+              NavigableLink.Obstacle(id)
+            case (hs, vs)                                                                    => sys.error(s"Cannot create left link for $vs x $hs")
+        else
+          nodes(li) = nodes(li).withRight(NavigableLink.Node(NodeIndex(i)))
+          NavigableLink.Node(NodeIndex(li))
+      hPreNodes(hi) = i
+
+      nodes += PartialOVGNode.Init(left, bottom, vi, hi)
+    end for
+
+    def mkTop(vi: Int, hi: Int) = // a node has no top node iff it is the topmost node in its channel
+      vSegs(vi) -> hSegs(hi) match
+        case (VSegment(_, _, toY, _), _) if toY.isInfinite                                => NavigableLink.EndOfWorld
+        case (VSegment(x, _, y, Origin.Port(id)), _) if isPort(id)(x, y, Direction.South) => NavigableLink.Port(id)
+        case (vs, hs @ HSegment(_, _, _, Origin.Obstacle(Direction.South, id)))
+            if isObstacleBorder(id)(intersect(hs, vs).get, Direction.South) =>
+          NavigableLink.Obstacle(id)
+        case (vs, hs)                                                                     => sys.error(s"Cannot create right link for node at $hs x $vs.")
+
+    def mkRight(vi: Int, hi: Int) = // a node has no right node iff it is the rightmost node in its channel
+      hSegs(hi) -> vSegs(vi) match
+        case (HSegment(_, toX, _, _), _) if toX.isInfinite                               => NavigableLink.EndOfWorld
+        case (HSegment(_, x, y, Origin.Port(id)), _) if isPort(id)(x, y, Direction.West) => NavigableLink.Port(id)
+        case (hs, vs @ VSegment(_, _, _, Origin.Obstacle(Direction.West, id)))
+            if isObstacleBorder(id)(intersect(hs, vs).get, Direction.West) =>
+          NavigableLink.Obstacle(id)
+        case (hs, vs)                                                                    => sys.error(s"Cannot create right link for node at $hs x $vs.")
+
+    val finalNodes = nodes.map {
+      case PartialOVGNode.Ready(res)                             => res
+      case PartialOVGNode.WithTop(left, bottom, top, vi, hi)     => OVGNode(left, top, mkRight(vi, hi), bottom)
+      case PartialOVGNode.WithRight(left, bottom, right, vi, hi) => OVGNode(left, mkTop(vi, hi), right, bottom)
+      case PartialOVGNode.Init(left, bottom, vi, hi)             => OVGNode(left, mkTop(vi, hi), mkRight(vi, hi), bottom)
+    }
+
+    // println(finalNodes.zipWithIndex.zip(positions).map { case ((n, i), p) => s"$i: $n @$p" }.mkString("\n"))
+
+    val layout = VertexLayout((ports.flatMap(t => List(t.uTerm, t.vTerm)) ++ positions).toIndexedSeq)
+
+    (finalNodes.toIndexedSeq, layout)
+  end buildGraph
+
+  // def matchPorts(ovg: IndexedSeq[OVGNode], ports: IndexedSeq[EdgeTerminals]) =
+  //   val tmp = mutable.ArrayBuffer.fill(2 * ports.size)(-1)
+  //   for (node, i) <- ovg.zipWithIndex do
+  //     node.allLinks foreach {
+  //       case NavigableLink.Port(idx) => tmp(idx) = i
+  //       case _                       =>
+  //     }
+  //   ports.zipWithIndex.map((terms, i) => SimpleEdge(NodeIndex(tmp(2 * i)), NodeIndex(tmp(2 * i + 1))))
+
+  def adjacencies(ovg: IndexedSeq[OVGNode], ports: IndexedSeq[EdgeTerminals]) =
+    val rand       = Random(0x99c0ffee)
+    val nodeOffset = 2 * ports.size
+    val vertices   = mutable.ArrayBuffer.fill(nodeOffset + ovg.size)(Vertex(IndexedSeq.empty))
+    for
+      (node, i) <- ovg.zipWithIndex
+      link      <- node.allLinks
+    do
+      link match
+        case NavigableLink.Node(idx) if idx.toInt < i =>
+          val (u, v) = vertices(i + nodeOffset) -> vertices(idx.toInt + nodeOffset)
+          vertices(i + nodeOffset) = Vertex(
+            u.neighbors :+ Link(NodeIndex(idx.toInt + nodeOffset), rand.nextDouble, v.neighbors.size),
+          )
+          vertices(idx.toInt + nodeOffset) = Vertex(
+            v.neighbors :+ Link(NodeIndex(i + nodeOffset), rand.nextDouble, u.neighbors.size),
+          )
+        case NavigableLink.Port(idx)                  =>
+          val (u, v) = vertices(i + nodeOffset) -> vertices(idx.toInt)
+          vertices(i + nodeOffset) = Vertex(u.neighbors :+ Link(NodeIndex(idx), rand.nextDouble, v.neighbors.size))
+          vertices(idx) = Vertex(v.neighbors :+ Link(NodeIndex(i + nodeOffset), rand.nextDouble, u.neighbors.size))
+        case _                                        =>
+    end for
+    AdjacencyList(vertices.toIndexedSeq)
+
+  case class HSegment(fromX: Double, toX: Double, y: Double, origin: Origin)
+  case class VSegment(x: Double, fromY: Double, toY: Double, origin: Origin)
+
+  enum Origin:
+    case Port(id: Int)
+    case Obstacle(dir: Direction, id: Int)
 
   enum QueueItem extends Positioned1D:
-    case Start(pos: Double, rect: Rect2D)
+    case Start(pos: Double, rect: Rect2D, idx: Int)
     case Mid(pos: Double, snd: Double, idx: Int)
-    case End(pos: Double, rect: Rect2D)
+    case End(pos: Double, rect: Rect2D, idx: Int)
 
   object QueueItem:
     def fromPort(filter: Direction => Boolean, params: Vec2D => (Double, Double))(t: EdgeTerminals, i: Int) =
@@ -29,192 +255,29 @@ object OrthogonalVisibilityGraph:
       case _: QueueItem.End   => 0
     }
 
-  def create(nodes: IndexedSeq[Rect2D], ports: IndexedSeq[EdgeTerminals]) =
-    case class State[S <: HSegment | VSegment](posHP: Set[Double], negHP: Set[Double], segments: List[S])
+  enum NavigableLink:
+    case EndOfWorld
+    case Node(idx: NodeIndex)
+    case Obstacle(idx: Int) // index of the rect array
+    case Port(idx: Int) // ports(x).u = 2 * x, ports(x).v = 2 * x + 1
 
-    def calcLimits(state: State[_], high: Double, low: Double) = (
-      state.negHP.filter(_ >= high).minOption.getOrElse(Double.PositiveInfinity),
-      state.posHP.filter(_ <= low).maxOption.getOrElse(Double.NegativeInfinity),
-    )
+  case class OVGNode(left: NavigableLink, top: NavigableLink, right: NavigableLink, bottom: NavigableLink):
+    def allLinks = List(left, top, right, bottom)
 
-    def joinVSegments(v1: VSegment, v2: VSegment) = Option.unless(
-      v1.x != v2.x || v1.toY < v2.fromY || v1.fromY > v2.toY,
-    )(VSegment(v1.x, v1.fromY min v2.fromY, v1.toY max v2.toY))
+  enum PartialOVGNode:
+    case Init(left: NavigableLink, bottom: NavigableLink, vi: Int, hi: Int)
+    case WithTop(left: NavigableLink, bottom: NavigableLink, top: NavigableLink, vi: Int, hi: Int)
+    case WithRight(left: NavigableLink, bottom: NavigableLink, right: NavigableLink, vi: Int, hi: Int)
+    case Ready(node: OVGNode)
 
-    def joinHSegments(h1: HSegment, h2: HSegment) = Option.unless(
-      h1.y != h2.y || h1.toX < h2.fromX || h1.fromX > h2.toX,
-    )(HSegment(h1.fromX min h2.fromX, h1.toX max h2.toX, h1.y))
+    def withTop(top: NavigableLink): PartialOVGNode = this match
+      case Init(left, bottom, vi, hi)             => WithTop(left, bottom, top, vi, hi)
+      case WithRight(left, bottom, right, vi, hi) => Ready(OVGNode(left, top, right, bottom))
+      case _: WithTop | _: Ready                  => sys.error(s"Cannot add bootom part to $this")
 
-    def joinConsecutive[S](join: (S, S) => Option[S], pos: S => Double)(segments: List[S], segment: S): List[S] =
-      segments match
-        case Nil    => segment :: Nil
-        case h :: t =>
-          if pos(h) != pos(segment) then segment :: segments
-          else
-            join(h, segment) match
-              case None         => h :: joinConsecutive(join, pos)(t, segment)
-              case Some(joined) => joined :: t
-
-    def updateVSegments(state: State[VSegment], x: Double, top: Double, bottom: Double) =
-      val (upperLimit, lowerLimit) = calcLimits(state, top, bottom)
-      joinConsecutive(joinVSegments, _.x)(state.segments, VSegment(x, lowerLimit, upperLimit))
-
-    def updateHSegments(state: State[HSegment], y: Double, left: Double, right: Double) =
-      val (rightLimit, leftLimit) = calcLimits(state, right, left)
-      joinConsecutive(joinHSegments, _.y)(state.segments, HSegment(leftLimit, rightLimit, y))
-
-    def horizontalSweep =
-      val queue = (ports.zipWithIndex.flatMap { (p, i) =>
-        QueueItem.fromPort(_.isVertical, v => v.x1 -> v.x2)(p, i)
-      } ++ nodes.zipWithIndex.flatMap { (n, i) =>
-        List(QueueItem.Start(n.left, n), QueueItem.End(n.right, n))
-      }).sorted
-
-      val res = queue.foldLeft(State[VSegment](Set.empty, Set.empty, Nil))((state, item) =>
-        item match
-          case QueueItem.Start(x, rect) =>
-            State(
-              state.posHP + rect.top,
-              state.negHP + rect.bottom,
-              updateVSegments(state, x, rect.top, rect.bottom),
-            )
-          case QueueItem.Mid(x, y, _)   =>
-            state.copy(segments = updateVSegments(state, x, y, y))
-          case QueueItem.End(x, rect)   =>
-            State(
-              state.posHP - rect.top,
-              state.negHP - rect.bottom,
-              updateVSegments(state, x, rect.top, rect.bottom),
-            ),
-      )
-      res.segments
-    end horizontalSweep
-
-    def verticalSweep =
-      val queue = (ports.zipWithIndex.flatMap { (p, i) =>
-        QueueItem.fromPort(_.isHorizontal, v => v.x2 -> v.x1)(p, i)
-      } ++ nodes.zipWithIndex.flatMap { (n, i) =>
-        List(QueueItem.Start(n.bottom, n), QueueItem.End(n.top, n))
-      }).sorted
-
-      val res = queue.foldLeft(State[HSegment](Set.empty, Set.empty, Nil))((state, item) =>
-        item match
-          case QueueItem.Start(y, rect) =>
-            State(
-              state.posHP + rect.right,
-              state.negHP + rect.left,
-              updateHSegments(state, y, rect.left, rect.right),
-            )
-          case QueueItem.Mid(y, x, _)   =>
-            state.copy(segments = updateHSegments(state, y, x, x))
-          case QueueItem.End(y, rect)   =>
-            State(
-              state.posHP - rect.right,
-              state.negHP - rect.left,
-              updateHSegments(state, y, rect.left, rect.right),
-            ),
-      )
-      res.segments
-    end verticalSweep
-
-    def buildGraph =
-      def intersect(h: HSegment, v: VSegment) =
-        Option.unless(h.y < v.fromY || h.y > v.toY || v.x < h.fromX || v.x > h.toX)(Vec2D(v.x, h.y))
-
-      import scala.collection.mutable
-
-      val rand      = Random(0x99c0ffee)
-      val nodes     = mutable.ArrayBuffer.empty[Vertex]
-      val positions = mutable.ArrayBuffer.empty[Vec2D]
-
-      // horizontal sweepline
-
-      val vSegs     = horizontalSweep.sortBy(seg => seg.x -> seg.fromY)
-      val hSegs     = verticalSweep.sortBy(_.y)
-      val vPreNodes = mutable.ArrayBuffer.fill(vSegs.length)(-1)
-      val hPreNodes = mutable.ArrayBuffer.fill(hSegs.length)(-1)
-
-      for
-        vi       <- 0 until vSegs.length
-        hi       <- 0 until hSegs.length
-        crossing <- intersect(hSegs(hi), vSegs(vi))
-      do
-        positions += crossing
-        val i = nodes.length
-
-        val top =
-          val ti = vPreNodes(vi)
-          if ti == -1 then None
-          else
-            nodes(ti) = nodes(ti).copy(nodes(ti).neighbors :+ Link(NodeIndex(i), rand.nextDouble, 0))
-            Some(NodeIndex(ti) -> (nodes(ti).neighbors.size - 1))
-        vPreNodes(vi) = i
-
-        val left =
-          val li = hPreNodes(hi)
-          if li == -1 then None
-          else
-            nodes(li) = nodes(li).copy(nodes(li).neighbors :+ Link(NodeIndex(i), rand.nextDouble, top.size))
-            Some(NodeIndex(li) -> (nodes(li).neighbors.size - 1))
-        hPreNodes(hi) = i
-
-        nodes += Vertex((top ++ left).map((ni, bi) => Link(ni, rand.nextDouble, bi)).toIndexedSeq)
-      end for
-
-      AdjacencyList(nodes.toIndexedSeq) -> VertexLayout(positions.toIndexedSeq)
-    end buildGraph
-
-    buildGraph
-
-  // fixme: this is n^3 :(
-  def matchPorts(layout: VertexLayout, ports: IndexedSeq[EdgeTerminals]) =
-    def findP(p: Vec2D) =
-      val idx = layout.nodes.indexOf(p)
-      assert(idx >= 0, s"could not find node $p in layout")
-      NodeIndex(idx)
-    ports.map(terms => SimpleEdge(findP(terms.uTerm), findP(terms.vTerm)))
-
-  def calcOnlyTerminals(nodes: IndexedSeq[Rect2D], ports: IndexedSeq[EdgeTerminals]): IndexedSeq[VSegment | HSegment] =
-    case class State[S <: HSegment | VSegment](posHP: Set[Double], negHP: Set[Double], segments: IndexedSeq[Option[S]])
-
-    def calcLimits(state: State[_], high: Double, low: Double) = (
-      state.negHP.filter(_ >= high).minOption.getOrElse(Double.PositiveInfinity),
-      state.posHP.filter(_ <= low).maxOption.getOrElse(Double.NegativeInfinity),
-    )
-
-    def horizontalSweep =
-      val queue = (ports.zipWithIndex.flatMap((p, i) =>
-        QueueItem.fromPort(_.isVertical, v => v.x1 -> v.x2)(p, i),
-      ) ++ nodes.flatMap(n => List(QueueItem.Start(n.left, n), QueueItem.End(n.right, n)))).sorted
-
-      queue.foldLeft(State[VSegment](Set.empty, Set.empty, Vector.fill(ports.length * 2)(None)))((s, item) =>
-        item match
-          case QueueItem.Start(x, rect) => State(s.posHP + rect.top, s.negHP + rect.bottom, s.segments)
-          case QueueItem.End(x, rect)   => State(s.posHP - rect.top, s.negHP - rect.bottom, s.segments)
-          case QueueItem.Mid(x, y, i)   =>
-            val (upper, lower) = calcLimits(s, y, y)
-            s.copy(segments = s.segments.updated(i, Some(VSegment(x, lower, upper)))),
-      )
-
-    def verticalSweep =
-      val queue = (ports.zipWithIndex.flatMap((p, i) =>
-        QueueItem.fromPort(_.isHorizontal, v => v.x2 -> v.x1)(p, i),
-      ) ++ nodes.flatMap(n => List(QueueItem.Start(n.bottom, n), QueueItem.End(n.top, n)))).sorted
-
-      queue.foldLeft(State[HSegment](Set.empty, Set.empty, Vector.fill(ports.length * 2)(None)))((s, item) =>
-        item match
-          case QueueItem.Start(y, rect) => State(s.posHP + rect.right, s.negHP + rect.left, s.segments)
-          case QueueItem.End(y, rect)   => State(s.posHP - rect.right, s.negHP - rect.left, s.segments)
-          case QueueItem.Mid(y, x, i)   =>
-            val (right, left) = calcLimits(s, x, x)
-            s.copy(segments = s.segments.updated(i, Some(HSegment(left, right, y)))),
-      )
-
-    for tmp <- horizontalSweep.segments zip verticalSweep.segments
-    yield tmp match
-      case (Some(vs), None)   => vs
-      case (None, Some(hs))   => hs
-      case (None, None)       => sys.error("could not calculate segment for one or more ports")
-      case (Some(a), Some(b)) => sys.error(s"ambitious segments $a and $b")
+    def withRight(right: NavigableLink): PartialOVGNode = this match
+      case Init(left, top, vi, hi)            => WithRight(left, top, right, vi, hi)
+      case WithTop(left, bottom, top, vi, hi) => Ready(OVGNode(left, top, right, bottom))
+      case _: WithRight | _: Ready            => sys.error(s"cannot add right part to $this")
 
 end OrthogonalVisibilityGraph

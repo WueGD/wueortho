@@ -33,7 +33,7 @@ object GraphDrawing:
       Nachmanson
         .align(layout.nodes.map(Rect2D(_, Vec2D(3.0, 2.0))))
         .map(_.copy(span = Vec2D(2.0, 1.0))),
-    )
+    ).forceGeneralPosition(rndm)
 
     val ports = PortHeuristic.makePorts(obstacles, AdjacencyList.fromEWG(graph))
 

@@ -25,8 +25,7 @@ object Routing:
       else a.dist.compare(b.dist)
 
   def edgeRoutes(obstacles: Obstacles, ports: IndexedSeq[EdgeTerminals]) =
-    val (gridGraph, gridLayout) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
-    val gridEdges               = OrthogonalVisibilityGraph.matchPorts(gridLayout, ports)
+    val (gridGraph, gridLayout, gridEdges, _) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
 
     // Debugging.debugOVG(obstacles, gridGraph, gridLayout, ports)
     // Debugging.debugConnectivity(gridGraph, gridLayout)

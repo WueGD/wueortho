@@ -1,6 +1,7 @@
 package drawings.data
 
 import drawings.routing.Routing
+import scala.util.Random
 
 trait EdgeWeightedGraph:
   def nodes: Seq[NodeIndex]
@@ -75,7 +76,9 @@ case class VertexLayout(nodes: IndexedSeq[Vec2D]):
 case class PortLayout(ports: IndexedSeq[(Vec2D, Direction)]):
   def toVertexLayout = VertexLayout(ports.map(_._1))
 
-case class Obstacles(nodes: IndexedSeq[Rect2D])
+case class Obstacles(nodes: IndexedSeq[Rect2D]):
+  def forceGeneralPosition(rnd: Random) =
+    Obstacles(nodes.map(r => r.copy(center = r.center + Vec2D(rnd.nextGaussian, rnd.nextGaussian).scale(1e-8))))
 
 object Obstacles:
   def fromVertexLayout(f: (Vec2D, Int) => Rect2D)(vl: VertexLayout) = Obstacles(vl.nodes.zipWithIndex.map(f.tupled))
