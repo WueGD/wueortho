@@ -6,6 +6,8 @@ import drawings.util.Dijkstra
 import drawings.util.Debugging
 import drawings.data.EdgeRoute.OrthoSeg
 import scala.annotation.nowarn
+import drawings.data.Link.apply
+import drawings.routing.OrthogonalVisibilityGraph.NavigableLink
 
 object Routing:
   import scala.collection.mutable
@@ -13,10 +15,9 @@ object Routing:
   val EPS = 1e-8
 
   case class DijState(dist: Double, bends: Int, nonce: Double, dir: Direction):
-    def transitionCost(from: Vec2D, to: Vec2D, nonce: Double) =
-      val vec   = to - from
-      val bends = Direction.numberOfBends(dir, vec.mainDirection)
-      DijState(dist + vec.len, this.bends + bends, this.nonce + nonce, vec.mainDirection)
+    def transitionCost(t: DijTrans) =
+      val bends = Direction.numberOfBends(dir, t.dir)
+      DijState(dist + t.dist, this.bends + bends, this.nonce + nonce, t.dir)
 
   object DijState:
     given Ordering[DijState] = (a, b) =>
@@ -24,19 +25,42 @@ object Routing:
       if d < EPS then Ordering[(Int, Double)].compare(a.bends -> a.nonce, b.bends -> b.nonce)
       else a.dist.compare(b.dist)
 
+  case class DijTrans(dir: Direction, dist: Double)
+
   def edgeRoutes(obstacles: Obstacles, ports: IndexedSeq[EdgeTerminals]) =
-    val (gridGraph, gridLayout, gridEdges, _) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
+    val (gridGraph, gridLayout, gridEdges, ovg) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
 
     // Debugging.debugOVG(obstacles, gridGraph, gridLayout, ports)
     // Debugging.debugConnectivity(gridGraph, gridLayout)
 
-    given dc: DijkstraCost[DijState] = (u, v, w, w0) =>
-      w0.transitionCost(gridLayout.nodes(u.toInt), gridLayout.nodes(v.toInt), w)
+    def isNeighbor(uPos: Vec2D, link: NavigableLink) = link match
+      case NavigableLink.EndOfWorld  => None
+      case NavigableLink.Obstacle(_) => None
+      case NavigableLink.Node(idx)   => Some(idx -> (gridLayout.nodes(idx.toInt) - uPos).len)
+      case NavigableLink.Port(idx)   => Some(NodeIndex(ovg.nodes.length + idx) -> 0.0)
+
+    def neighbors(u: NodeIndex) = if u.toInt >= ovg.nodes.length then
+      val Seq(Link(v, w, _)) = gridGraph.vertices(u.toInt).neighbors
+      val portDir            =
+        val i = u.toInt - ovg.nodes.length
+        if i % 2 == 0 then ports(i / 2).uDir
+        else ports(i / 2).vDir
+      List(v -> DijTrans(portDir, 0.0))
+    else
+      val (node, pos) = ovg.nodes(u.toInt) -> gridLayout.nodes(u.toInt)
+      List(
+        isNeighbor(pos, node.left).map(_   -> DijTrans(Direction.West, _)),
+        isNeighbor(pos, node.top).map(_    -> DijTrans(Direction.North, _)),
+        isNeighbor(pos, node.right).map(_  -> DijTrans(Direction.East, _)),
+        isNeighbor(pos, node.bottom).map(_ -> DijTrans(Direction.South, _)),
+      ).flatten
+
+    given dc: DijkstraCost[DijState, DijTrans] = (t, s0) => s0.transitionCost(t)
 
     val paths =
       for ((EdgeTerminals(uPos, dir, vPos, _), SimpleEdge(u, v)), i) <- (ports zip gridEdges).zipWithIndex
       yield Dijkstra
-        .shortestPath(gridGraph.asDiGraph, u, v, DijState(0, 0, 0, dir))
+        .shortestPath(neighbors, u, v, DijState(0, 0, 0, dir))
         .fold(err => sys.error(s"cannot find shortest paht between $u and $v: $err"), identity)
 
     val edgeRoutes = for (path, terminals) <- paths zip ports yield pathToOrthoSegs(terminals, path, gridLayout)

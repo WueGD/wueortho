@@ -44,9 +44,10 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   println(layout)
 
 @main def runDijkstra =
-  given dc: DijkstraCost[Double] = (_, _, w, w0) => w + w0
+  given dc: DijkstraCost[Double, Double] = _ + _
 
-  println(Dijkstra.shortestPath(dijkstraExample.asDiGraph, NodeIndex(0), NodeIndex(4), 0.0))
+  val graph = dijkstraExample.asDiGraph
+  println(Dijkstra.shortestPath(i => graph.vertices(i.toInt).neighbors, NodeIndex(0), NodeIndex(4), 0.0))
 
 @main def runBellmanFord =
   println("Dijkstra Sample:")

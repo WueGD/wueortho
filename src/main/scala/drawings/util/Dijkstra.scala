@@ -7,12 +7,12 @@ import scala.annotation.tailrec
 import drawings.data._
 
 object Dijkstra:
-  def shortestPath[C: Ordering: DijkstraCost](
-      graph: DiGraph,
+  def shortestPath[C: Ordering, T](
+      neighbors: NodeIndex => Seq[(NodeIndex, T)],
       s: NodeIndex,
       t: NodeIndex,
       c0: C,
-  ): Either[DijkstraError, Path] =
+  )(using DijkstraCost[C, T]): Either[DijkstraError, Path] =
     val dist  = mutable.Map(s -> c0)
     val ptrs  = mutable.Map(s -> -1)
     val queue = mutable.PriorityQueue(c0 -> s)(implicitly[Ordering[(C, NodeIndex)]].reverse)
@@ -31,8 +31,8 @@ object Dijkstra:
         dist.get(u) match
           case Some(c) if pathCost > c =>
           case _                       =>
-            for (v, w) <- graph.vertices(u.toInt).neighbors do
-              val nc = DijkstraCost(u, v, w, pathCost)
+            for (v, w) <- neighbors(u) do
+              val nc = DijkstraCost(w, pathCost)
               dist.get(v) match
                 case Some(mem) if nc > mem =>
                 case _                     =>
@@ -49,9 +49,8 @@ object Dijkstra:
     case NoShortestPath
     case LostTrack(after: NodeIndex)
 
-  trait DijkstraCost[T]:
-    def cost(u: NodeIndex, v: NodeIndex, w: Double, t0: T): T
+  trait DijkstraCost[C, T]:
+    def calc(t: T, c0: C): C
 
   object DijkstraCost:
-    def apply[T: DijkstraCost](u: NodeIndex, v: NodeIndex, w: Double, t0: T) =
-      implicitly[DijkstraCost[T]].cost(u, v, w, t0)
+    def apply[C, T](t: T, c0: C)(using dc: DijkstraCost[C, T]): C = dc.calc(t, c0)

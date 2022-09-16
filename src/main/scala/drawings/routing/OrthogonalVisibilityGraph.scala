@@ -5,17 +5,20 @@ import scala.util.Random
 import scala.Option.when
 import scala.collection.mutable
 
+case class OVG(nodes: IndexedSeq[OrthogonalVisibilityGraph.OVGNode])
+
 object OrthogonalVisibilityGraph:
 
   def create(
       rects: IndexedSeq[Rect2D],
       ports: IndexedSeq[EdgeTerminals],
-  ): (AdjacencyList, VertexLayout, IndexedSeq[SimpleEdge], IndexedSeq[OVGNode]) =
+  ): (AdjacencyList, VertexLayout, IndexedSeq[SimpleEdge], OVG) =
     val (hSegs, vSegs) = buildSegments(rects, ports)
     val (ovg, layout)  = buildGraph(hSegs, vSegs, rects, ports)
     val adj            = adjacencies(ovg, ports)
-    val edges          = ((ovg.length until adj.vertices.length by 2) zip (ovg.length + 1 until adj.vertices.length by 2))
-      .map((u, v) => SimpleEdge(NodeIndex(u), NodeIndex(v)))
+    val edges          =
+      ((ovg.nodes.length until adj.vertices.length by 2) zip (ovg.nodes.length + 1 until adj.vertices.length by 2))
+        .map((u, v) => SimpleEdge(NodeIndex(u), NodeIndex(v)))
     (adj, layout, edges, ovg)
 
   def buildSegments(nodes: IndexedSeq[Rect2D], ports: IndexedSeq[EdgeTerminals]) =
@@ -190,15 +193,15 @@ object OrthogonalVisibilityGraph:
 
     val layout = VertexLayout((positions ++ ports.flatMap(t => List(t.uTerm, t.vTerm))).toIndexedSeq)
 
-    (finalNodes.toIndexedSeq, layout)
+    (OVG(finalNodes.toIndexedSeq), layout)
   end buildGraph
 
-  def adjacencies(ovg: IndexedSeq[OVGNode], ports: IndexedSeq[EdgeTerminals]) =
+  def adjacencies(ovg: OVG, ports: IndexedSeq[EdgeTerminals]) =
     val rand       = Random(0x99c0ffee)
-    val portOffset = ovg.size
-    val vertices   = mutable.ArrayBuffer.fill(ovg.size + portOffset)(Vertex(IndexedSeq.empty))
+    val portOffset = ovg.nodes.size
+    val vertices   = mutable.ArrayBuffer.fill(ovg.nodes.size + portOffset)(Vertex(IndexedSeq.empty))
     for
-      (node, i) <- ovg.zipWithIndex
+      (node, i) <- ovg.nodes.zipWithIndex
       link      <- node.allLinks
     do
       link match
