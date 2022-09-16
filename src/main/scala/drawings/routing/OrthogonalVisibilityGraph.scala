@@ -14,9 +14,8 @@ object OrthogonalVisibilityGraph:
     val (hSegs, vSegs) = buildSegments(rects, ports)
     val (ovg, layout)  = buildGraph(hSegs, vSegs, rects, ports)
     val adj            = adjacencies(ovg, ports)
-    val edges          = ((0 until 2 * ports.size by 2) zip (1 until 2 * ports.size by 2)).map((u, v) =>
-      SimpleEdge(NodeIndex(u), NodeIndex(v)),
-    )
+    val edges          = ((ovg.length until adj.vertices.length by 2) zip (ovg.length + 1 until adj.vertices.length by 2))
+      .map((u, v) => SimpleEdge(NodeIndex(u), NodeIndex(v)))
     (adj, layout, edges, ovg)
 
   def buildSegments(nodes: IndexedSeq[Rect2D], ports: IndexedSeq[EdgeTerminals]) =
@@ -110,13 +109,11 @@ object OrthogonalVisibilityGraph:
         case Direction.East  => x == r.right && y < r.top && y > r.bottom
         case Direction.South => y == r.bottom && x < r.right && x > r.left
 
-    import scala.collection.mutable
-
     val rand      = Random(0x99c0ffee)
     val nodes     = mutable.ArrayBuffer.empty[PartialOVGNode]
     val positions = mutable.ArrayBuffer.empty[Vec2D]
 
-    // horizontal sweepline -- bottom to top
+    // horizontal sweepline --- bottom to top
 
     val vSegs     = vertical.sortBy(seg => seg.x -> seg.fromY).toIndexedSeq
     val hSegs     = horizontal.sortBy(seg => seg.y -> seg.fromX).toIndexedSeq
@@ -191,41 +188,28 @@ object OrthogonalVisibilityGraph:
 
     // println(finalNodes.zipWithIndex.zip(positions).map { case ((n, i), p) => s"$i: $n @$p" }.mkString("\n"))
 
-    val layout = VertexLayout((ports.flatMap(t => List(t.uTerm, t.vTerm)) ++ positions).toIndexedSeq)
+    val layout = VertexLayout((positions ++ ports.flatMap(t => List(t.uTerm, t.vTerm))).toIndexedSeq)
 
     (finalNodes.toIndexedSeq, layout)
   end buildGraph
 
-  // def matchPorts(ovg: IndexedSeq[OVGNode], ports: IndexedSeq[EdgeTerminals]) =
-  //   val tmp = mutable.ArrayBuffer.fill(2 * ports.size)(-1)
-  //   for (node, i) <- ovg.zipWithIndex do
-  //     node.allLinks foreach {
-  //       case NavigableLink.Port(idx) => tmp(idx) = i
-  //       case _                       =>
-  //     }
-  //   ports.zipWithIndex.map((terms, i) => SimpleEdge(NodeIndex(tmp(2 * i)), NodeIndex(tmp(2 * i + 1))))
-
   def adjacencies(ovg: IndexedSeq[OVGNode], ports: IndexedSeq[EdgeTerminals]) =
     val rand       = Random(0x99c0ffee)
-    val nodeOffset = 2 * ports.size
-    val vertices   = mutable.ArrayBuffer.fill(nodeOffset + ovg.size)(Vertex(IndexedSeq.empty))
+    val portOffset = ovg.size
+    val vertices   = mutable.ArrayBuffer.fill(ovg.size + portOffset)(Vertex(IndexedSeq.empty))
     for
       (node, i) <- ovg.zipWithIndex
       link      <- node.allLinks
     do
       link match
         case NavigableLink.Node(idx) if idx.toInt < i =>
-          val (u, v) = vertices(i + nodeOffset) -> vertices(idx.toInt + nodeOffset)
-          vertices(i + nodeOffset) = Vertex(
-            u.neighbors :+ Link(NodeIndex(idx.toInt + nodeOffset), rand.nextDouble, v.neighbors.size),
-          )
-          vertices(idx.toInt + nodeOffset) = Vertex(
-            v.neighbors :+ Link(NodeIndex(i + nodeOffset), rand.nextDouble, u.neighbors.size),
-          )
+          val (u, v) = vertices(i) -> vertices(idx.toInt)
+          vertices(i) = Vertex(u.neighbors :+ Link(NodeIndex(idx.toInt), rand.nextDouble, v.neighbors.size))
+          vertices(idx.toInt) = Vertex(v.neighbors :+ Link(NodeIndex(i), rand.nextDouble, u.neighbors.size))
         case NavigableLink.Port(idx)                  =>
-          val (u, v) = vertices(i + nodeOffset) -> vertices(idx.toInt)
-          vertices(i + nodeOffset) = Vertex(u.neighbors :+ Link(NodeIndex(idx), rand.nextDouble, v.neighbors.size))
-          vertices(idx) = Vertex(v.neighbors :+ Link(NodeIndex(i + nodeOffset), rand.nextDouble, u.neighbors.size))
+          val (u, v) = vertices(i) -> vertices(idx + portOffset)
+          vertices(i) = Vertex(u.neighbors :+ Link(NodeIndex(idx + portOffset), rand.nextDouble, v.neighbors.size))
+          vertices(idx + portOffset) = Vertex(v.neighbors :+ Link(NodeIndex(i), rand.nextDouble, u.neighbors.size))
         case _                                        =>
     end for
     AdjacencyList(vertices.toIndexedSeq)
