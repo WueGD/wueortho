@@ -29,6 +29,9 @@ object Routing:
   def edgeRoutes(obstacles: Obstacles, ports: IndexedSeq[EdgeTerminals]) =
     val (gridGraph, gridLayout, gridPaths, ovg) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
 
+    println(gridLayout.nodes.zipWithIndex.map((n, i) => s"node $i @ $n").mkString("\n"))
+    println(gridPaths.zipWithIndex.map((n, i) => s"edge $i is $n").mkString("\n"))
+
     def isNeighbor(uPos: Vec2D, link: NavigableLink) = link match
       case NavigableLink.EndOfWorld  => None
       case NavigableLink.Obstacle(_) => None
@@ -59,20 +62,20 @@ object Routing:
         .shortestPath(neighbors, u, v, DijState(0, 0, 0, dir))
         .fold(err => sys.error(s"cannot find shortest paht between $u and $v: $err"), identity)
 
-    // fixme: remove debugging printout
-    println(PathOrder(ovg, ports, paths).zipWithIndex.map((n, i) => s"$i: $n").mkString("\n"))
+    val order = PathOrder(ovg, ports, paths)
+    println(order.zipWithIndex.map((n, i) => s"$i: $n").mkString("\n"))
 
     val edgeRoutes = for (path, terminals) <- paths zip ports yield pathToOrthoSegs(terminals, path, gridLayout)
 
-    val gridSegments        = EdgeWeightedGraph.fromAdjacencyList(gridGraph).edges
-    val edgesPerGridSegment = mutable.ArraySeq.fill(gridSegments.length)(mutable.ArrayBuffer.empty[Int])
+    // val gridSegments        = EdgeWeightedGraph.fromAdjacencyList(gridGraph).edges
+    // val edgesPerGridSegment = mutable.ArraySeq.fill(gridSegments.length)(mutable.ArrayBuffer.empty[Int])
 
-    for
-      (path, i) <- paths.zipWithIndex
-      segment   <- path.nodes
-    do edgesPerGridSegment(segment.toInt) += i
+    // for
+    //   (path, i) <- paths.zipWithIndex
+    //   segment   <- path.nodes
+    // do edgesPerGridSegment(segment.toInt) += i
 
-    edgeRoutes.map(_.normalized) -> edgesPerGridSegment
+    (edgeRoutes.map(_.normalized), paths, order)
 
   private def pathToOrthoSegs(terminals: EdgeTerminals, path: Path, layout: VertexLayout) =
     import drawings.data.EdgeRoute.OrthoSeg.*

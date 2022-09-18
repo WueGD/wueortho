@@ -20,15 +20,21 @@ import drawings.routing.Routing
 
 import drawings.util.Debugging._
 import drawings.util.BellmanFord
-import drawings.routing.DifferenceConstraints.Constraint
+import drawings.routing.DifferenceConstraints.DifferenceConstraint
 import drawings.routing.DifferenceConstraints
+import drawings.routing.Nudging
 
 val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
+
+@main def runConstraints =
+  val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.rects, OvgSample.ports)
+  val (_, paths, routes)     = Routing.edgeRoutes(Obstacles(OvgSample.rects), OvgSample.ports)
+  Nudging.createConstraints(ovg, routes, paths, OvgSample.ports, Obstacles(OvgSample.rects))
 
 @main def runRandomized = GraphDrawing.runRandomSample(0x99c0ffee)
 
 @main def runRouting =
-  val (routes, grid) = Routing.edgeRoutes(Obstacles(OvgSample.rects), OvgSample.ports)
+  val (routes, _, _) = Routing.edgeRoutes(Obstacles(OvgSample.rects), OvgSample.ports)
   routes foreach { case EdgeRoute(terminals, route) =>
     println(s"From ${terminals.uTerm} to ${terminals.vTerm}: ${route.mkString("[", ", ", "]")}")
   }
@@ -197,12 +203,12 @@ object OvgSample:
 
 // see Corman et al. Intro to Algorithms, 3rd ed. p. 664--667
 val constraints = Seq(
-  Constraint(0, 1, 0),
-  Constraint(0, 4, -1),
-  Constraint(1, 4, 1),
-  Constraint(2, 0, 5),
-  Constraint(3, 0, 4),
-  Constraint(3, 2, -1),
-  Constraint(4, 2, -3),
-  Constraint(4, 3, -3),
+  DifferenceConstraint(0, 1, 0),
+  DifferenceConstraint(0, 4, -1),
+  DifferenceConstraint(1, 4, 1),
+  DifferenceConstraint(2, 0, 5),
+  DifferenceConstraint(3, 0, 4),
+  DifferenceConstraint(3, 2, -1),
+  DifferenceConstraint(4, 2, -3),
+  DifferenceConstraint(4, 3, -3),
 )

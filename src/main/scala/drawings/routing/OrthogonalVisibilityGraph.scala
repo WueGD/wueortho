@@ -5,11 +5,19 @@ import scala.util.Random
 import scala.Option.when
 import scala.collection.mutable
 
-case class OVG(nodes: IndexedSeq[OVGNode]):
-  def apply(i: NodeIndex) = nodes(i.toInt)
-  val length              = nodes.length
+case class OVG(nodes: IndexedSeq[OVGNode], private val obstacleLinks: IndexedSeq[Int]):
+  def apply(i: NodeIndex)   = nodes(i.toInt)
+  def findObstacle(id: Int) = nodes(obstacleLinks(id))
+  val length                = nodes.length
+  val bottomLeftNodeIdx     = NodeIndex(0)
 
-case class OVGNode(left: NavigableLink, top: NavigableLink, right: NavigableLink, bottom: NavigableLink):
+case class OVGNode(
+    left: NavigableLink,
+    top: NavigableLink,
+    right: NavigableLink,
+    bottom: NavigableLink,
+    obstacle: Option[Int],
+):
   def allLinks = List(left, top, right, bottom)
 
   def dirToNode(id: NodeIndex) =
@@ -141,9 +149,10 @@ object OrthogonalVisibilityGraph:
         case Direction.East  => x == r.right && y < r.top && y > r.bottom
         case Direction.South => y == r.bottom && x < r.right && x > r.left
 
-    val rand      = Random(0x99c0ffee)
-    val nodes     = mutable.ArrayBuffer.empty[PartialOVGNode]
-    val positions = mutable.ArrayBuffer.empty[Vec2D]
+    val rand          = Random(0x99c0ffee)
+    val nodes         = mutable.ArrayBuffer.empty[PartialOVGNode]
+    val positions     = mutable.ArrayBuffer.empty[Vec2D]
+    val obstacleLinks = mutable.ArrayBuffer.fill(rects.length)(-1)
 
     // horizontal sweepline --- bottom to top
 
@@ -190,7 +199,15 @@ object OrthogonalVisibilityGraph:
           NavigableLink.Node(NodeIndex(li))
       hPreNodes(hi) = i
 
-      nodes += PartialOVGNode.Init(left, bottom, vi, hi)
+      hSegs(hi) -> vSegs(vi) match
+        case (
+              HSegment(_, _, _, Origin.Obstacle(Direction.South, ho)),
+              VSegment(_, _, _, Origin.Obstacle(Direction.West, vo)),
+            ) if ho == vo =>
+          obstacleLinks(ho) = i
+          nodes += PartialOVGNode.Init(left, bottom, vi, hi, Some(ho))
+        case _ =>
+          nodes += PartialOVGNode.Init(left, bottom, vi, hi, None)
     end for
 
     def mkTop(vi: Int, hi: Int) = // a node has no top node iff it is the topmost node in its channel
@@ -212,15 +229,17 @@ object OrthogonalVisibilityGraph:
         case (hs, vs)                                                                    => sys.error(s"Cannot create right link for node at $hs x $vs.")
 
     val finalNodes = nodes.map {
-      case PartialOVGNode.Ready(res)                             => res
-      case PartialOVGNode.WithTop(left, bottom, top, vi, hi)     => OVGNode(left, top, mkRight(vi, hi), bottom)
-      case PartialOVGNode.WithRight(left, bottom, right, vi, hi) => OVGNode(left, mkTop(vi, hi), right, bottom)
-      case PartialOVGNode.Init(left, bottom, vi, hi)             => OVGNode(left, mkTop(vi, hi), mkRight(vi, hi), bottom)
+      case PartialOVGNode.Ready(res)                      => res
+      case PartialOVGNode.WithTop(top, b)                 => OVGNode(b.left, top, mkRight(b.vi, b.hi), b.bottom, b.obstacle)
+      case PartialOVGNode.WithRight(right, b)             => OVGNode(b.left, mkTop(b.vi, b.hi), right, b.bottom, b.obstacle)
+      case PartialOVGNode.Init(left, bottom, vi, hi, obs) => OVGNode(left, mkTop(vi, hi), mkRight(vi, hi), bottom, obs)
     }
 
     val layout = VertexLayout((positions ++ ports.flatMap(t => List(t.uTerm, t.vTerm))).toIndexedSeq)
 
-    (OVG(finalNodes.toIndexedSeq), layout)
+    assert(!obstacleLinks.contains(-1), s"missing obstacle link at ${obstacleLinks.indexOf(-1)}")
+
+    (OVG(finalNodes.toIndexedSeq, obstacleLinks.toIndexedSeq), layout)
   end buildGraph
 
   def adjacencies(ovg: OVG, ports: IndexedSeq[EdgeTerminals]) =
@@ -270,19 +289,19 @@ object OrthogonalVisibilityGraph:
     }
 
   enum PartialOVGNode:
-    case Init(left: NavigableLink, bottom: NavigableLink, vi: Int, hi: Int)
-    case WithTop(left: NavigableLink, bottom: NavigableLink, top: NavigableLink, vi: Int, hi: Int)
-    case WithRight(left: NavigableLink, bottom: NavigableLink, right: NavigableLink, vi: Int, hi: Int)
+    case Init(left: NavigableLink, bottom: NavigableLink, vi: Int, hi: Int, obstacle: Option[Int])
+    case WithTop(top: NavigableLink, base: PartialOVGNode.Init)
+    case WithRight(right: NavigableLink, base: PartialOVGNode.Init)
     case Ready(node: OVGNode)
 
     def withTop(top: NavigableLink): PartialOVGNode = this match
-      case Init(left, bottom, vi, hi)             => WithTop(left, bottom, top, vi, hi)
-      case WithRight(left, bottom, right, vi, hi) => Ready(OVGNode(left, top, right, bottom))
-      case _: WithTop | _: Ready                  => sys.error(s"Cannot add bootom part to $this")
+      case base: Init            => WithTop(top, base)
+      case WithRight(right, b)   => Ready(OVGNode(b.left, top, right, b.bottom, b.obstacle))
+      case _: WithTop | _: Ready => sys.error(s"Cannot add bootom part to $this")
 
     def withRight(right: NavigableLink): PartialOVGNode = this match
-      case Init(left, top, vi, hi)            => WithRight(left, top, right, vi, hi)
-      case WithTop(left, bottom, top, vi, hi) => Ready(OVGNode(left, top, right, bottom))
-      case _: WithRight | _: Ready            => sys.error(s"cannot add right part to $this")
+      case base: Init              => WithRight(right, base)
+      case WithTop(top, b)         => Ready(OVGNode(b.left, top, right, b.bottom, b.obstacle))
+      case _: WithRight | _: Ready => sys.error(s"cannot add right part to $this")
 
 end OrthogonalVisibilityGraph

@@ -35,8 +35,7 @@ object PathOrder:
   def apply(ovg: OVG, ports: IndexedSeq[EdgeTerminals], paths: IndexedSeq[Path]) =
     def isPort(id: NodeIndex)   = id.toInt >= ovg.length
     def asPortId(id: NodeIndex) = id.toInt - ovg.length
-    def portDir(i: Int)         =
-      if i % 2 == 0 then ports(i / 2).uDir else ports(i / 2).vDir
+    def portDir(i: Int)         = if i % 2 == 0 then ports(i / 2).uDir else ports(i / 2).vDir
 
     val onGrid = mutable.ArrayBuffer.fill(ovg.length + 2 * ports.length)(PathsOnGridNode.empty)
 
@@ -71,6 +70,7 @@ object PathOrder:
         val others  = otherPathsOrder(u, mainDir)
         val preIdx  = others.indexOf(i)
         assert(preIdx > -1, s"segment ${ovg(u)} -> ${ovg(v)} should not be the start of a path")
+        println(s"path $i @ $u -> $v ($mainDir): $others")
         ifTopOrRight(mainDir)(tr =>
           onGrid(u.toInt) = onGrid(u.toInt).insertWhere(tr, i)(j => !(others.indexOf(j) < preIdx)),
         )(lb => onGrid(v.toInt) = onGrid(v.toInt).insertWhere(reverseDir(lb), i)(j => !(others.indexOf(j) < preIdx)))

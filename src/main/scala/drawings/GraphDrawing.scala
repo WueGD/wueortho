@@ -14,8 +14,8 @@ object GraphDrawing:
 
   def runRandomSample(seed: Long) =
     val rndm = scala.util.Random(seed)
-    val n    = 20
-    val m    = 50
+    val n    = 3
+    val m    = 8
 
     def randomNodePair: (NodeIndex, NodeIndex) =
       val (u, v) = (rndm.nextInt(n), rndm.nextInt(n))
@@ -24,7 +24,7 @@ object GraphDrawing:
 
     val graph =
       val core = (NodeIndex(0) until n).sliding(2) map { case Seq(u, v) => Edge(u, v, 1.0) }
-      val hull = for _ <- n until m; (u, v) = randomNodePair yield Edge(u, v, 1.0)
+      val hull = for _ <- n to m; (u, v) = randomNodePair yield Edge(u, v, 1.0)
       EdgeWeightedGraph.fromEdgeList(core.toSeq ++ hull)
 
     val layout = ForceDirected.layout(config)(graph, ForceDirected.initLayout(rndm, graph.nodes.size))
@@ -37,7 +37,7 @@ object GraphDrawing:
 
     val ports = PortHeuristic.makePorts(obstacles, AdjacencyList.fromEWG(graph))
 
-    val (routes, _) = Routing.edgeRoutes(obstacles, ports)
+    val (routes, _, _) = Routing.edgeRoutes(obstacles, ports)
 
     val rectsSvg = Svg.drawRects(obstacles.nodes)
     val portsSvg = Svg.drawPorts(ports)
