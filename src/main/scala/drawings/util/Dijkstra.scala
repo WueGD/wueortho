@@ -7,12 +7,9 @@ import scala.annotation.tailrec
 import drawings.data._
 
 object Dijkstra:
-  def shortestPath[C: Ordering, T](
-      neighbors: NodeIndex => Seq[(NodeIndex, T)],
-      s: NodeIndex,
-      t: NodeIndex,
-      c0: C,
-  )(using DijkstraCost[C, T]): Either[DijkstraError, Path] =
+  def shortestPath[C: Ordering, T](neighbors: NodeIndex => Seq[(NodeIndex, T)], s: NodeIndex, t: NodeIndex, c0: C)(using
+      DijkstraCost[C, T],
+  ): Either[DijkstraError, Path] =
     val dist  = mutable.Map(s -> c0)
     val ptrs  = mutable.Map(s -> -1)
     val queue = mutable.PriorityQueue(c0 -> s)(implicitly[Ordering[(C, NodeIndex)]].reverse)

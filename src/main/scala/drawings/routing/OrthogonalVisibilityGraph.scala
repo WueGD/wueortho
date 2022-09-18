@@ -5,10 +5,39 @@ import scala.util.Random
 import scala.Option.when
 import scala.collection.mutable
 
-case class OVG(nodes: IndexedSeq[OrthogonalVisibilityGraph.OVGNode])
+case class OVG(nodes: IndexedSeq[OVGNode]):
+  def apply(i: NodeIndex) = nodes(i.toInt)
+  val length              = nodes.length
+
+case class OVGNode(left: NavigableLink, top: NavigableLink, right: NavigableLink, bottom: NavigableLink):
+  def allLinks = List(left, top, right, bottom)
+
+  def dirToNode(id: NodeIndex) =
+    def isLinkToNode(link: NavigableLink) = PartialFunction.cond(link) {
+      case NavigableLink.Node(other) if other == id => true
+    }
+    if isLinkToNode(left) then Some(Direction.West)
+    else if isLinkToNode(top) then Some(Direction.North)
+    else if isLinkToNode(right) then Some(Direction.East)
+    else if isLinkToNode(bottom) then Some(Direction.South)
+    else None
+  def dirToPort(id: Int)       =
+    def isLinkToPort(link: NavigableLink) = PartialFunction.cond(link) {
+      case NavigableLink.Port(other) if other == id => true
+    }
+    if isLinkToPort(left) then Some(Direction.West)
+    else if isLinkToPort(top) then Some(Direction.North)
+    else if isLinkToPort(right) then Some(Direction.East)
+    else if isLinkToPort(bottom) then Some(Direction.South)
+    else None
+
+enum NavigableLink:
+  case EndOfWorld
+  case Node(idx: NodeIndex)
+  case Obstacle(idx: Int) // index of the rect array
+  case Port(idx: Int) // ports(x).u = 2 * x, ports(x).v = 2 * x + 1
 
 object OrthogonalVisibilityGraph:
-
   def create(
       rects: IndexedSeq[Rect2D],
       ports: IndexedSeq[EdgeTerminals],
@@ -17,7 +46,7 @@ object OrthogonalVisibilityGraph:
     val (ovg, layout)  = buildGraph(hSegs, vSegs, rects, ports)
     val adj            = adjacencies(ovg, ports)
     val edges          =
-      ((ovg.nodes.length until adj.vertices.length by 2) zip (ovg.nodes.length + 1 until adj.vertices.length by 2))
+      ((ovg.length until adj.vertices.length by 2) zip (ovg.length + 1 until adj.vertices.length by 2))
         .map((u, v) => SimpleEdge(NodeIndex(u), NodeIndex(v)))
     (adj, layout, edges, ovg)
 
@@ -189,8 +218,6 @@ object OrthogonalVisibilityGraph:
       case PartialOVGNode.Init(left, bottom, vi, hi)             => OVGNode(left, mkTop(vi, hi), mkRight(vi, hi), bottom)
     }
 
-    // println(finalNodes.zipWithIndex.zip(positions).map { case ((n, i), p) => s"$i: $n @$p" }.mkString("\n"))
-
     val layout = VertexLayout((positions ++ ports.flatMap(t => List(t.uTerm, t.vTerm))).toIndexedSeq)
 
     (OVG(finalNodes.toIndexedSeq), layout)
@@ -198,8 +225,8 @@ object OrthogonalVisibilityGraph:
 
   def adjacencies(ovg: OVG, ports: IndexedSeq[EdgeTerminals]) =
     val rand       = Random(0x99c0ffee)
-    val portOffset = ovg.nodes.size
-    val vertices   = mutable.ArrayBuffer.fill(ovg.nodes.size + portOffset)(Vertex(IndexedSeq.empty))
+    val portOffset = ovg.length
+    val vertices   = mutable.ArrayBuffer.fill(portOffset + ports.length * 2)(Vertex(IndexedSeq.empty))
     for
       (node, i) <- ovg.nodes.zipWithIndex
       link      <- node.allLinks
@@ -241,15 +268,6 @@ object OrthogonalVisibilityGraph:
       case _: QueueItem.Mid   => 1
       case _: QueueItem.End   => 0
     }
-
-  enum NavigableLink:
-    case EndOfWorld
-    case Node(idx: NodeIndex)
-    case Obstacle(idx: Int) // index of the rect array
-    case Port(idx: Int) // ports(x).u = 2 * x, ports(x).v = 2 * x + 1
-
-  case class OVGNode(left: NavigableLink, top: NavigableLink, right: NavigableLink, bottom: NavigableLink):
-    def allLinks = List(left, top, right, bottom)
 
   enum PartialOVGNode:
     case Init(left: NavigableLink, bottom: NavigableLink, vi: Int, hi: Int)

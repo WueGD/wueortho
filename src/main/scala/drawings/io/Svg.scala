@@ -48,7 +48,7 @@ object Svg:
             ^.x2          := v.x1 * ppu,
             ^.y2          := v.x2 * ppu,
             ^.stroke      := color,
-            ^.strokeWidth := "2",
+            ^.strokeWidth := "4",
           )
         }
       else Seq.empty

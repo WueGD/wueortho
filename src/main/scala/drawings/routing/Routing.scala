@@ -7,7 +7,6 @@ import drawings.util.Debugging
 import drawings.data.EdgeRoute.OrthoSeg
 import scala.annotation.nowarn
 import drawings.data.Link.apply
-import drawings.routing.OrthogonalVisibilityGraph.NavigableLink
 
 object Routing:
   import scala.collection.mutable
@@ -28,10 +27,7 @@ object Routing:
   case class DijTrans(dir: Direction, dist: Double)
 
   def edgeRoutes(obstacles: Obstacles, ports: IndexedSeq[EdgeTerminals]) =
-    val (gridGraph, gridLayout, gridEdges, ovg) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
-
-    // Debugging.debugOVG(obstacles, gridGraph, gridLayout, ports)
-    // Debugging.debugConnectivity(gridGraph, gridLayout)
+    val (gridGraph, gridLayout, gridPaths, ovg) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
 
     def isNeighbor(uPos: Vec2D, link: NavigableLink) = link match
       case NavigableLink.EndOfWorld  => None
@@ -58,10 +54,13 @@ object Routing:
     given dc: DijkstraCost[DijState, DijTrans] = (t, s0) => s0.transitionCost(t)
 
     val paths =
-      for ((EdgeTerminals(uPos, dir, vPos, _), SimpleEdge(u, v)), i) <- (ports zip gridEdges).zipWithIndex
+      for ((EdgeTerminals(uPos, dir, vPos, _), SimpleEdge(u, v)), i) <- (ports zip gridPaths).zipWithIndex
       yield Dijkstra
         .shortestPath(neighbors, u, v, DijState(0, 0, 0, dir))
         .fold(err => sys.error(s"cannot find shortest paht between $u and $v: $err"), identity)
+
+    // fixme: remove debugging printout
+    println(PathOrder(ovg, ports, paths).zipWithIndex.map((n, i) => s"$i: $n").mkString("\n"))
 
     val edgeRoutes = for (path, terminals) <- paths zip ports yield pathToOrthoSegs(terminals, path, gridLayout)
 
