@@ -5,13 +5,14 @@ import scala.annotation.tailrec
 import scala.annotation.nowarn
 import drawings.util.Constraint.CTerm
 import drawings.util.Constraint
+import drawings.util.ORTools
 
 object Nudging:
   case class GroupedSeg(dir: Direction, nodes: List[NodeIndex])
   case class VarSeg(endsAt: CTerm, normal: CTerm, group: GroupedSeg)
   case class CNav(toTop: IndexedSeq[CTerm], toRight: IndexedSeq[CTerm])
 
-  def createConstraints(
+  def calcEdgeRoutes(
       ovg: OVG,
       routes: IndexedSeq[PathsOnGridNode],
       paths: IndexedSeq[Path],
@@ -20,12 +21,12 @@ object Nudging:
   ) =
     import Constraint.builder.*
 
+    val marginVar = mkVar(0)
+
     def isPort(id: NodeIndex)   = id.toInt >= ovg.length
     def asPortId(id: NodeIndex) = id.toInt - ovg.length
     def portDir(i: Int)         = if i % 2 == 0 then ports(i / 2).uDir else ports(i / 2).vDir
     def portCoordinate(i: Int)  = if i % 2 == 0 then ports(i / 2).uTerm else ports(i / 2).vTerm
-
-    val marginVar = 0
 
     def splitIntoSegments(path: Path) =
       @tailrec
@@ -82,25 +83,19 @@ object Nudging:
           .getOrElse(sys.error(s"path $pathIdx has no horizontal segment containing node $nodeIdx"))
 
       @tailrec def seek(res: List[Constraint], base: Option[CTerm], next: NodeIndex): Set[Constraint] =
-        val pathsOrdered            = base ++ routes(next.toInt).toRight.map(resolveHSegment(next, _).normal)
+        val pathsOrdered            = (base ++ routes(next.toInt).toRight.map(resolveHSegment(next, _).normal)).toList
         val (constraints, nextBase) = ovg(next).right match
-          case NavigableLink.EndOfWorld | NavigableLink.Port(_) | NavigableLink.Obstacle(_) => Nil -> base
-          case NavigableLink.Node(_)                                                        =>
-            val newCs = pathsOrdered.toList
-              .sliding(2)
-              .map {
-                case Seq(one)      => None
-                case Seq(from, to) => Some(from + margin <= to)
-                case err           => sys.error(s"unexpected object [$err] in sliding iterator")
-              }
-              .flatten
-              .toList
+          case NavigableLink.Node(_) =>
+            val newCs =
+              if pathsOrdered.length < 2 then Nil
+              else for Seq(from, to) <- pathsOrdered.sliding(2).toList yield from + margin <= to
             ovg(next).obstacle match
               case None    => newCs -> pathsOrdered.lastOption
               case Some(i) =>
                 val obs = obstacles.nodes(i)
                 val sep = pathsOrdered.lastOption.map(from => from + margin <= mkConst(obs.bottom))
                 (sep.toList ::: newCs) -> Some(mkConst(obs.top))
+          case _                     => Nil -> base
 
         ovg(next).top match
           case NavigableLink.EndOfWorld   => res.toSet
@@ -157,9 +152,38 @@ object Nudging:
       )).fold(Set.empty)(_ ++ _)
     end mkHConstraints
 
+    def mkRoutes(pathSegs: IndexedSeq[List[VarSeg]], sols: IndexedSeq[Double]) =
+      def calc(ct: CTerm): Double = ct match
+        case CTerm.Constant(c)  => c
+        case CTerm.Variable(id) => sols(id)
+        case CTerm.Sum(a, b)    => calc(a) + calc(b)
+        case CTerm.Negate(a)    => -calc(a)
+        case CTerm.Scale(l, a)  => l * calc(a)
+
+      def segmentize(p: List[VarSeg], start: Vec2D) =
+        import EdgeRoute.OrthoSeg
+        @tailrec
+        def go(res: List[OrthoSeg], pos: Vec2D, queue: List[VarSeg]): List[OrthoSeg] = queue match
+          case Nil          => res.reverse
+          case head :: next =>
+            val to = calc(head.endsAt)
+            if head.group.dir.isHorizontal then go(OrthoSeg.HSeg(to - pos.x1) :: res, pos.copy(x1 = to), next)
+            else go(OrthoSeg.VSeg(to - pos.x2) :: res, pos.copy(x2 = to), next)
+        go(Nil, start, p)
+
+      for (terms, path) <- ports zip pathSegs yield EdgeRoute(terms, segmentize(path, terms.uTerm))
+
     val vars = mkVariables(Nil, 1, paths.zipWithIndex).toIndexedSeq
-    println(mkVConstraints(vars, mkVar(marginVar)).mkString("\n"))
+    val vcs  = mkVConstraints(vars, marginVar)
+    val hcs  = mkHConstraints(vars, marginVar)
+    println(vcs.mkString("\n"))
     println("^^^^^ VERTICAL ||| HORIZONTAL vvvvv")
-    println(mkHConstraints(vars, mkVar(marginVar)).mkString("\n"))
-  end createConstraints
+    println(hcs.mkString("\n"))
+
+    val ORTools.LPResult(sols, _) = ORTools
+      .solve(ORTools.LPInstance((vcs ++ hcs).toSeq, marginVar, maximize = true))
+      .fold(sys.error, identity)
+
+    mkRoutes(vars, sols)
+  end calcEdgeRoutes
 end Nudging

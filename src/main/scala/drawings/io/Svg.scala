@@ -57,6 +57,23 @@ object Svg:
   def drawNodeLabels(vl: VertexLayout) =
     SvgFrag(Rect2D.boundingBox(vl.nodes), vl.nodes.zipWithIndex.map((p, i) => textLabel(p, i.toString)))
 
+  def drawPortLabels(ports: Seq[EdgeTerminals]) =
+    val offset = 15.0 / ppu
+    val points = ports.flatMap(et => List(et.uTerm, et.vTerm))
+    val labels = ports.zipWithIndex.flatMap((et, i) =>
+      List(
+        textLabel(opposedTo(et.uTerm, et.uDir, offset), i.toString, "gray"),
+        textLabel(opposedTo(et.vTerm, et.vDir, offset), i.toString, "gray"),
+      ),
+    )
+    SvgFrag(Rect2D.boundingBox(points), labels)
+
+  private def opposedTo(p: Vec2D, dir: Direction, d: Double) = dir match
+    case Direction.North => p.copy(x2 = p.x2 - d)
+    case Direction.East  => p.copy(x1 = p.x1 - d)
+    case Direction.South => p.copy(x2 = p.x2 + d)
+    case Direction.West  => p.copy(x1 = p.x1 + d)
+
   private def root(vp: Rect2D, margin: Double)(ctnt: Seq[Frag]): String =
     val pad = margin / 2
     s"""<?xml version="1.0" standalone="no"?>
@@ -112,11 +129,12 @@ object Svg:
       ),
     )
 
-  private def textLabel(at: Vec2D, s: String) =
+  private def textLabel(at: Vec2D, s: String, color: String = "black") =
     text(
       ^.x          := at.x1 * ppu,
       ^.y          := at.x2 * ppu,
       ^.textAnchor := "middle",
+      ^.fill       := color,
       s,
     )
 

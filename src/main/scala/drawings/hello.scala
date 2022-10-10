@@ -23,15 +23,36 @@ import drawings.util.BellmanFord
 import drawings.routing.DifferenceConstraints.DifferenceConstraint
 import drawings.routing.DifferenceConstraints
 import drawings.routing.Nudging
+import drawings.util.ORTools
+import drawings.util.Constraint
 
 val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
+
+@main def runORToolsLP =
+  import Constraint.builder.*
+  val (x, y) = (mkVar(0), mkVar(1))
+  val lp     = ORTools.LPInstance(
+    List(
+      x + 2 * y <= mkConst(14),
+      3 * x - y >= mkConst(0),
+      x - y <= mkConst(2),
+    ),
+    obj = 3 * x + 4 * y,
+    maximize = true,
+  )
+  println(ORTools.solve(lp))
 
 @main def runConstraints =
   val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.rects, OvgSample.ports)
   val (_, paths, routes)     = Routing.edgeRoutes(Obstacles(OvgSample.rects), OvgSample.ports)
-  Nudging.createConstraints(ovg, routes, paths, OvgSample.ports, Obstacles(OvgSample.rects))
+  val edgeRoutes             = Nudging.calcEdgeRoutes(ovg, routes, paths, OvgSample.ports, Obstacles(OvgSample.rects))
 
-@main def runRandomized = GraphDrawing.runRandomSample(0x99c0ffee)
+  val rectsSvg = Svg.drawRects(OvgSample.rects)
+  val portsSvg = Svg.drawPorts(OvgSample.ports)
+  val edgesSvg = edgeRoutes.zip(Svg.colors).map(Svg.drawEdgeRoute(_, _)).reduce(_ ++ _)
+  Files.writeString(Paths.get("constrained-routing.svg"), (rectsSvg ++ portsSvg ++ edgesSvg).svgString)
+
+@main def runRandomized = GraphDrawing.runRandomSample(0x98c0ffee)
 
 @main def runRouting =
   val (routes, _, _) = Routing.edgeRoutes(Obstacles(OvgSample.rects), OvgSample.ports)
