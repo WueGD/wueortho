@@ -4,12 +4,15 @@ import drawings.data.*
 import scala.util.Random
 import scala.Option.when
 import scala.collection.mutable
+import scala.annotation.tailrec
 
 case class OVG(nodes: IndexedSeq[OVGNode], private val obstacleLinks: IndexedSeq[Int]):
   def apply(i: NodeIndex)   = nodes(i.toInt)
   def findObstacle(id: Int) = nodes(obstacleLinks(id))
   val length                = nodes.length
   val bottomLeftNodeIdx     = NodeIndex(0)
+  val obstacleBorder        = OrthogonalVisibilityGraph.obstacleBorder(this)
+  val edgeOfWorld           = OrthogonalVisibilityGraph.edgeOfWorld(this)
 
 case class OVGNode(
     left: NavigableLink,
@@ -46,6 +49,47 @@ enum NavigableLink:
   case Port(idx: Int) // ports(x).u = 2 * x, ports(x).v = 2 * x + 1
 
 object OrthogonalVisibilityGraph:
+  case class HSegment(fromX: Double, toX: Double, y: Double, origin: Origin)
+  case class VSegment(x: Double, fromY: Double, toY: Double, origin: Origin)
+
+  enum Origin:
+    case Port(id: Int)
+    case Obstacle(dir: Direction, id: Int)
+
+  enum QueueItem extends Positioned1D:
+    case Start(pos: Double, rect: Rect2D, idx: Int)
+    case Mid(pos: Double, snd: Double, idx: Int)
+    case End(pos: Double, rect: Rect2D, idx: Int)
+
+  object QueueItem:
+    def fromPort(filter: Direction => Boolean, params: Vec2D => (Double, Double))(t: EdgeTerminals, i: Int) =
+      def mkMid(v: Vec2D, i: Int) =
+        val (pos, snd) = params(v)
+        QueueItem.Mid(pos, snd, i)
+      (when(filter(t.uDir))(mkMid(t.uTerm, 2 * i)) :: when(filter(t.vDir))(mkMid(t.vTerm, 2 * i + 1)) :: Nil).flatten
+
+    given Ordering[QueueItem] = Ordering.by((_: QueueItem).pos).orElseBy {
+      case _: QueueItem.Start => 2
+      case _: QueueItem.Mid   => 1
+      case _: QueueItem.End   => 0
+    }
+
+  enum PartialOVGNode:
+    case Init(left: NavigableLink, bottom: NavigableLink, vi: Int, hi: Int, obstacle: Option[Int])
+    case WithTop(top: NavigableLink, base: PartialOVGNode.Init)
+    case WithRight(right: NavigableLink, base: PartialOVGNode.Init)
+    case Ready(node: OVGNode)
+
+    def withTop(top: NavigableLink): PartialOVGNode = this match
+      case base: Init            => WithTop(top, base)
+      case WithRight(right, b)   => Ready(OVGNode(b.left, top, right, b.bottom, b.obstacle))
+      case _: WithTop | _: Ready => sys.error(s"Cannot add bootom part to $this")
+
+    def withRight(right: NavigableLink): PartialOVGNode = this match
+      case base: Init              => WithRight(right, base)
+      case WithTop(top, b)         => Ready(OVGNode(b.left, top, right, b.bottom, b.obstacle))
+      case _: WithRight | _: Ready => sys.error(s"cannot add right part to $this")
+
   def create(
       rects: IndexedSeq[Rect2D],
       ports: IndexedSeq[EdgeTerminals],
@@ -262,46 +306,63 @@ object OrthogonalVisibilityGraph:
         case _                                        =>
     end for
     AdjacencyList(vertices.toIndexedSeq)
+  end adjacencies
 
-  case class HSegment(fromX: Double, toX: Double, y: Double, origin: Origin)
-  case class VSegment(x: Double, fromY: Double, toY: Double, origin: Origin)
+  def obstacleBorder(ovg: OVG)(dir: Direction, oid: Int) =
+    import NavigableLink.*, Direction.*
 
-  enum Origin:
-    case Port(id: Int)
-    case Obstacle(dir: Direction, id: Int)
+    def nodeOrElse[T](link: NavigableLink)(f: NodeIndex => T, orElse: NavigableLink => T) = link match
+      case Node(i) => f(i)
+      case link    => orElse(link)
 
-  enum QueueItem extends Positioned1D:
-    case Start(pos: Double, rect: Rect2D, idx: Int)
-    case Mid(pos: Double, snd: Double, idx: Int)
-    case End(pos: Double, rect: Rect2D, idx: Int)
+    def failNextNode(i: NodeIndex, link: NavigableLink)    =
+      sys.error(s"node $i: ${ovg(i)} should reach next node around obstacle $oid but link was $link")
+    def failCornerNode(node: OVGNode, link: NavigableLink) =
+      sys.error(s"node $node is not the bottom left corner of obstacle $oid (right link was $link)")
 
-  object QueueItem:
-    def fromPort(filter: Direction => Boolean, params: Vec2D => (Double, Double))(t: EdgeTerminals, i: Int) =
-      def mkMid(v: Vec2D, i: Int) =
-        val (pos, snd) = params(v)
-        QueueItem.Mid(pos, snd, i)
-      (when(filter(t.uDir))(mkMid(t.uTerm, 2 * i)) :: when(filter(t.vDir))(mkMid(t.vTerm, 2 * i + 1)) :: Nil).flatten
+    def walk(inwards: OVGNode => NavigableLink, ahead: OVGNode => NavigableLink)(i: NodeIndex): NodeIndex =
+      nodeOrElse(inwards(ovg(i)))(
+        identity,
+        _ => nodeOrElse(ahead(ovg(i)))(next => walk(inwards, ahead)(next), failNextNode(i, _)),
+      )
 
-    given Ordering[QueueItem] = Ordering.by((_: QueueItem).pos).orElseBy {
-      case _: QueueItem.Start => 2
-      case _: QueueItem.Mid   => 1
-      case _: QueueItem.End   => 0
-    }
+    def listAll(inwards: OVGNode => NavigableLink, ahead: OVGNode => NavigableLink)(
+        res: List[NodeIndex],
+        i: NodeIndex,
+    ): List[NodeIndex] = inwards(ovg(i)) match
+      case EndOfWorld => sys.error(s"node $i: ${ovg(i)} reached end of world")
+      case Node(_)    => res.reverse
+      case _          => nodeOrElse(ahead(ovg(i)))(listAll(inwards, ahead)(i :: res, _), failNextNode(i, _))
 
-  enum PartialOVGNode:
-    case Init(left: NavigableLink, bottom: NavigableLink, vi: Int, hi: Int, obstacle: Option[Int])
-    case WithTop(top: NavigableLink, base: PartialOVGNode.Init)
-    case WithRight(right: NavigableLink, base: PartialOVGNode.Init)
-    case Ready(node: OVGNode)
+    val bl = ovg.findObstacle(oid)
+    dir match
+      case North =>
+        val first = nodeOrElse(bl.top)(walk(_.right, _.top), failCornerNode(bl, _))
+        listAll(_.bottom, _.right)(Nil, first)
+      case East  =>
+        val first = nodeOrElse(bl.right)(walk(_.top, _.right), failCornerNode(bl, _))
+        listAll(_.left, _.top)(Nil, first)
+      case South =>
+        val first = nodeOrElse(bl.top)(identity, failCornerNode(bl, _))
+        listAll(_.top, _.right)(Nil, first)
+      case West  =>
+        val first = nodeOrElse(bl.right)(identity, failCornerNode(bl, _))
+        listAll(_.right, _.top)(Nil, first)
+  end obstacleBorder
 
-    def withTop(top: NavigableLink): PartialOVGNode = this match
-      case base: Init            => WithTop(top, base)
-      case WithRight(right, b)   => Ready(OVGNode(b.left, top, right, b.bottom, b.obstacle))
-      case _: WithTop | _: Ready => sys.error(s"Cannot add bootom part to $this")
+  def edgeOfWorld(ovg: OVG)(dir: Direction) =
+    import NavigableLink.*, Direction.*
 
-    def withRight(right: NavigableLink): PartialOVGNode = this match
-      case base: Init              => WithRight(right, base)
-      case WithTop(top, b)         => Ready(OVGNode(b.left, top, right, b.bottom, b.obstacle))
-      case _: WithRight | _: Ready => sys.error(s"cannot add right part to $this")
+    @tailrec def go(ahead: NodeIndex => NavigableLink)(res: List[NodeIndex], i: NodeIndex): List[NodeIndex] =
+      ahead(i) match
+        case EndOfWorld => res.reverse
+        case Node(next) => go(ahead)(i :: res, next)
+        case err        => sys.error(s"a $dir edge of world node should not have a $err link")
+
+    dir match
+      case North | East => ???
+      case South        => go(ovg(_).right)(List(ovg.bottomLeftNodeIdx), ovg.bottomLeftNodeIdx)
+      case West         => go(ovg(_).top)(List(ovg.bottomLeftNodeIdx), ovg.bottomLeftNodeIdx)
+  end edgeOfWorld
 
 end OrthogonalVisibilityGraph

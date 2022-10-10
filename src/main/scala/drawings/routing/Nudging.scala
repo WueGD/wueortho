@@ -81,47 +81,6 @@ object Nudging:
           .find(s => s.group.dir.isHorizontal && s.group.nodes.contains(nodeIdx))
           .getOrElse(sys.error(s"path $pathIdx has no horizontal segment containing node $nodeIdx"))
 
-      def topIdxes(obstacle: Int) =
-        @tailrec def goUp(i: NodeIndex): NodeIndex =
-          ovg(i).right match
-            case NavigableLink.Node(idx) => idx
-            case _                       =>
-              ovg(i).top match
-                case NavigableLink.EndOfWorld | NavigableLink.Obstacle(_) | NavigableLink.Port(_) =>
-                  sys.error(s"node ${ovg(i)} should have a link to a top node")
-                case NavigableLink.Node(idx)                                                      =>
-                  goUp(idx)
-
-        @tailrec def listAll(res: List[NodeIndex], i: NodeIndex): List[NodeIndex] = ovg(i).bottom match
-          case NavigableLink.EndOfWorld =>
-            sys.error(s"node $i should be top of obstacle $obstacle but bottom link was EOW")
-          case NavigableLink.Node(_)    => res.reverse
-          case _                        =>
-            ovg(i).right match
-              case NavigableLink.Node(next) => listAll(i :: res, next)
-              case err                      => sys.error(s"node $i should be top of obstacle $obstacle but right link was $err")
-
-        val fst = ovg.findObstacle(obstacle).top match
-          case node @ (NavigableLink.EndOfWorld | NavigableLink.Obstacle(_) | NavigableLink.Port(_)) =>
-            sys.error(s"node $node is not the bottom left corner of obstacle $obstacle")
-          case NavigableLink.Node(idx)                                                               =>
-            goUp(idx)
-
-        listAll(Nil, fst)
-      end topIdxes
-
-      val btmIdxes =
-        val start                                                            = ovg(ovg.bottomLeftNodeIdx)
-        assert(
-          start.left == NavigableLink.EndOfWorld && start.bottom == NavigableLink.EndOfWorld,
-          s"$start is not bottom left",
-        )
-        @tailrec def go(res: List[NodeIndex], i: NodeIndex): List[NodeIndex] = ovg(i).right match
-          case NavigableLink.EndOfWorld => res.reverse
-          case NavigableLink.Node(next) => go(i :: res, next)
-          case err                      => sys.error(s"a bottom-most node should not have $err as right link")
-        go(List(ovg.bottomLeftNodeIdx), ovg.bottomLeftNodeIdx)
-
       @tailrec def seek(res: List[Constraint], base: Option[CTerm], next: NodeIndex): Set[Constraint] =
         val pathsOrdered            = base ++ routes(next.toInt).toRight.map(resolveHSegment(next, _).normal)
         val (constraints, nextBase) = ovg(next).right match
@@ -154,9 +113,9 @@ object Nudging:
           case NavigableLink.Node(next)   => seek(constraints ::: res, nextBase, next)
       end seek
 
-      (btmIdxes.map(n => seek(Nil, None, n)) ++ (0 until obstacles.nodes.length).flatMap(o =>
+      (ovg.edgeOfWorld(Direction.South).map(n => seek(Nil, None, n)) ++ (0 until obstacles.nodes.length).flatMap(o =>
         val base = mkConst(obstacles.nodes(o).top)
-        topIdxes(o).map(n => seek(Nil, Some(base), n)),
+        ovg.obstacleBorder(Direction.North, o).map(n => seek(Nil, Some(base), n)),
       )).fold(Set.empty)(_ ++ _)
     end mkVConstraints
 
@@ -166,33 +125,41 @@ object Nudging:
           .find(s => s.group.dir.isVertical && s.group.nodes.contains(nodeIdx))
           .getOrElse(sys.error(s"path $pathIdx has no vertical segment containing node $nodeIdx"))
 
-      def rightIdxes(obstacle: Int) =
-        @tailrec def goRight(i: NodeIndex): NodeIndex =
-          ovg(i).top match
-            case NavigableLink.Node(res) => res
-            case _                       =>
-              ovg(i).right match
-                case NavigableLink.Node(next) => goRight(next)
-                case err                      => sys.error(s"node ${ovg(i)} should have a link to a top node but has $err")
+      @tailrec def seek(res: List[Constraint], base: Option[CTerm], next: NodeIndex): Set[Constraint] =
+        val pathsOrdered            = (base ++ routes(next.toInt).toTop.map(resolveVSegment(next, _).normal)).toList
+        val (constraints, nextBase) = ovg(next).top match
+          case NavigableLink.Node(_) =>
+            val newCs =
+              if pathsOrdered.length < 2 then Nil
+              else for Seq(from, to) <- pathsOrdered.sliding(2).toList yield from + margin <= to
+            ovg(next).obstacle match
+              case None    => newCs -> pathsOrdered.lastOption
+              case Some(i) =>
+                val obs = obstacles.nodes(i)
+                val sep = pathsOrdered.lastOption.map(_ + margin <= mkConst(obs.left))
+                (sep.toList ::: newCs) -> Some(mkConst(obs.right))
+          case _                     => Nil -> base
 
-        @tailrec() def listAll(res: List[NodeIndex], i: NodeIndex): List[NodeIndex] = ovg(i).left match
-          case NavigableLink.EndOfWorld =>
-            sys.error(s"node $i: ${ovg(i)} should be right of obstacle $obstacle but left link was EOW")
-          case NavigableLink.Node(_)    => res.reverse
-          case _                        =>
-            ovg(i).left match
-              case NavigableLink.Node(next) => listAll(i :: res, next)
-              case err                      =>
-                sys.error(s"node $i: ${ovg(i)} should be right of obstacle $obstacle but left link was $err")
+        ovg(next).right match
+          case NavigableLink.EndOfWorld   => res.toSet
+          case NavigableLink.Port(id)     =>
+            val sep = pathsOrdered.lastOption.map(_ + margin <= mkConst(portCoordinate(id).x1))
+            (sep.toList ::: constraints ::: res).toSet
+          case NavigableLink.Obstacle(id) =>
+            val sep = pathsOrdered.lastOption.map(_ + margin <= mkConst(obstacles.nodes(id).left))
+            (sep.toList ::: constraints ::: res).toSet
+          case NavigableLink.Node(next)   => seek(constraints ::: res, nextBase, next)
+      end seek
 
-        val fst = ovg.findObstacle(obstacle).right match
-          case NavigableLink.Node(idx) => goRight(idx)
-          case err                     => sys.error(s"node is not the bottom left corner of obstacle $obstacle (right link was $err)")
+      (ovg.edgeOfWorld(Direction.West).map(seek(Nil, None, _)) ++ (0 until obstacles.nodes.length).flatMap(o =>
+        val base = mkConst(obstacles.nodes(o).right)
+        ovg.obstacleBorder(Direction.East, o).map(seek(Nil, Some(base), _)),
+      )).fold(Set.empty)(_ ++ _)
+    end mkHConstraints
 
-        listAll(Nil, fst)
-      end rightIdxes
-
-      val leftIdxes = ??? // todo move all ovg specific code to ovg code base!
-
-    println(mkVConstraints(mkVariables(Nil, 1, paths.zipWithIndex).toIndexedSeq, mkVar(marginVar)).mkString("\n"))
+    val vars = mkVariables(Nil, 1, paths.zipWithIndex).toIndexedSeq
+    println(mkVConstraints(vars, mkVar(marginVar)).mkString("\n"))
+    println("^^^^^ VERTICAL ||| HORIZONTAL vvvvv")
+    println(mkHConstraints(vars, mkVar(marginVar)).mkString("\n"))
+  end createConstraints
 end Nudging
