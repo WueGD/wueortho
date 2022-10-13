@@ -176,9 +176,9 @@ object Nudging:
     val vars = mkVariables(Nil, 1, paths.zipWithIndex).toIndexedSeq
     val vcs  = mkVConstraints(vars, marginVar)
     val hcs  = mkHConstraints(vars, marginVar)
-    println(vcs.mkString("\n"))
-    println("^^^^^ VERTICAL ||| HORIZONTAL vvvvv")
-    println(hcs.mkString("\n"))
+    // println(vcs.mkString("\n"))
+    // println("^^^^^ VERTICAL ||| HORIZONTAL vvvvv")
+    // println(hcs.mkString("\n"))
 
     val ORTools.LPResult(sols, _) = ORTools
       .solve(ORTools.LPInstance((vcs ++ hcs).toSeq, marginVar, maximize = true))

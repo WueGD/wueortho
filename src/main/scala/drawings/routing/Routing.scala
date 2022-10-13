@@ -29,8 +29,8 @@ object Routing:
   def edgeRoutes(obstacles: Obstacles, ports: IndexedSeq[EdgeTerminals]) =
     val (gridGraph, gridLayout, gridPaths, ovg) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
 
-    println(gridLayout.nodes.zipWithIndex.map((n, i) => s"node $i @ $n").mkString("\n"))
-    println(gridPaths.zipWithIndex.map((n, i) => s"edge $i is $n").mkString("\n"))
+    // println(gridLayout.nodes.zipWithIndex.map((n, i) => s"node $i @ $n").mkString("\n"))
+    // println(gridPaths.zipWithIndex.map((n, i) => s"edge $i is $n").mkString("\n"))
 
     def isNeighbor(uPos: Vec2D, link: NavigableLink) = link match
       case NavigableLink.EndOfWorld  => None
@@ -63,7 +63,7 @@ object Routing:
         .fold(err => sys.error(s"cannot find shortest paht between $u and $v: $err"), identity)
 
     val order = PathOrder(ovg, ports, paths)
-    println(order.zipWithIndex.map((n, i) => s"$i: $n").mkString("\n"))
+    // println(order.zipWithIndex.map((n, i) => s"$i: $n").mkString("\n"))
 
     val edgeRoutes = for (path, terminals) <- paths zip ports yield pathToOrthoSegs(terminals, path, gridLayout)
 

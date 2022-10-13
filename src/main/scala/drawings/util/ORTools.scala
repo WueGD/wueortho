@@ -73,10 +73,10 @@ object ORTools:
     println(s"Solved in ${$.wallTime()}ms after ${$.iterations()} iterations")
     val objv = $.objective().nn.value()
     val sols = for v <- $.variables().nn yield v.nn.solutionValue()
+    println(s"obj: $objv sols: ${sols.mkString("[", ", ", "]")}")
     LPResult(scala.collection.immutable.ArraySeq.unsafeWrapArray(sols), objv)
 
   private case class MPC(coefficients: List[(Int, Double)], lb: Double, ub: Double):
     def unsafeAddToSolver($ : MPSolver, vars: Array[MPVariable | Null]) =
-      println(this)
       val c = $.makeConstraint(lb, ub).nn
       for (i, a) <- coefficients do c.setCoefficient(vars(i), a)

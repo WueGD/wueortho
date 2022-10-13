@@ -14,11 +14,8 @@ case class PathsOnGridNode(toTop: List[Int], toRight: List[Int]):
   def prepended(dir: TopOrRight, i: Int)                      = modify(dir)(i :: _)
   def insertWhere(dir: TopOrRight, i: Int)(p: Int => Boolean) = modify(dir) { l =>
     val at = l.indexWhere(p(_))
-    l.take(at) ::: i :: l.drop(at)
+    if at == -1 then l :+ i else l.take(at) ::: i :: l.drop(at)
   }
-
-object PathsOnGridNode:
-  def empty = PathsOnGridNode(Nil, Nil)
 
 object PathOrder:
   private def ifTopOrRight[R, R1 <: R, R2 <: R](dir: Direction)(f1: TopOrRight => R1)(f2: LeftOrBottom => R2): R =
@@ -37,7 +34,7 @@ object PathOrder:
     def asPortId(id: NodeIndex) = id.toInt - ovg.length
     def portDir(i: Int)         = if i % 2 == 0 then ports(i / 2).uDir else ports(i / 2).vDir
 
-    val onGrid = mutable.ArrayBuffer.fill(ovg.length + 2 * ports.length)(PathsOnGridNode.empty)
+    val onGrid = mutable.ArrayBuffer.fill(ovg.length + 2 * ports.length)(PathsOnGridNode(Nil, Nil))
 
     def leftOnGrid(u: NodeIndex)   = ovg(u).left match
       case NavigableLink.EndOfWorld | NavigableLink.Obstacle(_) => Nil
@@ -58,7 +55,6 @@ object PathOrder:
       (path, i) <- paths.zipWithIndex
       Seq(u, v) <- path.nodes.sliding(2)
     do
-
       if isPort(u) then // a port should have only one path
         val mainDir = portDir(asPortId(u))
         ifTopOrRight(mainDir)(tr => onGrid(u.toInt) = onGrid(u.toInt).prepended(tr, i))(lb =>
@@ -70,7 +66,7 @@ object PathOrder:
         val others  = otherPathsOrder(u, mainDir)
         val preIdx  = others.indexOf(i)
         assert(preIdx > -1, s"segment ${ovg(u)} -> ${ovg(v)} should not be the start of a path")
-        println(s"path $i @ $u -> $v ($mainDir): $others")
+        // println(s"path $i @ $u -> $v ($mainDir): $others with i at $preIdx")
         ifTopOrRight(mainDir)(tr =>
           onGrid(u.toInt) = onGrid(u.toInt).insertWhere(tr, i)(j => !(others.indexOf(j) < preIdx)),
         )(lb => onGrid(v.toInt) = onGrid(v.toInt).insertWhere(reverseDir(lb), i)(j => !(others.indexOf(j) < preIdx)))

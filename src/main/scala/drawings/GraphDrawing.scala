@@ -17,7 +17,7 @@ object GraphDrawing:
   def runRandomSample(seed: Long) =
     val rndm = scala.util.Random(seed)
     val n    = 10
-    val m    = 30
+    val m    = 20
 
     def randomNodePair: (NodeIndex, NodeIndex) =
       val (u, v) = (rndm.nextInt(n), rndm.nextInt(n))
@@ -39,16 +39,21 @@ object GraphDrawing:
 
     val ports = PortHeuristic.makePorts(obstacles, AdjacencyList.fromEWG(graph))
 
-    val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
-    val (_, paths, onGrid)     = Routing.edgeRoutes(obstacles, ports)
-    val routes                 = Nudging.calcEdgeRoutes(ovg, onGrid, paths, ports, obstacles)
+    val (adj, lay, edges, ovg)      = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
+    val (bareRoutes, paths, onGrid) = Routing.edgeRoutes(obstacles, ports)
+    val routes                      = Nudging.calcEdgeRoutes(ovg, onGrid, paths, ports, obstacles)
 
     val rectsSvg     = Svg.drawRects(obstacles.nodes)
     val portsSvg     = Svg.drawPorts(ports)
     val portLabelSvg = Svg.drawPortLabels(ports)
     val edgesSvg     = routes.zip(Svg.colors).map(Svg.drawEdgeRoute(_, _)).reduce(_ ++ _)
+    val bareEdgesSvg = bareRoutes.zip(Svg.colors).map(Svg.drawEdgeRoute(_, _)).reduce(_ ++ _)
     val nodeLabelSvg = Svg.drawNodeLabels(VertexLayout(obstacles.nodes.map(_.center)))
     Files.writeString(
       Paths.get(s"res_n${n}m${m}#${seed.toHexString}.svg"),
       (rectsSvg ++ portsSvg ++ edgesSvg ++ nodeLabelSvg ++ portLabelSvg).svgString,
+    )
+    Files.writeString(
+      Paths.get(s"res_n${n}m${m}#${seed.toHexString}_no-nudging.svg"),
+      (rectsSvg ++ portsSvg ++ bareEdgesSvg ++ nodeLabelSvg ++ portLabelSvg).svgString,
     )
