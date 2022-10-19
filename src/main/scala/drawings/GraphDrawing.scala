@@ -14,10 +14,8 @@ import drawings.routing.OrthogonalVisibilityGraph
 object GraphDrawing:
   val frConfig = ForceDirected.defaultConfig.copy(iterCap = 1000)
 
-  def runRandomSample(seed: Long) =
+  def runRandomSample(seed: Long, n: Int, m: Int) =
     val rndm = scala.util.Random(seed)
-    val n    = 10
-    val m    = 20
 
     def randomNodePair: (NodeIndex, NodeIndex) =
       val (u, v) = (rndm.nextInt(n), rndm.nextInt(n))

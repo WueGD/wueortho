@@ -52,7 +52,7 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   val edgesSvg = edgeRoutes.zip(Svg.colors).map(Svg.drawEdgeRoute(_, _)).reduce(_ ++ _)
   Files.writeString(Paths.get("constrained-routing.svg"), (rectsSvg ++ portsSvg ++ edgesSvg).svgString)
 
-@main def runRandomized = GraphDrawing.runRandomSample(0x98c0ffee)
+@main def runRandomized = GraphDrawing.runRandomSample(0x98c0ffee, 7, 21)
 
 @main def runRouting =
   val (routes, _, _) = Routing.edgeRoutes(Obstacles(OvgSample.rects), OvgSample.ports)

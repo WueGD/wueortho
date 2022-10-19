@@ -3,10 +3,9 @@ package drawings.routing
 import drawings.data.*
 import drawings.util.Dijkstra.DijkstraCost
 import drawings.util.Dijkstra
-import drawings.util.Debugging
 import drawings.data.EdgeRoute.OrthoSeg
 import scala.annotation.nowarn
-import drawings.data.Link.apply
+import scala.compiletime.ops.int
 
 object Routing:
   import scala.collection.mutable
@@ -56,26 +55,20 @@ object Routing:
 
     given dc: DijkstraCost[DijState, DijTrans] = (t, s0) => s0.transitionCost(t)
 
-    val paths =
+    val paths = removeEyes(
       for ((EdgeTerminals(uPos, dir, vPos, _), SimpleEdge(u, v)), i) <- (ports zip gridPaths).zipWithIndex
       yield Dijkstra
         .shortestPath(neighbors, u, v, DijState(0, 0, 0, dir))
-        .fold(err => sys.error(s"cannot find shortest paht between $u and $v: $err"), identity)
+        .fold(err => sys.error(s"cannot find shortest path between $u and $v: $err"), identity),
+    )
 
     val order = PathOrder(ovg, ports, paths)
     // println(order.zipWithIndex.map((n, i) => s"$i: $n").mkString("\n"))
 
-    val edgeRoutes = for (path, terminals) <- paths zip ports yield pathToOrthoSegs(terminals, path, gridLayout)
+    val edgeRoutes =
+      for (path, terminals) <- paths zip ports yield pathToOrthoSegs(terminals, path, gridLayout).normalized
 
-    // val gridSegments        = EdgeWeightedGraph.fromAdjacencyList(gridGraph).edges
-    // val edgesPerGridSegment = mutable.ArraySeq.fill(gridSegments.length)(mutable.ArrayBuffer.empty[Int])
-
-    // for
-    //   (path, i) <- paths.zipWithIndex
-    //   segment   <- path.nodes
-    // do edgesPerGridSegment(segment.toInt) += i
-
-    (edgeRoutes.map(_.normalized), paths, order)
+    (edgeRoutes, paths, order)
 
   private def pathToOrthoSegs(terminals: EdgeTerminals, path: Path, layout: VertexLayout) =
     import drawings.data.EdgeRoute.OrthoSeg.*
@@ -119,12 +112,32 @@ object Routing:
 
     EdgeRoute(r.terminals, compact)
 
-/*
- * TODO:
- *  - Input: Obstacles + AdjacencyList [done]
- *  - Ports -> List of EdgeTerminals [done in PortHeuristic]
- *  - Shortest Paths [done]
- *  - Path segments per grid graph edge [done?]
- *  - Line Ordering
- *  - ...
- */
+  def removeEyes(paths: IndexedSeq[Path]): IndexedSeq[Path] =
+    def intersect(pa: Path, pb: Path) =
+      for
+        (a, i) <- pa.nodes.zipWithIndex
+        (b, j) <- pb.nodes.zipWithIndex
+        if a == b
+      yield i -> j
+
+    import scala.collection.mutable
+
+    val pathBuf = mutable.ArrayBuffer.from(paths)
+
+    for
+      i <- 0 until pathBuf.length
+      j <- 0 until pathBuf.length
+      if i < j
+    do
+      val isecs = intersect(pathBuf(i), pathBuf(j)).toList
+      if isecs.length > 1 then
+        val (a, b)               = (pathBuf(i).nodes, pathBuf(j).nodes)
+        val ((a0, b0), (a1, b1)) = (isecs.head, isecs.last)
+
+        // we mutilate b
+        val patch = a.drop(a0 + 1).take(a1 - a0)
+        pathBuf(j) =
+          if b0 < b1 then Path(b.take(b0 + 1) ++ patch ++ b.drop(b1 + 1))
+          else Path(b.take(b1) ++ patch.reverse ++ b.drop(b0))
+
+    pathBuf.toIndexedSeq
