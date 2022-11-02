@@ -30,9 +30,7 @@ object PathOrder:
     case Direction.South => Direction.North
 
   def apply(ovg: OVG, ports: IndexedSeq[EdgeTerminals], paths: IndexedSeq[Path]) =
-    def isPort(id: NodeIndex)   = id.toInt >= ovg.length
-    def asPortId(id: NodeIndex) = id.toInt - ovg.length
-    def portDir(i: Int)         = if i % 2 == 0 then ports(i / 2).uDir else ports(i / 2).vDir
+    def portDir(i: Int) = if i % 2 == 0 then ports(i / 2).uDir else ports(i / 2).vDir
 
     val onGrid = mutable.ArrayBuffer.fill(ovg.length + 2 * ports.length)(PathsOnGridNode(Nil, Nil))
 
@@ -55,13 +53,13 @@ object PathOrder:
       (path, i) <- paths.zipWithIndex
       Seq(u, v) <- path.nodes.sliding(2)
     do
-      if isPort(u) then // a port should have only one path
-        val mainDir = portDir(asPortId(u))
+      if ovg.isPort(u) then // a port should have only one path
+        val mainDir = portDir(ovg.asPortId(u))
         ifTopOrRight(mainDir)(tr => onGrid(u.toInt) = onGrid(u.toInt).prepended(tr, i))(lb =>
           onGrid(v.toInt) = onGrid(v.toInt).prepended(reverseDir(lb), i),
         )
       else
-        val mainDir = (if isPort(v) then ovg(u).dirToPort(asPortId(v)) else ovg(u).dirToNode(v))
+        val mainDir = (if ovg.isPort(v) then ovg(u).dirToPort(ovg.asPortId(v)) else ovg(u).dirToNode(v))
           .getOrElse(sys.error(s"path unconnected between ${ovg(u)} and ${ovg(v)}"))
         val others  = otherPathsOrder(u, mainDir)
         val preIdx  = others.indexOf(i)

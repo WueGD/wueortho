@@ -35,17 +35,17 @@ object Routing:
       case NavigableLink.EndOfWorld  => None
       case NavigableLink.Obstacle(_) => None
       case NavigableLink.Node(idx)   => Some(idx -> (gridLayout.nodes(idx.toInt) - uPos).len)
-      case NavigableLink.Port(idx)   => Some(NodeIndex(ovg.nodes.length + idx) -> 0.0)
+      case NavigableLink.Port(idx)   => Some(NodeIndex(ovg.length + idx) -> 0.0)
 
-    def neighbors(u: NodeIndex) = if u.toInt >= ovg.nodes.length then
+    def neighbors(u: NodeIndex) = if ovg.isPort(u) then
       val Seq(Link(v, w, _)) = gridGraph.vertices(u.toInt).neighbors
       val portDir            =
-        val i = u.toInt - ovg.nodes.length
+        val i = ovg.asPortId(u)
         if i % 2 == 0 then ports(i / 2).uDir
         else ports(i / 2).vDir
       List(v -> DijTrans(portDir, 0.0))
     else
-      val (node, pos) = ovg.nodes(u.toInt) -> gridLayout.nodes(u.toInt)
+      val (node, pos) = ovg(u) -> gridLayout.nodes(u.toInt)
       List(
         isNeighbor(pos, node.left).map(_   -> DijTrans(Direction.West, _)),
         isNeighbor(pos, node.top).map(_    -> DijTrans(Direction.North, _)),

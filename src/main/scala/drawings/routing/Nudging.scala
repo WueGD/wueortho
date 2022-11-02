@@ -9,8 +9,8 @@ import drawings.util.ORTools
 
 object Nudging:
   case class GroupedSeg(dir: Direction, nodes: List[NodeIndex])
-  case class VarSeg(endsAt: CTerm, normal: CTerm, group: GroupedSeg)
-  case class CNav(toTop: IndexedSeq[CTerm], toRight: IndexedSeq[CTerm])
+  case class VarSeg(id: Int, endsAt: CTerm, normal: CTerm, group: GroupedSeg)
+  case class VarString(startId: Int, terms: List[CTerm], endId: Int)
 
   def calcEdgeRoutes(
       ovg: OVG,
@@ -21,12 +21,10 @@ object Nudging:
   ) =
     import Constraint.builder.*
 
-    val marginVar = mkVar(0)
+    def portDir(i: Int)        = if i % 2 == 0 then ports(i / 2).uDir else ports(i / 2).vDir
+    def portCoordinate(i: Int) = if i % 2 == 0 then ports(i / 2).uTerm else ports(i / 2).vTerm
 
-    def isPort(id: NodeIndex)   = id.toInt >= ovg.length
-    def asPortId(id: NodeIndex) = id.toInt - ovg.length
-    def portDir(i: Int)         = if i % 2 == 0 then ports(i / 2).uDir else ports(i / 2).vDir
-    def portCoordinate(i: Int)  = if i % 2 == 0 then ports(i / 2).uTerm else ports(i / 2).vTerm
+    val marginVar = mkVar(0)
 
     def splitIntoSegments(path: Path) =
       @tailrec
@@ -35,19 +33,19 @@ object Nudging:
           case Nil               => (GroupedSeg(dir, tmp.reverse) :: res).reverse
           case Seq(u, v) +: tail =>
             val nextDir = (
-              if isPort(u) then Some(portDir(asPortId(u)))
-              else if isPort(v) then ovg(u).dirToPort(asPortId(v))
+              if ovg.isPort(u) then Some(portDir(ovg.asPortId(u)))
+              else if ovg.isPort(v) then ovg(u).dirToPort(ovg.asPortId(v))
               else ovg(u).dirToNode(v)
             ) getOrElse sys.error(s"path disconnected at ${ovg(u)} -- ${ovg(v)}")
             if dir == nextDir then go(res, v :: tmp, dir, tail)
             else go(GroupedSeg(dir, tmp.reverse) :: res, List(v, u), nextDir, tail)
 
-      go(Nil, List(path.nodes.head), portDir(asPortId(path.nodes.head)), path.nodes.sliding(2).toList)
+      go(Nil, List(path.nodes.head), portDir(ovg.asPortId(path.nodes.head)), path.nodes.sliding(2).toList)
     end splitIntoSegments
 
     @tailrec
     @nowarn("name=PatternMatchExhaustivity")
-    def mkVariables(res: List[List[VarSeg]], vIdx: Int, tail: Seq[(Path, Int)]): List[List[VarSeg]] =
+    def mkVariables(res: List[List[VarSeg]], vIdx: Int, sIdx: Int, tail: Seq[(Path, Int)]): List[List[VarSeg]] =
       tail match
         case Nil               => res.reverse
         case (path, i) +: tail =>
@@ -56,25 +54,39 @@ object Nudging:
             case Nil                         => sys.error("empty paths are unsupported")
             case one :: Nil                  =>
               println(s"WARN: this path has only one segment ($one)")
-              mkVariables(Nil :: res, vIdx, tail)
+              val seg =
+                if one.dir.isHorizontal then VarSeg(sIdx, mkConst(v.x1), mkConst(v.x2), one)
+                else VarSeg(sIdx, mkConst(v.x2), mkConst(v.x1), one)
+              mkVariables(List(seg) :: res, vIdx, sIdx + 1, tail)
             case first :: last :: Nil        =>
               val segs =
                 if first.dir.isHorizontal then
-                  List(VarSeg(mkConst(v.x1), mkConst(u.x2), first), VarSeg(mkConst(v.x2), mkConst(v.x1), last))
-                else List(VarSeg(mkConst(v.x2), mkConst(u.x1), first), VarSeg(mkConst(v.x1), mkConst(v.x2), last))
-              mkVariables(segs :: res, vIdx, tail)
+                  List(
+                    VarSeg(sIdx, mkConst(v.x1), mkConst(u.x2), first),
+                    VarSeg(sIdx + 1, mkConst(v.x2), mkConst(v.x1), last),
+                  )
+                else
+                  List(
+                    VarSeg(sIdx, mkConst(v.x2), mkConst(u.x1), first),
+                    VarSeg(sIdx + 1, mkConst(v.x1), mkConst(v.x2), last),
+                  )
+              mkVariables(segs :: res, vIdx, sIdx + 2, tail)
             case first +: mid :+ stl :+ last =>
-              val begin      =
-                if first.dir.isHorizontal then VarSeg(mkVar(vIdx), mkConst(u.x2), first)
-                else VarSeg(mkVar(vIdx), mkConst(u.x1), first)
-              val (mids, vi) = mid.foldLeft(List.empty[VarSeg] -> vIdx) { case ((res, vi), grp) =>
-                (VarSeg(mkVar(vi + 1), mkVar(vi), grp) :: res, vi + 1)
+              val begin            =
+                if first.dir.isHorizontal then VarSeg(sIdx, mkVar(vIdx), mkConst(u.x2), first)
+                else VarSeg(sIdx, mkVar(vIdx), mkConst(u.x1), first)
+              val (mids, (vi, si)) = mid.foldLeft(List.empty[VarSeg] -> (vIdx, sIdx + 1)) {
+                case ((res, (vi, si)), grp) =>
+                  (VarSeg(si, mkVar(vi + 1), mkVar(vi), grp) :: res, (vi + 1, si + 1))
               }
-              val end        =
+              val end              =
                 if last.dir.isHorizontal then
-                  List(VarSeg(mkConst(v.x2), mkVar(vi), stl), VarSeg(mkConst(v.x1), mkConst(v.x2), last))
-                else List(VarSeg(mkConst(v.x1), mkVar(vi), stl), VarSeg(mkConst(v.x2), mkConst(v.x1), last))
-              mkVariables((begin :: mids.reverse ::: end) :: res, vi + 1, tail)
+                  List(VarSeg(si, mkConst(v.x2), mkVar(vi), stl), VarSeg(si + 1, mkConst(v.x1), mkConst(v.x2), last))
+                else List(VarSeg(si, mkConst(v.x1), mkVar(vi), stl), VarSeg(si + 1, mkConst(v.x2), mkConst(v.x1), last))
+              mkVariables((begin :: mids.reverse ::: end) :: res, vi + 1, si + 2, tail)
+
+    def notConst(a: CTerm)            = a.constValue.isEmpty
+    def notConst2(a: CTerm, b: CTerm) = a.constValue.isEmpty || b.constValue.isEmpty
 
     def mkVConstraints(pathSegs: IndexedSeq[List[VarSeg]], margin: CTerm) =
       def resolveHSegment(nodeIdx: NodeIndex, pathIdx: Int) =
@@ -82,28 +94,40 @@ object Nudging:
           .find(s => s.group.dir.isHorizontal && s.group.nodes.contains(nodeIdx))
           .getOrElse(sys.error(s"path $pathIdx has no horizontal segment containing node $nodeIdx"))
 
+      def mkTerms(node: NodeIndex, res: List[CTerm]) =
+        val pathsOrdered = (routes(node.toInt).toRight.map(resolveHSegment(node, _).normal)).toList
+        val segments     = ovg(node).right match
+          case NavigableLink.Node(_) =>
+            ovg(node).obstacle match
+              case None    => pathsOrdered
+              case Some(i) =>
+                val obs = obstacles.nodes(i)
+                pathsOrdered ::: List(mkConst(obs.bottom), mkConst(obs.top))
+
+        ???
+
       @tailrec def seek(res: List[Constraint], base: Option[CTerm], next: NodeIndex): Set[Constraint] =
         val pathsOrdered            = (base ++ routes(next.toInt).toRight.map(resolveHSegment(next, _).normal)).toList
         val (constraints, nextBase) = ovg(next).right match
           case NavigableLink.Node(_) =>
             val newCs =
               if pathsOrdered.length < 2 then Nil
-              else for Seq(from, to) <- pathsOrdered.sliding(2).toList yield from + margin <= to
+              else for Seq(from, to) <- pathsOrdered.sliding(2).toList if notConst2(from, to) yield from + margin <= to
             ovg(next).obstacle match
               case None    => newCs -> pathsOrdered.lastOption
               case Some(i) =>
                 val obs = obstacles.nodes(i)
-                val sep = pathsOrdered.lastOption.map(from => from + margin <= mkConst(obs.bottom))
+                val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(obs.bottom))
                 (sep.toList ::: newCs) -> Some(mkConst(obs.top))
           case _                     => Nil -> base
 
         ovg(next).top match
           case NavigableLink.EndOfWorld   => res.toSet
           case NavigableLink.Port(id)     =>
-            val sep = pathsOrdered.lastOption.map(from => from + margin <= mkConst(portCoordinate(id).x2))
+            val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(portCoordinate(id).x2))
             (sep.toList ::: constraints ::: res).toSet
           case NavigableLink.Obstacle(id) =>
-            val sep = pathsOrdered.lastOption.map(from => from + margin <= mkConst(obstacles.nodes(id).bottom))
+            val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(obstacles.nodes(id).bottom))
             (sep.toList ::: constraints ::: res).toSet
           case NavigableLink.Node(next)   => seek(constraints ::: res, nextBase, next)
       end seek
@@ -126,22 +150,22 @@ object Nudging:
           case NavigableLink.Node(_) =>
             val newCs =
               if pathsOrdered.length < 2 then Nil
-              else for Seq(from, to) <- pathsOrdered.sliding(2).toList yield from + margin <= to
+              else for Seq(from, to) <- pathsOrdered.sliding(2).toList if notConst2(from, to) yield from + margin <= to
             ovg(next).obstacle match
               case None    => newCs -> pathsOrdered.lastOption
               case Some(i) =>
                 val obs = obstacles.nodes(i)
-                val sep = pathsOrdered.lastOption.map(_ + margin <= mkConst(obs.left))
+                val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(obs.left))
                 (sep.toList ::: newCs) -> Some(mkConst(obs.right))
           case _                     => Nil -> base
 
         ovg(next).right match
           case NavigableLink.EndOfWorld   => res.toSet
           case NavigableLink.Port(id)     =>
-            val sep = pathsOrdered.lastOption.map(_ + margin <= mkConst(portCoordinate(id).x1))
+            val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(portCoordinate(id).x1))
             (sep.toList ::: constraints ::: res).toSet
           case NavigableLink.Obstacle(id) =>
-            val sep = pathsOrdered.lastOption.map(_ + margin <= mkConst(obstacles.nodes(id).left))
+            val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(obstacles.nodes(id).left))
             (sep.toList ::: constraints ::: res).toSet
           case NavigableLink.Node(next)   => seek(constraints ::: res, nextBase, next)
       end seek
@@ -173,12 +197,13 @@ object Nudging:
 
       for (terms, path) <- ports zip pathSegs yield EdgeRoute(terms, segmentize(path, terms.uTerm))
 
-    val vars = mkVariables(Nil, 1, paths.zipWithIndex).toIndexedSeq
+    val vars = mkVariables(Nil, 1, 0, paths.zipWithIndex).toIndexedSeq
     val vcs  = mkVConstraints(vars, marginVar)
     val hcs  = mkHConstraints(vars, marginVar)
-    // println(vcs.mkString("\n"))
-    // println("^^^^^ VERTICAL ||| HORIZONTAL vvvvv")
-    // println(hcs.mkString("\n"))
+
+    assert(vars.flatten.map(_.id).toSet.size == vars.flatten.size)
+    assert(vars.flatten.map(_.id).max == vars.flatten.size - 1)
+    println(s"DEBUG: #vars: ${vars.length} #constraints: ${vcs.size + hcs.size}")
 
     val ORTools.LPResult(sols, _) = ORTools
       .solve(ORTools.LPInstance((vcs ++ hcs).toSeq, marginVar, maximize = true))

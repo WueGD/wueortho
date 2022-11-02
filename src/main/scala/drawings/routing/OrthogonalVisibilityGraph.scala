@@ -7,12 +7,14 @@ import scala.collection.mutable
 import scala.annotation.tailrec
 
 case class OVG(nodes: IndexedSeq[OVGNode], private val obstacleLinks: IndexedSeq[Int]):
-  def apply(i: NodeIndex)   = nodes(i.toInt)
-  def findObstacle(id: Int) = nodes(obstacleLinks(id))
-  val length                = nodes.length
-  val bottomLeftNodeIdx     = NodeIndex(0)
-  val obstacleBorder        = OrthogonalVisibilityGraph.obstacleBorder(this)
-  val edgeOfWorld           = OrthogonalVisibilityGraph.edgeOfWorld(this)
+  def apply(i: NodeIndex)     = nodes(i.toInt)
+  def findObstacle(id: Int)   = nodes(obstacleLinks(id))
+  val length                  = nodes.length
+  val bottomLeftNodeIdx       = NodeIndex(0)
+  val obstacleBorder          = OrthogonalVisibilityGraph.obstacleBorder(this)
+  val edgeOfWorld             = OrthogonalVisibilityGraph.edgeOfWorld(this)
+  def isPort(id: NodeIndex)   = id.toInt >= length
+  def asPortId(id: NodeIndex) = id.toInt - length
 
 case class OVGNode(
     left: NavigableLink,

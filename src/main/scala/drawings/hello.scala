@@ -25,8 +25,12 @@ import drawings.routing.DifferenceConstraints
 import drawings.routing.Nudging
 import drawings.util.ORTools
 import drawings.util.Constraint
+import drawings.util.TransitiveReduction
 
 val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
+
+@main def runTransitiveReduction =
+  println(TransitiveReduction(tRedExample))
 
 @main def runORToolsLP =
   import Constraint.builder.*
@@ -52,7 +56,7 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   val edgesSvg = edgeRoutes.zip(Svg.colors).map(Svg.drawEdgeRoute(_, _)).reduce(_ ++ _)
   Files.writeString(Paths.get("constrained-routing.svg"), (rectsSvg ++ portsSvg ++ edgesSvg).svgString)
 
-@main def runRandomized = GraphDrawing.runRandomSample(0x98c0ffee, 7, 21)
+@main def runRandomized = GraphDrawing.runRandomSample(0x99c0ffee, 15, 40)
 
 @main def runRouting =
   val (routes, _, _) = Routing.edgeRoutes(Obstacles(OvgSample.rects), OvgSample.ports)
@@ -207,6 +211,21 @@ val dijkstraExample = AdjacencyList.fromEWG(
       rawE(3, 4, 6),
       rawE(4, 5, 9),
     ),
+  ),
+)
+
+// see https://en.wikipedia.org/wiki/Transitive_reduction#/media/File:Tred-G.svg
+// with a=1, b=3, c=4, d=0, e=2
+val tRedExample = DiGraph.fromEdgeList(
+  Seq(
+    rawE(0, 2, 0.0),
+    rawE(1, 0, 0.0),
+    rawE(1, 2, 0.0),
+    rawE(1, 3, 0.0),
+    rawE(1, 4, 0.0),
+    rawE(3, 0, 0.0),
+    rawE(4, 0, 0.0),
+    rawE(4, 2, 0.0),
   ),
 )
 

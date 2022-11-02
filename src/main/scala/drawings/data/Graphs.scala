@@ -69,8 +69,8 @@ case class Path(nodes: Seq[NodeIndex])
 case class EdgeTerminals(uTerm: Vec2D, uDir: Direction, vTerm: Vec2D, vDir: Direction)
 
 case class VertexLayout(nodes: IndexedSeq[Vec2D]):
-  def apply(i: Int) = nodes(i)
-  def yInverted     =
+  def apply(i: NodeIndex) = nodes(i.toInt)
+  def yInverted           =
     val (ymin, ymax) = (nodes.map(_.x2).min, nodes.map(_.x2).max)
     VertexLayout(nodes.map(p => p.copy(x2 = ymax - p.x2 + ymin)))
 

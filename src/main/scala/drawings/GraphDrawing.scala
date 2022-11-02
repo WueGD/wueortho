@@ -45,7 +45,7 @@ object GraphDrawing:
     val portsSvg     = Svg.drawPorts(ports)
     val portLabelSvg = Svg.drawPortLabels(ports)
     val edgesSvg     = routes.zip(Svg.colors).map(Svg.drawEdgeRoute(_, _)).reduce(_ ++ _)
-    val bareEdgesSvg = bareRoutes.zip(Svg.colors).map(Svg.drawEdgeRoute(_, _)).reduce(_ ++ _)
+    val bareEdgesSvg = bareRoutes.zip(Svg.colors).map(Svg.drawEdgeRoute(_, _, 0.0)).reduce(_ ++ _)
     val nodeLabelSvg = Svg.drawNodeLabels(VertexLayout(obstacles.nodes.map(_.center)))
     Files.writeString(
       Paths.get(s"res_n${n}m${m}#${seed.toHexString}.svg"),
