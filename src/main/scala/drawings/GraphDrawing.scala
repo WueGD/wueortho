@@ -49,7 +49,7 @@ object GraphDrawing:
     val nodeLabelSvg = Svg.drawNodeLabels(VertexLayout(obstacles.nodes.map(_.center)))
     Files.writeString(
       Paths.get(s"res_n${n}m${m}#${seed.toHexString}.svg"),
-      (rectsSvg ++ portsSvg ++ edgesSvg ++ nodeLabelSvg ++ portLabelSvg).svgString,
+      (rectsSvg ++ edgesSvg ++ portsSvg ++ nodeLabelSvg ++ portLabelSvg).svgString,
     )
     Files.writeString(
       Paths.get(s"res_n${n}m${m}#${seed.toHexString}_no-nudging.svg"),

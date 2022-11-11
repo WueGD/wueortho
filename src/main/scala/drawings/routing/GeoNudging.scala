@@ -3,20 +3,17 @@ package drawings.routing
 import drawings.data.*
 import drawings.util.Constraint
 import drawings.util.Constraint.CTerm
-import scala.annotation.tailrec
-import scala.annotation.nowarn
+import scala.annotation.{tailrec, nowarn}
 import scala.collection.BitSet
 
 object GeoNudging:
   sealed trait CNode:
     def at: Double = this match
-      case EndOfWorld(dir, pos) =>
+      case EndOfWorld(dir, _) =>
         dir match
-          case Direction.North => Double.PositiveInfinity
-          case Direction.East  => Double.PositiveInfinity
-          case Direction.South => Double.NegativeInfinity
-          case Direction.West  => Double.NegativeInfinity
-      case _                    => sys.error("UNREACHABLE")
+          case Direction.North | Direction.East => Double.PositiveInfinity
+          case Direction.South | Direction.West => Double.NegativeInfinity
+      case _                  => sys.error("UNREACHABLE")
 
     def pos: CTerm = this match
       case _: EndOfWorld | _: Segment.FloatingSegment => sys.error("UNREACHABLE")
@@ -77,54 +74,53 @@ object GeoNudging:
 
       @tailrec
       @nowarn("name=PatternMatchExhaustivity")
-      def go(res: List[List[Segment]], vIdx: Int, tail: Seq[(Path, Int)]): List[List[Segment]] =
-        tail match
-          case Nil               => res.reverse
-          case (path, i) +: tail =>
-            val (u, v) = ports(i).uTerm -> ports(i).vTerm
+      def go(res: List[List[Segment]], vIdx: Int, tail: Seq[(Path, Int)]): List[List[Segment]] = tail match
+        case Nil               => res.reverse
+        case (path, i) +: tail =>
+          val (u, v) = ports(i).uTerm -> ports(i).vTerm
 
-            def mkInfo(gs: GroupedSeg, endsAt: CTerm) =
-              // TODO!
-              SegmentInfo(gs.dir, i, endsAt, ???, ???)
+          def mkInfo(gs: GroupedSeg, endsAt: CTerm) =
+            // TODO!
+            SegmentInfo(gs.dir, i, endsAt, ???, ???)
 
-            splitIntoSegments(path) match
-              case Nil                         => sys.error("empty paths are unsupported")
-              case one :: Nil                  =>
-                println(s"WARN: this path has only one segment ($one)")
-                val seg =
-                  if one.dir.isHorizontal then FixedSegment(v.x2, mkInfo(one, mkConst(v.x1)))
-                  else FixedSegment(v.x1, mkInfo(one, mkConst(v.x2)))
-                go(List(seg) :: res, vIdx, tail)
-              case first :: last :: Nil        =>
-                val segs =
-                  if first.dir.isHorizontal then
-                    List(
-                      FixedSegment(u.x2, mkInfo(first, mkConst(v.x1))),
-                      FixedSegment(v.x1, mkInfo(last, mkConst(v.x2))),
-                    )
-                  else
-                    List(
-                      FixedSegment(u.x1, mkInfo(first, mkConst(v.x2))),
-                      FixedSegment(v.x2, mkInfo(last, mkConst(v.x1))),
-                    )
-                go(segs :: res, vIdx, tail)
-              case first +: mid :+ stl :+ last =>
-                val begin      = FixedSegment(if first.dir.isHorizontal then u.x2 else u.x1, mkInfo(first, mkVar(vIdx)))
-                val (mids, vi) = mid.foldLeft(List.empty[Segment] -> vIdx) { case ((res, vi), grp) =>
-                  (FloatingSegment(grp.norm, mkVar(vi), mkInfo(grp, mkVar(vi + 1))) :: res, vi + 1)
-                }
-                val end        =
-                  if last.dir.isHorizontal then
-                    List(
-                      FloatingSegment(stl.norm, mkVar(vi), mkInfo(stl, mkConst(v.x2))),
-                      FixedSegment(v.x2, mkInfo(last, mkConst(v.x1))),
-                    )
-                  else
-                    List(
-                      FloatingSegment(stl.norm, mkVar(vi), mkInfo(stl, mkConst(v.x1))),
-                      FixedSegment(v.x1, mkInfo(last, mkConst(v.x2))),
-                    )
-                go((begin :: mids.reverse ::: end) :: res, vi + 1, tail)
+          splitIntoSegments(path) match
+            case Nil                         => sys.error("empty paths are unsupported")
+            case one :: Nil                  =>
+              println(s"WARN: this path has only one segment ($one)")
+              val seg =
+                if one.dir.isHorizontal then FixedSegment(v.x2, mkInfo(one, mkConst(v.x1)))
+                else FixedSegment(v.x1, mkInfo(one, mkConst(v.x2)))
+              go(List(seg) :: res, vIdx, tail)
+            case first :: last :: Nil        =>
+              val segs =
+                if first.dir.isHorizontal then
+                  List(
+                    FixedSegment(u.x2, mkInfo(first, mkConst(v.x1))),
+                    FixedSegment(v.x1, mkInfo(last, mkConst(v.x2))),
+                  )
+                else
+                  List(
+                    FixedSegment(u.x1, mkInfo(first, mkConst(v.x2))),
+                    FixedSegment(v.x2, mkInfo(last, mkConst(v.x1))),
+                  )
+              go(segs :: res, vIdx, tail)
+            case first +: mid :+ stl :+ last =>
+              val begin      = FixedSegment(if first.dir.isHorizontal then u.x2 else u.x1, mkInfo(first, mkVar(vIdx)))
+              val (mids, vi) = mid.foldLeft(List.empty[Segment] -> vIdx) { case ((res, vi), grp) =>
+                (FloatingSegment(grp.norm, mkVar(vi), mkInfo(grp, mkVar(vi + 1))) :: res, vi + 1)
+              }
+              val end        =
+                if last.dir.isHorizontal then
+                  List(
+                    FloatingSegment(stl.norm, mkVar(vi), mkInfo(stl, mkConst(v.x2))),
+                    FixedSegment(v.x2, mkInfo(last, mkConst(v.x1))),
+                  )
+                else
+                  List(
+                    FloatingSegment(stl.norm, mkVar(vi), mkInfo(stl, mkConst(v.x1))),
+                    FixedSegment(v.x1, mkInfo(last, mkConst(v.x2))),
+                  )
+              go((begin :: mids.reverse ::: end) :: res, vi + 1, tail)
 
       go(Nil, 0, paths.zipWithIndex).toIndexedSeq
     end mkVariables
