@@ -1,10 +1,9 @@
 package drawings.util
 
-import drawings.data.AdjacencyList
-import scala.collection.mutable
-import math.Ordering.Implicits._
+import drawings.data.*
 import scala.annotation.tailrec
-import drawings.data._
+import scala.math.Ordering.Implicits._
+import scala.collection.mutable
 
 object Dijkstra:
   def shortestPath[C: Ordering, T](neighbors: NodeIndex => Seq[(NodeIndex, T)], s: NodeIndex, t: NodeIndex, c0: C)(using

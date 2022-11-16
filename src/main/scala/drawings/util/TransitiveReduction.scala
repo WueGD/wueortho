@@ -10,7 +10,7 @@ object TransitiveReduction:
     DiGraph.fromEdgeList(edges)
 
 /// IDEA:
-/// return g with all edges u, v that fullfill:
+/// return g with only edges u, v that fullfill:
 /// the longest path between u and v in g has length 1
 
   private def longestPaths(g: DiGraph): Seq[Edge] =

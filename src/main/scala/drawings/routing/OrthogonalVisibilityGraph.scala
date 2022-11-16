@@ -13,6 +13,7 @@ case class OVG(nodes: IndexedSeq[OVGNode], private val obstacleLinks: IndexedSeq
   val bottomLeftNodeIdx       = NodeIndex(0)
   val obstacleBorder          = OrthogonalVisibilityGraph.obstacleBorder(this)
   val edgeOfWorld             = OrthogonalVisibilityGraph.edgeOfWorld(this)
+  val neighbor                = OrthogonalVisibilityGraph.neighbor(this)
   def isPort(id: NodeIndex)   = id.toInt >= length
   def asPortId(id: NodeIndex) = id.toInt - length
 
@@ -34,7 +35,8 @@ case class OVGNode(
     else if isLinkToNode(right) then Some(Direction.East)
     else if isLinkToNode(bottom) then Some(Direction.South)
     else None
-  def dirToPort(id: Int)       =
+
+  def dirToPort(id: Int) =
     def isLinkToPort(link: NavigableLink) = PartialFunction.cond(link) {
       case NavigableLink.Port(other) if other == id => true
     }
@@ -366,5 +368,17 @@ object OrthogonalVisibilityGraph:
       case South        => go(ovg(_).right)(List(ovg.bottomLeftNodeIdx), ovg.bottomLeftNodeIdx)
       case West         => go(ovg(_).top)(List(ovg.bottomLeftNodeIdx), ovg.bottomLeftNodeIdx)
   end edgeOfWorld
+
+  def neighbor(ovg: OVG)(id: NodeIndex, dir: Direction) =
+    val node = dir match
+      case Direction.North => ovg(id).top
+      case Direction.East  => ovg(id).right
+      case Direction.South => ovg(id).bottom
+      case Direction.West  => ovg(id).left
+    node match
+      case NavigableLink.EndOfWorld    => None
+      case NavigableLink.Node(idx)     => Some(idx.toInt)
+      case NavigableLink.Obstacle(idx) => None
+      case NavigableLink.Port(idx)     => Some(ovg.length + idx)
 
 end OrthogonalVisibilityGraph

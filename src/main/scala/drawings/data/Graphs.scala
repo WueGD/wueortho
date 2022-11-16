@@ -78,6 +78,7 @@ case class PortLayout(ports: IndexedSeq[(Vec2D, Direction)]):
   def toVertexLayout = VertexLayout(ports.map(_._1))
 
 case class Obstacles(nodes: IndexedSeq[Rect2D]):
+  def apply(idx: Int)                   = nodes(idx)
   def forceGeneralPosition(rnd: Random) =
     Obstacles(nodes.map(r => r.copy(center = r.center + Vec2D(rnd.nextGaussian, rnd.nextGaussian).scale(1e-8))))
 
@@ -95,3 +96,10 @@ object EdgeRoute:
 
     lazy val len = Math.abs(this match { case HSeg(dx) => dx; case VSeg(dy) => dy })
     lazy val sgn = Math.signum(this match { case HSeg(dx) => dx; case VSeg(dy) => dy })
+
+case class NodeData[T](id: NodeIndex, data: T)
+
+object NodeData:
+  given ord[T: Ordering]: Ordering[NodeData[T]] = Ordering.by(_.data)
+
+  def mkNodes[T](ts: Seq[T]) = ts.zipWithIndex.toIndexedSeq.map((t, i) => NodeData(NodeIndex(i), t))

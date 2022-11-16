@@ -1,11 +1,8 @@
 package drawings.util
 
-import drawings.data.VertexLayout
+import drawings.data.*
 import org.tinfour.{common => tinfour}
-import drawings.data.Vec2D
 import org.tinfour.standard.IncrementalTin
-import drawings.data.SimpleEdge
-import drawings.data.NodeIndex
 
 object triangulate:
   import scala.jdk.CollectionConverters._

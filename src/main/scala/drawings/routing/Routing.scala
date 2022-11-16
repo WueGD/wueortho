@@ -5,7 +5,6 @@ import drawings.util.Dijkstra.DijkstraCost
 import drawings.util.Dijkstra
 import drawings.data.EdgeRoute.OrthoSeg
 import scala.annotation.nowarn
-import scala.compiletime.ops.int
 
 object Routing:
   import scala.collection.mutable

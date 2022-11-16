@@ -16,11 +16,12 @@ case class Vec2D(x1: Double, x2: Double):
 
 case class Rect2D(center: Vec2D, span: Vec2D):
   assert(span.x1 >= 0 && span.x2 >= 0, s"span must be non-negative (but was: $span)")
-
   def left   = center.x1 - span.x1
   def right  = center.x1 + span.x1
   def bottom = center.x2 - span.x2
   def top    = center.x2 + span.x2
+
+  def scaled(factor: Double) = Rect2D(center.scale(factor), span.scale(factor))
 
   infix def overlaps(other: Rect2D) =
     left < other.right && right > other.left && top > other.bottom && bottom < other.top
@@ -44,10 +45,6 @@ object Rect2D:
 
   def boundingBoxOfRects(interior: Rect2D*) =
     Rect2D.boundingBox(interior.flatMap(r => Seq(r.center - r.span, r.center + r.span)))
-
-  def yInverted(rects: Seq[Rect2D]) =
-    val (ymin, ymax) = (rects.map(_.center.x2).min, rects.map(_.center.x2).max)
-    rects.map(r => r.copy(center = r.center.copy(x2 = ymax - r.center.x2 + ymin)))
 
 enum Direction:
   case North, East, South, West

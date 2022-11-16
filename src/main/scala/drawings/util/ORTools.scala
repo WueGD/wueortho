@@ -64,16 +64,17 @@ object ORTools:
       $ : MPSolver,
       vars: Array[MPVariable | Null],
   ) =
-    println(s"$coefficients -> ${if maximize then "max" else "min"}")
+    // println(s"$coefficients -> ${if maximize then "max" else "min"}")
     val obj = $.objective().nn
     for (i, a) <- coefficients do obj.setCoefficient(vars(i), a)
     if maximize then obj.setMaximization() else obj.setMinimization()
 
   private def unsafeGetResult($ : MPSolver) =
-    println(s"Solved in ${$.wallTime()}ms after ${$.iterations()} iterations")
+    println(s"DEBUG: LP solved in ${$.wallTime()}ms after ${$.iterations()} iterations")
     val objv = $.objective().nn.value()
     val sols = for v <- $.variables().nn yield v.nn.solutionValue()
-    println(s"obj: $objv sols: ${sols.mkString("[", ", ", "]")}")
+    println(s"DEBUG: obj: $objv")
+    // println(s"DEBUG: sols: ${sols.mkString("[", ", ", "]")}")
     LPResult(scala.collection.immutable.ArraySeq.unsafeWrapArray(sols), objv)
 
   private case class MPC(coefficients: List[(Int, Double)], lb: Double, ub: Double):

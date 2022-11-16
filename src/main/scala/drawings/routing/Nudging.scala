@@ -1,16 +1,13 @@
 package drawings.routing
 
 import drawings.data.*
-import scala.annotation.tailrec
-import scala.annotation.nowarn
+import drawings.util.{Constraint, ORTools}
 import drawings.util.Constraint.CTerm
-import drawings.util.Constraint
-import drawings.util.ORTools
+import scala.annotation.{tailrec, nowarn}
 
 object Nudging:
   case class GroupedSeg(dir: Direction, nodes: List[NodeIndex])
   case class VarSeg(id: Int, endsAt: CTerm, normal: CTerm, group: GroupedSeg)
-  case class VarString(startId: Int, terms: List[CTerm], endId: Int)
 
   def calcEdgeRoutes(
       ovg: OVG,
@@ -94,17 +91,17 @@ object Nudging:
           .find(s => s.group.dir.isHorizontal && s.group.nodes.contains(nodeIdx))
           .getOrElse(sys.error(s"path $pathIdx has no horizontal segment containing node $nodeIdx"))
 
-      def mkTerms(node: NodeIndex, res: List[CTerm]) =
-        val pathsOrdered = (routes(node.toInt).toRight.map(resolveHSegment(node, _).normal)).toList
-        val segments     = ovg(node).right match
-          case NavigableLink.Node(_) =>
-            ovg(node).obstacle match
-              case None    => pathsOrdered
-              case Some(i) =>
-                val obs = obstacles.nodes(i)
-                pathsOrdered ::: List(mkConst(obs.bottom), mkConst(obs.top))
+      // def mkTerms(node: NodeIndex, res: List[CTerm]) =
+      //   val pathsOrdered = (routes(node.toInt).toRight.map(resolveHSegment(node, _).normal)).toList
+      //   val segments     = ovg(node).right match
+      //     case NavigableLink.Node(_) =>
+      //       ovg(node).obstacle match
+      //         case None    => pathsOrdered
+      //         case Some(i) =>
+      //           val obs = obstacles.nodes(i)
+      //           pathsOrdered ::: List(mkConst(obs.bottom), mkConst(obs.top))
 
-        ???
+      //   ???
 
       @tailrec def seek(res: List[Constraint], base: Option[CTerm], next: NodeIndex): Set[Constraint] =
         val pathsOrdered            = (base ++ routes(next.toInt).toRight.map(resolveHSegment(next, _).normal)).toList

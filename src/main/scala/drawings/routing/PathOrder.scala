@@ -34,14 +34,8 @@ object PathOrder:
 
     val onGrid = mutable.ArrayBuffer.fill(ovg.length + 2 * ports.length)(PathsOnGridNode(Nil, Nil))
 
-    def leftOnGrid(u: NodeIndex)   = ovg(u).left match
-      case NavigableLink.EndOfWorld | NavigableLink.Obstacle(_) => Nil
-      case NavigableLink.Port(id)                               => onGrid(id + ovg.length).toRight
-      case NavigableLink.Node(id)                               => onGrid(id.toInt).toRight
-    def bottomOnGrid(u: NodeIndex) = ovg(u).bottom match
-      case NavigableLink.EndOfWorld | NavigableLink.Obstacle(_) => Nil
-      case NavigableLink.Port(id)                               => onGrid(id + ovg.length).toTop
-      case NavigableLink.Node(id)                               => onGrid(id.toInt).toTop
+    def leftOnGrid(u: NodeIndex)   = ovg.neighbor(u, Direction.West).toList.flatMap(onGrid(_).toRight)
+    def bottomOnGrid(u: NodeIndex) = ovg.neighbor(u, Direction.South).toList.flatMap(onGrid(_).toTop)
 
     def otherPathsOrder(u: NodeIndex, mainDir: Direction) = mainDir match
       case Direction.East  => bottomOnGrid(u).reverse ::: leftOnGrid(u) ::: onGrid(u.toInt).toTop
@@ -55,19 +49,22 @@ object PathOrder:
     do
       if ovg.isPort(u) then // a port should have only one path
         val mainDir = portDir(ovg.asPortId(u))
-        ifTopOrRight(mainDir)(tr => onGrid(u.toInt) = onGrid(u.toInt).prepended(tr, i))(lb =>
-          onGrid(v.toInt) = onGrid(v.toInt).prepended(reverseDir(lb), i),
-        )
+        ifTopOrRight(mainDir) { tr =>
+          onGrid(u.toInt) = onGrid(u.toInt).prepended(tr, i)
+        } { lb =>
+          onGrid(v.toInt) = onGrid(v.toInt).prepended(reverseDir(lb), i)
+        }
       else
         val mainDir = (if ovg.isPort(v) then ovg(u).dirToPort(ovg.asPortId(v)) else ovg(u).dirToNode(v))
           .getOrElse(sys.error(s"path unconnected between ${ovg(u)} and ${ovg(v)}"))
         val others  = otherPathsOrder(u, mainDir)
         val preIdx  = others.indexOf(i)
         assert(preIdx > -1, s"segment ${ovg(u)} -> ${ovg(v)} should not be the start of a path")
-        // println(s"path $i @ $u -> $v ($mainDir): $others with i at $preIdx")
-        ifTopOrRight(mainDir)(tr =>
-          onGrid(u.toInt) = onGrid(u.toInt).insertWhere(tr, i)(j => !(others.indexOf(j) < preIdx)),
-        )(lb => onGrid(v.toInt) = onGrid(v.toInt).insertWhere(reverseDir(lb), i)(j => !(others.indexOf(j) < preIdx)))
+        ifTopOrRight(mainDir) { tr =>
+          onGrid(u.toInt) = onGrid(u.toInt).insertWhere(tr, i)(j => !(others.indexOf(j) < preIdx))
+        } { lb =>
+          onGrid(v.toInt) = onGrid(v.toInt).insertWhere(reverseDir(lb), i)(j => !(others.indexOf(j) < preIdx))
+        }
     end for
 
     onGrid.toIndexedSeq

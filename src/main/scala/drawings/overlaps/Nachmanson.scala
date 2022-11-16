@@ -1,8 +1,7 @@
 package drawings.overlaps
 
-import drawings.data._
-import drawings.util.triangulate
-import drawings.util.MinimumSpanningTree
+import drawings.data.*
+import drawings.util.{triangulate, MinimumSpanningTree}
 import scala.annotation.tailrec
 
 object Nachmanson:
@@ -71,10 +70,10 @@ object Nachmanson:
     case None     => rects
 
   def debugSvg(rects: IndexedSeq[Rect2D], mst: AdjacencyList) =
-    val tree = drawings.io.Svg.draw(EdgeWeightedGraph.fromAdjacencyList(mst), VertexLayout(rects.map(_.center)))
-    val rect = drawings.io.Svg.drawRects(rects)
-    java.nio.file.Files
-      .writeString(java.nio.file.Path.of(s"dbg${cnt}.svg"), (rect ++ tree).svgString)
+    java.nio.file.Files.writeString(
+      java.nio.file.Path.of(s"dbg${cnt}.svg"),
+      drawings.util.Debugging.debugSvg(mst, Obstacles(rects)),
+    )
     cnt += 1
 
   private var cnt = 0

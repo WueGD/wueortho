@@ -1,9 +1,7 @@
 package drawings.overlaps
 
-import drawings.data.Rect2D
+import drawings.data.*
 import scala.collection.mutable
-import drawings.data.SimpleEdge
-import drawings.data.NodeIndex
 
 object Overlaps:
   private trait VerticallyPositioned:

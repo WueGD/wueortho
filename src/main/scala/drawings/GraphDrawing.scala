@@ -4,15 +4,14 @@ import drawings.data.*
 import drawings.layout.ForceDirected
 import drawings.overlaps.Nachmanson
 import drawings.ports.PortHeuristic
-import drawings.routing.Routing
+import drawings.routing.*
 import drawings.io.Svg
 import java.nio.file.Files
 import java.nio.file.Paths
-import drawings.routing.Nudging
-import drawings.routing.OrthogonalVisibilityGraph
 
 object GraphDrawing:
   val frConfig = ForceDirected.defaultConfig.copy(iterCap = 1000)
+  val svg      = Svg.withDefaults
 
   def runRandomSample(seed: Long, n: Int, m: Int) =
     val rndm = scala.util.Random(seed)
@@ -41,17 +40,22 @@ object GraphDrawing:
     val (bareRoutes, paths, onGrid) = Routing.edgeRoutes(obstacles, ports)
     val routes                      = Nudging.calcEdgeRoutes(ovg, onGrid, paths, ports, obstacles)
 
-    val rectsSvg     = Svg.drawRects(obstacles.nodes)
-    val portsSvg     = Svg.drawPorts(ports)
-    val portLabelSvg = Svg.drawPortLabels(ports)
-    val edgesSvg     = routes.zip(Svg.colors).map(Svg.drawEdgeRoute(_, _)).reduce(_ ++ _)
-    val bareEdgesSvg = bareRoutes.zip(Svg.colors).map(Svg.drawEdgeRoute(_, _, 0.0)).reduce(_ ++ _)
-    val nodeLabelSvg = Svg.drawNodeLabels(VertexLayout(obstacles.nodes.map(_.center)))
+    assert(m == graph.edges.size, s"graph has $m edges but got ${graph.edges.size} edges (EWG)")
+    assert(m == ports.size, s"graph has $m edges but got ${ports.size} pairs of terminals")
+    assert(m == bareRoutes.size, s"graph has $m edges but got ${bareRoutes.size} routes (bare)")
+    assert(m == routes.size, s"graph has $m edges but got ${routes.size} routes")
+
+    val rectsSvg     = svg.drawObstacles(obstacles)
+    val portsSvg     = svg.drawPorts(ports)
+    val portLabelSvg = svg.drawPortLabels(ports)
+    val edgesSvg     = svg.drawEdgeRoutes(routes)
+    val bareEdgesSvg = svg.copy(edgeBends = Svg.EdgeBends.Straight).drawEdgeRoutes(bareRoutes)
+    val nodeLabelSvg = svg.drawNodeLabels(VertexLayout(obstacles.nodes.map(_.center)))
     Files.writeString(
       Paths.get(s"res_n${n}m${m}#${seed.toHexString}.svg"),
-      (rectsSvg ++ edgesSvg ++ portsSvg ++ nodeLabelSvg ++ portLabelSvg).svgString,
+      svg.make(rectsSvg ++ edgesSvg ++ portsSvg ++ nodeLabelSvg ++ portLabelSvg),
     )
     Files.writeString(
       Paths.get(s"res_n${n}m${m}#${seed.toHexString}_no-nudging.svg"),
-      (rectsSvg ++ portsSvg ++ bareEdgesSvg ++ nodeLabelSvg ++ portLabelSvg).svgString,
+      svg.make(rectsSvg ++ bareEdgesSvg ++ portsSvg ++ nodeLabelSvg ++ portLabelSvg),
     )

@@ -1,33 +1,30 @@
 package drawings
 
-import drawings.data.*
-import drawings.layout.ForceDirected
-
 import scala.util.Random
-import drawings.io.Svg
 import java.nio.file.Files
 import java.nio.file.Paths
-import drawings.util.triangulate
-import drawings.util.MinimumSpanningTree
-import drawings.data.*
-import drawings.overlaps.Nachmanson
-import drawings.overlaps.Overlaps
-import drawings.routing.OrthogonalVisibilityGraph
-import drawings.util.Dijkstra
-import drawings.util.Dijkstra.DijkstraCost
-import drawings.ports.PortHeuristic
-import drawings.routing.Routing
 
-import drawings.util.Debugging._
-import drawings.util.BellmanFord
+import drawings.util.*
+import drawings.data.*
+import drawings.overlaps.*
+import drawings.routing.*
+import drawings.io.Svg
+import drawings.layout.ForceDirected
+import drawings.util.Dijkstra.DijkstraCost
 import drawings.routing.DifferenceConstraints.DifferenceConstraint
-import drawings.routing.DifferenceConstraints
-import drawings.routing.Nudging
-import drawings.util.ORTools
-import drawings.util.Constraint
-import drawings.util.TransitiveReduction
+import drawings.ports.PortHeuristic
+import drawings.util.Debugging._
 
 val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
+
+@main def runRandomized = GraphDrawing.runRandomSample(0x96c0ffee, 10, 24)
+
+@main def runIntervalTree =
+  val uut = IntervalTree(intervals: _*)
+  IntervalTree.debugPrintAll(uut)
+  println(uut.overlaps(0.3, 0.8).mkString("overlaps: [", ", ", "]"))
+  uut.cutout(0.3, 0.8)
+  IntervalTree.debugPrintAll(uut)
 
 @main def runTransitiveReduction =
   println(TransitiveReduction(tRedExample))
@@ -47,27 +44,17 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   println(ORTools.solve(lp))
 
 @main def runConstraints =
-  val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.rects, OvgSample.ports)
-  val (_, paths, routes)     = Routing.edgeRoutes(Obstacles(OvgSample.rects), OvgSample.ports)
-  val edgeRoutes             = Nudging.calcEdgeRoutes(ovg, routes, paths, OvgSample.ports, Obstacles(OvgSample.rects))
-
-  val rectsSvg = Svg.drawRects(OvgSample.rects)
-  val portsSvg = Svg.drawPorts(OvgSample.ports)
-  val edgesSvg = edgeRoutes.zip(Svg.colors).map(Svg.drawEdgeRoute(_, _)).reduce(_ ++ _)
-  Files.writeString(Paths.get("constrained-routing.svg"), (rectsSvg ++ portsSvg ++ edgesSvg).svgString)
-
-@main def runRandomized = GraphDrawing.runRandomSample(0x99c0ffee, 15, 40)
+  val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
+  val (_, paths, routes)     = Routing.edgeRoutes(OvgSample.obstacles, OvgSample.ports)
+  val edgeRoutes             = Nudging.calcEdgeRoutes(ovg, routes, paths, OvgSample.ports, OvgSample.obstacles)
+  Files.writeString(Paths.get("constrained-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, edgeRoutes))
 
 @main def runRouting =
-  val (routes, _, _) = Routing.edgeRoutes(Obstacles(OvgSample.rects), OvgSample.ports)
+  val (routes, _, _) = Routing.edgeRoutes(OvgSample.obstacles, OvgSample.ports)
   routes foreach { case EdgeRoute(terminals, route) =>
     println(s"From ${terminals.uTerm} to ${terminals.vTerm}: ${route.mkString("[", ", ", "]")}")
   }
-
-  val rectsSvg = Svg.drawRects(OvgSample.rects)
-  val portsSvg = Svg.drawPorts(OvgSample.ports)
-  val edgesSvg = routes.zip(Svg.colors).map(Svg.drawEdgeRoute(_, _)).reduce(_ ++ _)
-  Files.writeString(Paths.get("routing.svg"), (rectsSvg ++ portsSvg ++ edgesSvg).svgString)
+  Files.writeString(Paths.get("routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, routes))
 
 @main def runPorts =
   val neighbors = ForceDirected.initLayout(Random(0x99c0ffee), 12).nodes
@@ -88,29 +75,29 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   println(DifferenceConstraints.solve(constraints))
 
 @main def runOVG: Unit =
-  val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.rects, OvgSample.ports)
+  val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
   debugConnectivity(adj, lay)
-  val rectsSvg               = Svg.drawRects(OvgSample.rects)
-  val ovgSvg                 = Svg.drawGraphWithPorts(EdgeWeightedGraph.fromAdjacencyList(adj), lay, OvgSample.ports)
-  Files.writeString(Paths.get("ovg.svg"), (ovgSvg ++ rectsSvg).svgString)
-  Files.writeString(Paths.get("ovg-input.svg"), (rectsSvg ++ Svg.drawPorts(OvgSample.ports)).svgString)
+  debugOVG(OvgSample.obstacles, adj, lay, OvgSample.ports)
 
 @main def runOverlaps: Unit =
-  val points      = ForceDirected.initLayout(Random(0x92c0ffee), 12 * 2).nodes
-  val rects       = (points.grouped(2) map { case Seq(center, Vec2D(w, h)) =>
+  val points     = ForceDirected.initLayout(Random(0x92c0ffee), 12 * 2).nodes
+  val rects      = (points.grouped(2) map { case Seq(center, Vec2D(w, h)) =>
     Rect2D(center, Vec2D(w.abs / 2, h.abs / 2))
   }).toIndexedSeq
-  val withMargin  = rects.map(r => r.copy(span = r.span + Vec2D(0.5, 0.5)))
-  val alignedFat  = Nachmanson.align(withMargin)
-  val aligned     = alignedFat.map(r => r.copy(span = r.span - Vec2D(0.5, 0.5)))
-  val triag0      = triangulate(rects.map(_.center))
-  val graph0      = EdgeWeightedGraph.fromEdgeList(triag0.map(de => Edge(de.u, de.v, 1)))
-  val triag0Drawn = Svg.draw(graph0, VertexLayout(rects.map(_.center)))
-  Files.writeString(Paths.get("rects.svg"), Svg.drawRects(rects).svgString)
-  Files.writeString(Paths.get("aligned-fat.svg"), Svg.drawRects(alignedFat).svgString)
-  Files.writeString(Paths.get("aligned.svg"), Svg.drawRects(aligned).svgString)
-  Files.writeString(Paths.get("triangualted-fat.svg"), (Svg.drawRects(withMargin) ++ triag0Drawn).svgString)
-  Files.writeString(Paths.get("triangualted.svg"), (Svg.drawRects(rects) ++ triag0Drawn).svgString)
+  val withMargin = rects.map(r => r.copy(span = r.span + Vec2D(0.5, 0.5)))
+  val alignedFat = Nachmanson.align(withMargin)
+  val aligned    = alignedFat.map(r => r.copy(span = r.span - Vec2D(0.5, 0.5)))
+  val triag0     = triangulate(rects.map(_.center))
+  val graph0     = EdgeWeightedGraph.fromEdgeList(triag0.map(de => Edge(de.u, de.v, 1)))
+
+  val svg       = Svg.withDefaults.copy(edgeBends = Svg.EdgeBends.Straight, edgeColor = Svg.EdgeColor.Single("gray"))
+  val vl        = VertexLayout(rects.map(_.center))
+  val triag0Svg = svg.drawStraightEdges(graph0, vl) ++ svg.drawNodes(vl)
+  Files.writeString(Paths.get("rects.svg"), svg.make(svg.drawObstacles(Obstacles(rects))))
+  Files.writeString(Paths.get("aligned-fat.svg"), svg.make(svg.drawObstacles(Obstacles(alignedFat))))
+  Files.writeString(Paths.get("aligned.svg"), svg.make(svg.drawObstacles(Obstacles(aligned))))
+  Files.writeString(Paths.get("triangualted-fat.svg"), svg.make(svg.drawObstacles(Obstacles(withMargin)) ++ triag0Svg))
+  Files.writeString(Paths.get("triangualted.svg"), svg.make(svg.drawObstacles(Obstacles(rects)) ++ triag0Svg))
   println(Overlaps.overlappingPairs(aligned).mkString("\n"))
 
 @main def runMst: Unit =
@@ -121,19 +108,15 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   )
   val mst      = MinimumSpanningTree.create(AdjacencyList.fromEWG(graph))
   mst.vertices.foreach(l => println(l.neighbors.mkString("[", ", ", "]")))
-  val svg      = Svg.draw(
-    EdgeWeightedGraph.fromEdgeList(
-      mst.vertices.zipWithIndex.flatMap((adj, u) => adj.neighbors.map((v, w) => Edge(NodeIndex(u), v, w))),
-    ),
-    vertices,
-  )
-  Files.writeString(Paths.get("mst.svg"), svg.svgString)
+  val edgeList = mst.vertices.zipWithIndex.flatMap((adj, u) => adj.neighbors.map((v, w) => Edge(NodeIndex(u), v, w)))
+  val svg      = debugSvg(EdgeWeightedGraph.fromEdgeList(edgeList), vertices)
+  Files.writeString(Paths.get("mst.svg"), svg)
 
 @main def runTriangulate: Unit =
   val vertices = ForceDirected.initLayout(Random(0xffc0ffee), 24)
   val edges    = triangulate(vertices.nodes)
   val graph    = EdgeWeightedGraph.fromEdgeList(edges.map(de => Edge(de.u, de.v, 1)))
-  val svg      = Svg.draw(graph, vertices).svgString
+  val svg      = debugSvg(graph, vertices)
   Files.writeString(Paths.get("delauny.svg"), svg)
 
 @main def runFDLayout: Unit =
@@ -141,7 +124,7 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   val init   = ForceDirected.initLayout(Random(0x99c0ffee), graph.nodes.size)
   val layout = ForceDirected.layout(config)(graph, init)
   println(layout)
-  val svg    = Svg.draw(graph, layout).svgString
+  val svg    = debugSvg(graph, layout)
   Files.writeString(Paths.get("fd.svg"), svg)
 
 val k4  = EdgeWeightedGraph.fromEdgeList(
@@ -230,12 +213,14 @@ val tRedExample = DiGraph.fromEdgeList(
 )
 
 object OvgSample:
-  val rects = Vector(
-    Rect2D(Vec2D(5.5, 1), Vec2D(3.5, 1)),
-    Rect2D(Vec2D(9, 5.5), Vec2D(2, 1.5)),
-    Rect2D(Vec2D(1.5, 7.5), Vec2D(1.5, 1.5)),
+  val obstacles = Obstacles(
+    Vector(
+      Rect2D(Vec2D(5.5, 1), Vec2D(3.5, 1)),
+      Rect2D(Vec2D(9, 5.5), Vec2D(2, 1.5)),
+      Rect2D(Vec2D(1.5, 7.5), Vec2D(1.5, 1.5)),
+    ),
   )
-  val ports = Vector(
+  val ports     = Vector(
     EdgeTerminals(Vec2D(5, 2), Direction.North, Vec2D(8, 4), Direction.South),
     EdgeTerminals(Vec2D(7, 5), Direction.West, Vec2D(3, 7), Direction.East),
     EdgeTerminals(Vec2D(1, 6), Direction.South, Vec2D(9, 7), Direction.North),
@@ -251,4 +236,20 @@ val constraints = Seq(
   DifferenceConstraint(3, 2, -1),
   DifferenceConstraint(4, 2, -3),
   DifferenceConstraint(4, 3, -3),
+)
+
+val intervals = List(
+  (0.0, 0.2, 0),
+  (0.1, 0.3, 1),
+  (0.2, 0.4, 2),
+  (0.3, 0.5, 3),
+  (0.4, 0.7, 4),
+  (0.6, 0.8, 5),
+  (0.7, 0.9, 6),
+  (0.8, 1.0, 7),
+  (0.9, 1.1, 8),
+  (0.3, 0.8, 9),
+  (0.2, 0.9, 10),
+  (0.1, 0.8, 11),
+  (0.3, 1.0, 12),
 )
