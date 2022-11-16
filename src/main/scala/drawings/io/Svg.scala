@@ -82,14 +82,6 @@ object Svg:
       svgPath(routeBBox(route), d +: m, color)
 
   private def drawEdgeRouteSmooth(route: EdgeRoute, color: String, radius: Double) =
-    def len(s: OrthoSeg) = s match
-      case HSeg(dx) => Math.abs(dx)
-      case VSeg(dy) => Math.abs(dy)
-
-    def sgn(s: OrthoSeg) = s match
-      case HSeg(dx) => Math.signum(dx)
-      case VSeg(dy) => Math.signum(dy)
-
     def seg(s: OrthoSeg, crop: Double = 2 * radius) = s match
       case HSeg(dx) => s"h ${tx(dx - Math.signum(dx) * crop)}"
       case VSeg(dy) => s"v ${ty(dy - Math.signum(dy) * crop)}"
@@ -105,12 +97,12 @@ object Svg:
     @tailrec def go(res: List[String], a: OrthoSeg, l: List[OrthoSeg]): List[String] = l match
       case Nil       => res.reverse
       case b :: next =>
-        val (aTooShort, bTooShort) = (len(a) < 2 * radius, len(b) < 2 * radius)
+        val (aTooShort, bTooShort) = (a.len < 2 * radius, b.len < 2 * radius)
         if aTooShort then
-          if bTooShort then go(smooth(a, sgn(a) * len(a) / 2, sgn(b) * len(b) / 2) :: res, b, next)
-          else go(smooth(a, sgn(a) * len(a) / 2, sgn(b) * radius) :: res, b, next)
-        else if bTooShort then go(bend(a, sgn(a) * radius, sgn(b) * len(b) / 2) :: seg(a) :: res, b, next)
-        else go(bend(a, sgn(a) * radius, sgn(b) * radius) :: seg(a) :: res, b, next)
+          if bTooShort then go(smooth(a, a.sgn * a.len / 2, b.sgn * b.len / 2) :: res, b, next)
+          else go(smooth(a, a.sgn * a.len / 2, b.sgn * radius) :: res, b, next)
+        else if bTooShort then go(bend(a, a.sgn * radius, b.sgn * b.len / 2) :: seg(a) :: res, b, next)
+        else go(bend(a, a.sgn * radius, b.sgn * radius) :: seg(a) :: res, b, next)
 
     val (s, t) = route.terminals.uTerm -> route.terminals.vTerm
     val pre    = s"M ${tx(s.x1)} ${ty(s.x2)}"
@@ -120,9 +112,9 @@ object Svg:
       case Seq()       => Seq.empty
       case Seq(one)    => Seq(seg(one, 0.0))
       case h +: g +: t =>
-        if len(h) < 2 * radius then
-          go(bend(h, sgn(h) * len(h) / 2, sgn(g) * (radius min (len(g) / 2))) :: seg(h, len(h) / 2) :: Nil, g, t.toList)
-        else go(seg(h, len(h) - radius) :: Nil, h, g :: t.toList)
+        if h.len < 2 * radius then
+          go(bend(h, h.sgn * h.len / 2, g.sgn * (radius min (g.len / 2))) :: seg(h, h.len / 2) :: Nil, g, t.toList)
+        else go(seg(h, h.len - radius) :: Nil, h, g :: t.toList)
 
     svgPath(routeBBox(route), pre +: mid :+ post, color)
 

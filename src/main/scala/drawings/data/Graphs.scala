@@ -92,3 +92,6 @@ object EdgeRoute:
   enum OrthoSeg:
     case HSeg(dx: Double)
     case VSeg(dy: Double)
+
+    lazy val len = Math.abs(this match { case HSeg(dx) => dx; case VSeg(dy) => dy })
+    lazy val sgn = Math.signum(this match { case HSeg(dx) => dx; case VSeg(dy) => dy })
