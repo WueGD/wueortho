@@ -94,10 +94,7 @@ object OrthogonalVisibilityGraph:
       case WithTop(top, b)         => Ready(OVGNode(b.left, top, right, b.bottom, b.obstacle))
       case _: WithRight | _: Ready => sys.error(s"cannot add right part to $this")
 
-  def create(
-      rects: IndexedSeq[Rect2D],
-      ports: IndexedSeq[EdgeTerminals],
-  ): (AdjacencyList, VertexLayout, IndexedSeq[SimpleEdge], OVG) =
+  def create(rects: IndexedSeq[Rect2D], ports: PortLayout): (AdjacencyList, VertexLayout, IndexedSeq[SimpleEdge], OVG) =
     val (hSegs, vSegs) = buildSegments(rects, ports)
     val (ovg, layout)  = buildGraph(hSegs, vSegs, rects, ports)
     val adj            = adjacencies(ovg, ports)
@@ -106,7 +103,7 @@ object OrthogonalVisibilityGraph:
         .map((u, v) => SimpleEdge(NodeIndex(u), NodeIndex(v)))
     (adj, layout, edges, ovg)
 
-  def buildSegments(nodes: IndexedSeq[Rect2D], ports: IndexedSeq[EdgeTerminals]) =
+  def buildSegments(nodes: IndexedSeq[Rect2D], ports: PortLayout) =
     import QueueItem.*
 
     case class State[S <: HSegment | VSegment](posHP: Set[Double], negHP: Set[Double], segments: List[S])
@@ -116,7 +113,7 @@ object OrthogonalVisibilityGraph:
 
     val hSegs =
       val queue = (nodes.zipWithIndex.flatMap((rect, i) => List(Start(rect.bottom, rect, i), End(rect.top, rect, i)))
-        ++ (ports.zipWithIndex flatMap QueueItem.fromPort(_.isHorizontal, v => v.x2 -> v.x1))).sorted
+        ++ (ports.byEdge.zipWithIndex flatMap QueueItem.fromPort(_.isHorizontal, v => v.x2 -> v.x1))).sorted
 
       def mkObsSeg(state: State[HSegment], rect: Rect2D, y: Double, origin: Origin) =
         HSegment(nextPHP(state, rect.left), nextNHP(state, rect.right), y, origin)
@@ -145,7 +142,7 @@ object OrthogonalVisibilityGraph:
 
     val vSegs =
       val queue = (nodes.zipWithIndex.flatMap((rect, i) => List(Start(rect.left, rect, i), End(rect.right, rect, i)))
-        ++ (ports.zipWithIndex flatMap QueueItem.fromPort(_.isVertical, v => v.x1 -> v.x2))).sorted
+        ++ (ports.byEdge.zipWithIndex flatMap QueueItem.fromPort(_.isVertical, v => v.x1 -> v.x2))).sorted
 
       def mkObsSeg(state: State[VSegment], rect: Rect2D, x: Double, origin: Origin.Obstacle) =
         VSegment(x, nextPHP(state, rect.bottom), nextNHP(state, rect.top), origin)
@@ -175,12 +172,7 @@ object OrthogonalVisibilityGraph:
     hSegs -> vSegs
   end buildSegments
 
-  def buildGraph(
-      horizontal: List[HSegment],
-      vertical: List[VSegment],
-      rects: IndexedSeq[Rect2D],
-      ports: IndexedSeq[EdgeTerminals],
-  ) =
+  def buildGraph(horizontal: List[HSegment], vertical: List[VSegment], rects: IndexedSeq[Rect2D], ports: PortLayout) =
     def intersect(h: HSegment, v: VSegment) =
       Option.unless(h.y < v.fromY || h.y > v.toY || v.x < h.fromX || v.x > h.toX)(Vec2D(v.x, h.y))
 
@@ -283,17 +275,17 @@ object OrthogonalVisibilityGraph:
       case PartialOVGNode.Init(left, bottom, vi, hi, obs) => OVGNode(left, mkTop(vi, hi), mkRight(vi, hi), bottom, obs)
     }
 
-    val layout = VertexLayout((positions ++ ports.flatMap(t => List(t.uTerm, t.vTerm))).toIndexedSeq)
+    val layout = VertexLayout((positions ++ ports.toVertexLayout.nodes).toIndexedSeq)
 
     assert(!obstacleLinks.contains(-1), s"missing obstacle link at ${obstacleLinks.indexOf(-1)}")
 
     (OVG(finalNodes.toIndexedSeq, obstacleLinks.toIndexedSeq), layout)
   end buildGraph
 
-  def adjacencies(ovg: OVG, ports: IndexedSeq[EdgeTerminals]) =
+  def adjacencies(ovg: OVG, ports: PortLayout) =
     val rand       = Random(0x99c0ffee)
     val portOffset = ovg.length
-    val vertices   = mutable.ArrayBuffer.fill(portOffset + ports.length * 2)(Vertex(IndexedSeq.empty))
+    val vertices   = mutable.ArrayBuffer.fill(portOffset + ports.numberOfPorts)(Vertex(IndexedSeq.empty))
     for
       (node, i) <- ovg.nodes.zipWithIndex
       link      <- node.allLinks

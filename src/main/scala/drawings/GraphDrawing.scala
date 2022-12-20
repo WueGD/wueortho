@@ -41,7 +41,7 @@ object GraphDrawing:
     val routes                      = Nudging.calcEdgeRoutes(ovg, onGrid, paths, ports, obstacles)
 
     assert(m == graph.edges.size, s"graph has $m edges but got ${graph.edges.size} edges (EWG)")
-    assert(m == ports.size, s"graph has $m edges but got ${ports.size} pairs of terminals")
+    assert(m == ports.byEdge.size, s"graph has $m edges but got ${ports.byEdge.size} pairs of terminals")
     assert(m == bareRoutes.size, s"graph has $m edges but got ${bareRoutes.size} routes (bare)")
     assert(m == routes.size, s"graph has $m edges but got ${routes.size} routes")
 

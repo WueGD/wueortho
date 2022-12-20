@@ -4,7 +4,7 @@ import drawings.data.DiGraph
 import drawings.data.Edge
 import drawings.data.NodeIndex
 import drawings.data.DiVertex
-import drawings.util.BellmanFord
+import drawings.util.GraphSearch.*
 
 object DifferenceConstraints:
   /** v_i - v_j <= b */
@@ -14,4 +14,4 @@ object DifferenceConstraints:
     val tmp = DiGraph.fromEdgeList(cs.map(c => Edge(NodeIndex(c.j + 1), NodeIndex(c.i + 1), c.b)))
     val v0  = DiVertex((1 until tmp.vertices.length).map(i => NodeIndex(i) -> 0.0))
     val dg  = tmp.copy(vertices = v0 +: tmp.vertices.tail)
-    BellmanFord.distances(dg, NodeIndex(0)).map(_.tail)
+    bellmanFord.distances(dg, NodeIndex(0)).map(_.tail)

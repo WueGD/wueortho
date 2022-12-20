@@ -34,16 +34,16 @@ case class Svg(
   def drawObstacles(obstacles: Obstacles) =
     SvgFrag(bboxR(obstacles.nodes), obstacles.nodes.map(rectFrag(_, obstacleColor, obstacleStrokeWidth, obstacleFill)))
 
-  def drawPorts(terminals: Seq[EdgeTerminals]) =
-    val points = terminals.flatMap(et => Seq(et.uTerm, et.vTerm))
+  def drawPorts(ports: PortLayout) =
+    val points = ports.toVertexLayout.nodes
     SvgFrag(bbox(points), points.map(portFrag(_, portColor, portSize)))
 
   def drawNodeLabels(vl: VertexLayout) =
     SvgFrag(bbox(vl.nodes), vl.nodes.zipWithIndex.map((p, i) => labelFrag(p, i.toString, nodeLabelColor)))
 
-  def drawPortLabels(ports: Seq[EdgeTerminals]) =
-    val points = ports.flatMap(et => List(et.uTerm, et.vTerm))
-    val labels = ports.zipWithIndex.flatMap((et, i) =>
+  def drawPortLabels(ports: PortLayout) =
+    val points = ports.toVertexLayout.nodes
+    val labels = ports.byEdge.zipWithIndex.flatMap((et, i) =>
       List(
         labelFrag(opposedTo(et.uTerm, et.uDir, portLabelOffset / pixelsPerUnit), i.toString, portLabelColor),
         labelFrag(opposedTo(et.vTerm, et.vDir, portLabelOffset / pixelsPerUnit), i.toString, portLabelColor),

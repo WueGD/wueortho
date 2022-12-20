@@ -11,7 +11,7 @@ object Debugging:
 
   def rawDV(nbrs: (Int, Double)*) = DiVertex(nbrs.map((v, w) => NodeIndex(v) -> w))
 
-  def debugOVG(obstacles: Obstacles, graph: AdjacencyList, layout: VertexLayout, ports: IndexedSeq[EdgeTerminals]) =
+  def debugOVG(obstacles: Obstacles, graph: AdjacencyList, layout: VertexLayout, ports: PortLayout) =
     val svg      = Svg.withDefaults.copy(edgeBends = Svg.EdgeBends.Straight, edgeColor = Svg.EdgeColor.Single("gray"))
     val rectsSvg = svg.drawObstacles(obstacles)
     val nodesSvg = svg.drawNodes(layout)
@@ -25,7 +25,7 @@ object Debugging:
       val l = adj.vertices(u).neighbors.map { case Link(v, _, j) => s"$v [$j]" }.mkString("(", ", ", ")")
       println(s"$u @ $pos -> $l")
 
-  def debugSvg(obs: Obstacles, ports: IndexedSeq[EdgeTerminals], routes: IndexedSeq[EdgeRoute]) =
+  def debugSvg(obs: Obstacles, ports: PortLayout, routes: IndexedSeq[EdgeRoute]) =
     val svg      = Svg.withDefaults.copy(edgeBends = Svg.EdgeBends.Straight)
     val rectsSvg = svg.drawObstacles(obs)
     val portsSvg = svg.drawPorts(ports)

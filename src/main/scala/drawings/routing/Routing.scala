@@ -1,8 +1,7 @@
 package drawings.routing
 
 import drawings.data.*
-import drawings.util.Dijkstra.DijkstraCost
-import drawings.util.Dijkstra
+import drawings.util.GraphSearch.*
 import drawings.data.EdgeRoute.OrthoSeg
 import scala.annotation.nowarn
 
@@ -24,7 +23,7 @@ object Routing:
 
   case class DijTrans(dir: Direction, dist: Double)
 
-  def edgeRoutes(obstacles: Obstacles, ports: IndexedSeq[EdgeTerminals]) =
+  def edgeRoutes(obstacles: Obstacles, ports: PortLayout) =
     val (gridGraph, gridLayout, gridPaths, ovg) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
 
     // println(gridLayout.nodes.zipWithIndex.map((n, i) => s"node $i @ $n").mkString("\n"))
@@ -55,8 +54,8 @@ object Routing:
     given dc: DijkstraCost[DijState, DijTrans] = (t, s0) => s0.transitionCost(t)
 
     val paths = removeEyes(
-      for ((EdgeTerminals(uPos, dir, vPos, _), SimpleEdge(u, v)), i) <- (ports zip gridPaths).zipWithIndex
-      yield Dijkstra
+      for ((EdgeTerminals(uPos, dir, vPos, _), SimpleEdge(u, v)), i) <- (ports.byEdge zip gridPaths).zipWithIndex
+      yield dijkstra
         .shortestPath(neighbors, u, v, DijState(0, 0, 0, dir))
         .fold(err => sys.error(s"cannot find shortest path between $u and $v: $err"), identity),
     )
@@ -65,7 +64,7 @@ object Routing:
     // println(order.zipWithIndex.map((n, i) => s"$i: $n").mkString("\n"))
 
     val edgeRoutes =
-      for (path, terminals) <- paths zip ports yield pathToOrthoSegs(terminals, path, gridLayout).normalized
+      for (path, terminals) <- paths zip ports.byEdge yield pathToOrthoSegs(terminals, path, gridLayout).normalized
 
     (edgeRoutes, paths, order)
 

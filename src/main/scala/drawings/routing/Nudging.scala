@@ -13,13 +13,10 @@ object Nudging:
       ovg: OVG,
       routes: IndexedSeq[PathsOnGridNode],
       paths: IndexedSeq[Path],
-      ports: IndexedSeq[EdgeTerminals],
+      ports: PortLayout,
       obstacles: Obstacles,
   ) =
     import Constraint.builder.*
-
-    def portDir(i: Int)        = if i % 2 == 0 then ports(i / 2).uDir else ports(i / 2).vDir
-    def portCoordinate(i: Int) = if i % 2 == 0 then ports(i / 2).uTerm else ports(i / 2).vTerm
 
     val marginVar = mkVar(0)
 
@@ -30,14 +27,14 @@ object Nudging:
           case Nil               => (GroupedSeg(dir, tmp.reverse) :: res).reverse
           case Seq(u, v) +: tail =>
             val nextDir = (
-              if ovg.isPort(u) then Some(portDir(ovg.asPortId(u)))
+              if ovg.isPort(u) then Some(ports.portDir(ovg.asPortId(u)))
               else if ovg.isPort(v) then ovg(u).dirToPort(ovg.asPortId(v))
               else ovg(u).dirToNode(v)
             ) getOrElse sys.error(s"path disconnected at ${ovg(u)} -- ${ovg(v)}")
             if dir == nextDir then go(res, v :: tmp, dir, tail)
             else go(GroupedSeg(dir, tmp.reverse) :: res, List(v, u), nextDir, tail)
 
-      go(Nil, List(path.nodes.head), portDir(ovg.asPortId(path.nodes.head)), path.nodes.sliding(2).toList)
+      go(Nil, List(path.nodes.head), ports.portDir(ovg.asPortId(path.nodes.head)), path.nodes.sliding(2).toList)
     end splitIntoSegments
 
     @tailrec
@@ -121,7 +118,7 @@ object Nudging:
         ovg(next).top match
           case NavigableLink.EndOfWorld   => res.toSet
           case NavigableLink.Port(id)     =>
-            val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(portCoordinate(id).x2))
+            val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(ports.portCoordinate(id).x2))
             (sep.toList ::: constraints ::: res).toSet
           case NavigableLink.Obstacle(id) =>
             val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(obstacles.nodes(id).bottom))
@@ -159,7 +156,7 @@ object Nudging:
         ovg(next).right match
           case NavigableLink.EndOfWorld   => res.toSet
           case NavigableLink.Port(id)     =>
-            val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(portCoordinate(id).x1))
+            val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(ports.portCoordinate(id).x1))
             (sep.toList ::: constraints ::: res).toSet
           case NavigableLink.Obstacle(id) =>
             val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(obstacles.nodes(id).left))
@@ -192,7 +189,7 @@ object Nudging:
             else go(OrthoSeg.VSeg(to - pos.x2) :: res, pos.copy(x2 = to), next)
         go(Nil, start, p)
 
-      for (terms, path) <- ports zip pathSegs yield EdgeRoute(terms, segmentize(path, terms.uTerm))
+      for (terms, path) <- ports.byEdge zip pathSegs yield EdgeRoute(terms, segmentize(path, terms.uTerm))
 
     val vars = mkVariables(Nil, 1, 0, paths.zipWithIndex).toIndexedSeq
     val vcs  = mkVConstraints(vars, marginVar)

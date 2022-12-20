@@ -1,4 +1,4 @@
-package drawings.util
+package drawings.util.mutable
 
 import com.brein.time.timeintervals.indexes.{IntervalTree => IntervalTreeBase, *}
 import com.brein.time.timeintervals.indexes.IntervalTreeBuilder.IntervalType
@@ -67,6 +67,6 @@ object IntervalTree:
 
   def debugPrintAll(tree: IntervalTree) = tree match
     case Impl(base) => println(base.asScala.map(heal(_).getUniqueIdentifier).mkString("\n"))
-    case _          => println(s"unknown implementation: $tree")
+    case _          => println(s"unknown implementation: [${tree.getClass}] $tree")
 
 end IntervalTree

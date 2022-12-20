@@ -48,7 +48,10 @@ case class Vertex(neighbors: IndexedSeq[Link])
 case class Link(toNode: NodeIndex, weight: Double, backIndex: Int):
   assert(backIndex >= 0, s"back index must be a valid index (but was: $backIndex)")
 
-case class DiGraph(vertices: IndexedSeq[DiVertex])
+case class DiGraph(vertices: IndexedSeq[DiVertex]):
+  def undirected =
+    val edges = vertices.zipWithIndex.flatMap((v, i) => v.neighbors.map((j, w) => Edge(NodeIndex(i), j, w)))
+    AdjacencyList.fromEWG(EdgeWeightedGraph.fromEdgeList(edges))
 
 case class DiVertex(neighbors: Seq[(NodeIndex, Double)])
 
@@ -68,14 +71,18 @@ case class Path(nodes: Seq[NodeIndex])
 
 case class EdgeTerminals(uTerm: Vec2D, uDir: Direction, vTerm: Vec2D, vDir: Direction)
 
+case class PortLayout(byEdge: IndexedSeq[EdgeTerminals]):
+  def apply(i: Int)          = byEdge(i)
+  def toVertexLayout         = VertexLayout(byEdge.flatMap(et => List(et.uTerm, et.vTerm)))
+  def portDir(i: Int)        = if i % 2 == 0 then byEdge(i / 2).uDir else byEdge(i / 2).vDir
+  def portCoordinate(i: Int) = if i % 2 == 0 then byEdge(i / 2).uTerm else byEdge(i / 2).vTerm
+  val numberOfPorts          = byEdge.length * 2
+
 case class VertexLayout(nodes: IndexedSeq[Vec2D]):
   def apply(i: NodeIndex) = nodes(i.toInt)
   def yInverted           =
     val (ymin, ymax) = (nodes.map(_.x2).min, nodes.map(_.x2).max)
     VertexLayout(nodes.map(p => p.copy(x2 = ymax - p.x2 + ymin)))
-
-case class PortLayout(ports: IndexedSeq[(Vec2D, Direction)]):
-  def toVertexLayout = VertexLayout(ports.map(_._1))
 
 case class Obstacles(nodes: IndexedSeq[Rect2D]):
   def apply(idx: Int)                   = nodes(idx)
@@ -102,4 +109,5 @@ case class NodeData[T](id: NodeIndex, data: T)
 object NodeData:
   given ord[T: Ordering]: Ordering[NodeData[T]] = Ordering.by(_.data)
 
-  def mkNodes[T](ts: Seq[T]) = ts.zipWithIndex.toIndexedSeq.map((t, i) => NodeData(NodeIndex(i), t))
+  def mkNodes[T](ts: Seq[T], startIndex: Int) =
+    ts.zipWithIndex.toIndexedSeq.map((t, i) => NodeData(NodeIndex(startIndex + i), t))

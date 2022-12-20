@@ -29,10 +29,8 @@ object PathOrder:
     case Direction.West  => Direction.East
     case Direction.South => Direction.North
 
-  def apply(ovg: OVG, ports: IndexedSeq[EdgeTerminals], paths: IndexedSeq[Path]) =
-    def portDir(i: Int) = if i % 2 == 0 then ports(i / 2).uDir else ports(i / 2).vDir
-
-    val onGrid = mutable.ArrayBuffer.fill(ovg.length + 2 * ports.length)(PathsOnGridNode(Nil, Nil))
+  def apply(ovg: OVG, ports: PortLayout, paths: IndexedSeq[Path]) =
+    val onGrid = mutable.ArrayBuffer.fill(ovg.length + 2 * paths.length)(PathsOnGridNode(Nil, Nil))
 
     def leftOnGrid(u: NodeIndex)   = ovg.neighbor(u, Direction.West).toList.flatMap(onGrid(_).toRight)
     def bottomOnGrid(u: NodeIndex) = ovg.neighbor(u, Direction.South).toList.flatMap(onGrid(_).toTop)
@@ -48,7 +46,7 @@ object PathOrder:
       Seq(u, v) <- path.nodes.sliding(2)
     do
       if ovg.isPort(u) then // a port should have only one path
-        val mainDir = portDir(ovg.asPortId(u))
+        val mainDir = ports.portDir(ovg.asPortId(u))
         ifTopOrRight(mainDir) { tr =>
           onGrid(u.toInt) = onGrid(u.toInt).prepended(tr, i)
         } { lb =>

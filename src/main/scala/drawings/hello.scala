@@ -10,7 +10,7 @@ import drawings.overlaps.*
 import drawings.routing.*
 import drawings.io.Svg
 import drawings.layout.ForceDirected
-import drawings.util.Dijkstra.DijkstraCost
+import drawings.util.GraphSearch.*
 import drawings.routing.DifferenceConstraints.DifferenceConstraint
 import drawings.ports.PortHeuristic
 import drawings.util.Debugging._
@@ -20,11 +20,13 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 @main def runRandomized = GraphDrawing.runRandomSample(0x96c0ffee, 10, 24)
 
 @main def runIntervalTree =
-  val uut = IntervalTree(intervals: _*)
-  IntervalTree.debugPrintAll(uut)
+  import drawings.util.mutable
+
+  val uut = mutable.IntervalTree(intervals: _*)
+  mutable.IntervalTree.debugPrintAll(uut)
   println(uut.overlaps(0.3, 0.8).mkString("overlaps: [", ", ", "]"))
   uut.cutout(0.3, 0.8)
-  IntervalTree.debugPrintAll(uut)
+  mutable.IntervalTree.debugPrintAll(uut)
 
 @main def runTransitiveReduction =
   println(TransitiveReduction(tRedExample))
@@ -65,14 +67,16 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   given dc: DijkstraCost[Double, Double] = _ + _
 
   val graph = dijkstraExample.asDiGraph
-  println(Dijkstra.shortestPath(i => graph.vertices(i.toInt).neighbors, NodeIndex(0), NodeIndex(4), 0.0))
+  println(dijkstra.shortestPath(i => graph.vertices(i.toInt).neighbors, NodeIndex(0), NodeIndex(4), 0.0))
+  println(s"BFS(4): ${bfs.traverse(i => graph.vertices(i.toInt).neighbors.unzip._1, NodeIndex(3)).map(_.toInt + 1)}")
 
 @main def runBellmanFord =
-  println("Dijkstra Sample:")
-  println(BellmanFord.distances(dijkstraExample.asDiGraph, NodeIndex(0)))
-  println()
-  println("Corman Sample:")
-  println(DifferenceConstraints.solve(constraints))
+  println(s"""Dijkstra Sample:
+             |${bellmanFord.distances(dijkstraExample.asDiGraph, NodeIndex(0))}
+             |
+             |Corman Sample:
+             |${DifferenceConstraints.solve(constraints)}
+    """.stripMargin)
 
 @main def runOVG: Unit =
   val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
@@ -220,10 +224,12 @@ object OvgSample:
       Rect2D(Vec2D(1.5, 7.5), Vec2D(1.5, 1.5)),
     ),
   )
-  val ports     = Vector(
-    EdgeTerminals(Vec2D(5, 2), Direction.North, Vec2D(8, 4), Direction.South),
-    EdgeTerminals(Vec2D(7, 5), Direction.West, Vec2D(3, 7), Direction.East),
-    EdgeTerminals(Vec2D(1, 6), Direction.South, Vec2D(9, 7), Direction.North),
+  val ports     = PortLayout(
+    Vector(
+      EdgeTerminals(Vec2D(5, 2), Direction.North, Vec2D(8, 4), Direction.South),
+      EdgeTerminals(Vec2D(7, 5), Direction.West, Vec2D(3, 7), Direction.East),
+      EdgeTerminals(Vec2D(1, 6), Direction.South, Vec2D(9, 7), Direction.North),
+    ),
   )
 
 // see Corman et al. Intro to Algorithms, 3rd ed. p. 664--667

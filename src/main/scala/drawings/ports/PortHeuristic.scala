@@ -24,7 +24,7 @@ object PortHeuristic:
         ++ spreadEvenly(segs.left, y => Vec2D(vertex.left, y))(vertex.top, vertex.bottom).eachWith(Direction.West)
         ++ spreadEvenly(segs.bottom, x => Vec2D(x, vertex.bottom))(vertex.right, vertex.left).eachWith(Direction.South)
 
-    PortLayout(coords.sortBy(_.head).map(_.tail).toIndexedSeq)
+    coords.sortBy(_.head).map(_.tail).toIndexedSeq
   end equidistantPorts
 
   private def spreadEvenly(l: List[(Double, Int)], f: Double => Vec2D)(fromPos: Double, toPos: Double) =
@@ -47,12 +47,12 @@ object PortHeuristic:
       centers  = nb.neighbors map { case Link(u, _, _) => nodes.nodes(u.toInt).center }
     yield equidistantPorts(v, centers)
 
-    for
+    PortLayout(for
       (tmp, u)           <- graph.vertices.zipWithIndex
       (Link(v, _, j), i) <- tmp.neighbors.zipWithIndex
       if u < v.toInt
-      (posU, dirU)        = vertices(u).ports(i)
-      (posV, dirV)        = vertices(v.toInt).ports(j.toInt)
-    yield EdgeTerminals(posU, dirU, posV, dirV)
+      (posU, dirU)        = vertices(u)(i)
+      (posV, dirV)        = vertices(v.toInt)(j.toInt)
+    yield EdgeTerminals(posU, dirU, posV, dirV))
 
 end PortHeuristic
