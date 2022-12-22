@@ -6,6 +6,7 @@ import drawings.util.{Constraint, TransitiveReduction}, Constraint.CTerm
 import scala.annotation.{tailrec, nowarn}
 import scala.collection.BitSet
 import java.util.Comparator
+import drawings.util.GraphSearch
 
 /// constraint variables assignment:
 /// 0 |- segments -|- EoW-horizontal -|- EoW-vertical -|- margins -| ∞
@@ -149,9 +150,10 @@ object GeoNudging:
 
   trait CGraph:
     def hGraph: DiGraph
+    def split(g: AdjacencyList): Seq[BitSet]
 
   object CGraph:
-    /** This depends on the indices allocated by `NodeData.mkNodes` being consecutive and in the order of the input!
+    /** This requires the indices allocated by `NodeData.mkNodes` to be consecutive and in the order of the input!
       * @param segments
       *   one entry per path, for each path the segments in order
       * @param eow
@@ -174,7 +176,7 @@ object GeoNudging:
       assert(obsH.length == obsV.length, "there should be as many horizontal obstacles as vertical ones")
 
       val pathOffsets = segments.scanLeft(0)(_ + _.length).init
-      val allNodes    = NodeData.mkNodes(segments.flatten ++ eow ++ obsH ++ obsV, 0)
+      val allNodes    = NodeData.mkNodes(segments.flatten ++ eow ++ obsH ++ obsV, startIndex = 0)
       val obsOffset   = segments.size + eow.size
       val segsOffset  = 0
 
@@ -211,7 +213,7 @@ object GeoNudging:
         val obsPseudoEdges =
           for i <- obsOffset until obsH.size by 2 yield SimpleEdge(NodeIndex(i + 1), NodeIndex(i))
 
-        val monotonyEdges = for
+        val monotonyEdges = for // fixme: omit those constraints for u-turns!
           (path, i)              <- segments.zipWithIndex
           if path.size > 3
           Seq((a, j), _, (b, _)) <- path.zipWithIndex.sliding(3)
@@ -225,11 +227,35 @@ object GeoNudging:
         hSepEdges ++ obsPseudoEdges ++ monotonyEdges
       end mkHEdges
 
+      def split_(g: AdjacencyList) =
+        import scala.collection.mutable
+
+        val visited = mutable.BitSet.empty
+
+        def neighbors(id: NodeIndex) =
+          if isBorderNode(allNodes(id.toInt)) then Nil else g(id).neighbors.map(_._1).filter(i => !visited(i.toInt))
+
+        for
+          node      <- allNodes
+          if isBorderNode(node)
+          candidate <- g(node.id).neighbors.map(_._1)
+          if !visited(candidate.toInt)
+        yield
+          val nodes = GraphSearch.bfs.traverse(neighbors, candidate)
+          visited ++= nodes.filter(i => !isBorderNode(allNodes(i.toInt))).map(_.toInt)
+          BitSet(nodes.map(_.toInt): _*)
+
       new CGraph:
-        def hGraph: DiGraph =
+        override def hGraph: DiGraph         =
           val digraph = DiGraph.fromEdgeList(mkHEdges(allNodes.filter(onlyH).sorted).map(_.withWeight(1)))
           TransitiveReduction(digraph)
+        override def split(g: AdjacencyList) = split_(g)
     end apply
+
+    private def isBorderNode(node: NodeData[CNode] | CNode): Boolean = node.data match
+      case _: Segment.FloatingSegment => false
+      case _                          => true
+
   end CGraph
 
   def calcEdgeRoutes(
@@ -253,7 +279,5 @@ object GeoNudging:
     val obsV             = obstacles.nodes.zipWithIndex.flatMap((o, i) => List(BeginObstacle(i, o.bottom), EndObstacle(i, o.top)))
 
     val cGraph = CGraph(segments, eow, obsH, obsV)
-
-  // def splitGraph(g: DiGraph)
   end calcEdgeRoutes
 end GeoNudging

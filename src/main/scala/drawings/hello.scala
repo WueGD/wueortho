@@ -11,10 +11,11 @@ import drawings.routing.*
 import drawings.io.Svg
 import drawings.layout.ForceDirected
 import drawings.util.GraphSearch.*
-import drawings.routing.DifferenceConstraints.DifferenceConstraint
+import drawings.util.DifferenceConstraints.DifferenceConstraint
 import drawings.ports.PortHeuristic
 import drawings.util.Debugging._
 
+import drawings.util.DifferenceConstraints
 val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 
 @main def runRandomized = GraphDrawing.runRandomSample(0x96c0ffee, 10, 24)

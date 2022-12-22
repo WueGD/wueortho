@@ -1,9 +1,6 @@
-package drawings.routing
+package drawings.util
 
-import drawings.data.DiGraph
-import drawings.data.Edge
-import drawings.data.NodeIndex
-import drawings.data.DiVertex
+import drawings.data.*
 import drawings.util.GraphSearch.*
 
 object DifferenceConstraints:

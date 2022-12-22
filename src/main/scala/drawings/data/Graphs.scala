@@ -2,6 +2,8 @@ package drawings.data
 
 import drawings.routing.Routing
 import scala.util.Random
+import scala.reflect.ClassTag
+import scala.annotation.nowarn
 
 trait EdgeWeightedGraph:
   def nodes: Seq[NodeIndex]
@@ -29,7 +31,8 @@ case class SimpleEdge(u: NodeIndex, v: NodeIndex):
   def withWeight(w: Double) = Edge(u, v, w)
 
 case class AdjacencyList(vertices: IndexedSeq[Vertex]):
-  def asDiGraph: DiGraph = DiGraph(vertices.map(u => DiVertex(u.neighbors map { case Link(v, w, _) => v -> w })))
+  def apply(id: NodeIndex) = vertices(id.toInt)
+  def asDiGraph: DiGraph   = DiGraph(vertices.map(u => DiVertex(u.neighbors map { case Link(v, w, _) => v -> w })))
 
 object AdjacencyList:
   import scala.collection.mutable
@@ -49,7 +52,8 @@ case class Link(toNode: NodeIndex, weight: Double, backIndex: Int):
   assert(backIndex >= 0, s"back index must be a valid index (but was: $backIndex)")
 
 case class DiGraph(vertices: IndexedSeq[DiVertex]):
-  def undirected =
+  def apply(i: NodeIndex) = vertices(i.toInt)
+  def undirected          =
     val edges = vertices.zipWithIndex.flatMap((v, i) => v.neighbors.map((j, w) => Edge(NodeIndex(i), j, w)))
     AdjacencyList.fromEWG(EdgeWeightedGraph.fromEdgeList(edges))
 
@@ -111,3 +115,9 @@ object NodeData:
 
   def mkNodes[T](ts: Seq[T], startIndex: Int) =
     ts.zipWithIndex.toIndexedSeq.map((t, i) => NodeData(NodeIndex(startIndex + i), t))
+
+  extension [T](node: NodeData[T] | T)(using tt: ClassTag[T])
+    @nowarn("name=PatternMatchExhaustivity") // see issue: https://github.com/lampepfl/dotty/issues/11541
+    def data: T = node match
+      case res: T               => res
+      case NodeData(_, tt(res)) => res
