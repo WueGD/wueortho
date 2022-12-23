@@ -1,6 +1,6 @@
 package drawings.layout
 
-import drawings.data.{EdgeWeightedGraph, Vec2D, VertexLayout}
+import drawings.data.{WeightedEdgeList, Vec2D, VertexLayout}
 
 import scala.annotation.tailrec
 import scala.util.Random
@@ -10,8 +10,8 @@ import java.lang.Math.sqrt
 object ForceDirected:
   private val EPS = 1e-8
 
-  def layout(cfg: Config)(graph: EdgeWeightedGraph, init: VertexLayout): VertexLayout =
-    val g = EdgeWeightedGraph.fromEdgeList(graph.edges.filterNot(e => e.from == e.to))
+  def layout(cfg: Config)(graph: WeightedEdgeList, init: VertexLayout): VertexLayout =
+    val g = WeightedEdgeList.fromEdgeList(graph.edges.filterNot(e => e.from == e.to))
 
     @tailrec
     def go(i: Int, temp: Double, pos: Vector[Vec2D]): Vector[Vec2D] =

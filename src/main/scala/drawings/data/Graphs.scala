@@ -5,20 +5,20 @@ import scala.util.Random
 import scala.reflect.ClassTag
 import scala.annotation.nowarn
 
-trait EdgeWeightedGraph:
+trait WeightedEdgeList:
   def nodes: Seq[NodeIndex]
   def edges: Seq[Edge]
 
-object EdgeWeightedGraph:
+object WeightedEdgeList:
   import scala.collection.mutable
 
-  def fromEdgeList(l: Seq[Edge]): EdgeWeightedGraph =
+  def fromEdgeList(l: Seq[Edge]): WeightedEdgeList =
     val maxIdx = l.flatMap(e => List(e.from, e.to)).max
-    new EdgeWeightedGraph:
+    new WeightedEdgeList:
       override lazy val nodes = NodeIndex(0) to maxIdx
       override def edges      = l
 
-  def fromAdjacencyList(l: AdjacencyList): EdgeWeightedGraph =
+  def fromAdjacencyList(l: AdjacencyList): WeightedEdgeList =
     fromEdgeList(for
       (tmp, u)      <- l.vertices.zipWithIndex
       Link(v, w, _) <- tmp.neighbors
@@ -37,7 +37,7 @@ case class AdjacencyList(vertices: IndexedSeq[Vertex]):
 object AdjacencyList:
   import scala.collection.mutable
 
-  def fromEWG(g: EdgeWeightedGraph) =
+  def fromEdgeList(g: WeightedEdgeList) =
     val lut = g.nodes.map(_ => mutable.ListBuffer.empty[Link]).toIndexedSeq
     g.edges foreach { case Edge(from, to, weight) =>
       assert(from != to, s"AdjacencyList must not have loops (loop at node $to)")
@@ -55,7 +55,7 @@ case class DiGraph(vertices: IndexedSeq[DiVertex]):
   def apply(i: NodeIndex) = vertices(i.toInt)
   def undirected          =
     val edges = vertices.zipWithIndex.flatMap((v, i) => v.neighbors.map((j, w) => Edge(NodeIndex(i), j, w)))
-    AdjacencyList.fromEWG(EdgeWeightedGraph.fromEdgeList(edges))
+    AdjacencyList.fromEdgeList(WeightedEdgeList.fromEdgeList(edges))
 
 case class DiVertex(neighbors: Seq[(NodeIndex, Double)])
 
@@ -63,7 +63,7 @@ object DiGraph:
   import scala.collection.mutable
 
   def fromEdgeList(edges: Seq[Edge]) =
-    val g   = EdgeWeightedGraph.fromEdgeList(edges)
+    val g   = WeightedEdgeList.fromEdgeList(edges)
     val lut = g.nodes.map(_ => mutable.ListBuffer.empty[(NodeIndex, Double)]).toIndexedSeq
     g.edges foreach { case Edge(from, to, weight) =>
       assert(from != to, s"DiGraph must not have loops (loop at node $to)")
@@ -84,9 +84,6 @@ case class PortLayout(byEdge: IndexedSeq[EdgeTerminals]):
 
 case class VertexLayout(nodes: IndexedSeq[Vec2D]):
   def apply(i: NodeIndex) = nodes(i.toInt)
-  def yInverted           =
-    val (ymin, ymax) = (nodes.map(_.x2).min, nodes.map(_.x2).max)
-    VertexLayout(nodes.map(p => p.copy(x2 = ymax - p.x2 + ymin)))
 
 case class Obstacles(nodes: IndexedSeq[Rect2D]):
   def apply(idx: Int)                   = nodes(idx)

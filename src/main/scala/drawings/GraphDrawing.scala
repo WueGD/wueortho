@@ -24,7 +24,7 @@ object GraphDrawing:
     val graph =
       val core = (NodeIndex(0) until n).sliding(2) map { case Seq(u, v) => Edge(u, v, 1.0) }
       val hull = for _ <- n to m; (u, v) = randomNodePair yield Edge(u, v, 1.0)
-      EdgeWeightedGraph.fromEdgeList(core.toSeq ++ hull)
+      WeightedEdgeList.fromEdgeList(core.toSeq ++ hull)
 
     val layout = ForceDirected.layout(config)(graph, ForceDirected.initLayout(rndm, graph.nodes.size))
 
@@ -34,7 +34,7 @@ object GraphDrawing:
         .map(_.copy(span = Vec2D(2.0, 1.0))),
     ).forceGeneralPosition(rndm)
 
-    val ports = PortHeuristic.makePorts(obstacles, AdjacencyList.fromEWG(graph))
+    val ports = PortHeuristic.makePorts(obstacles, AdjacencyList.fromEdgeList(graph))
 
     val (adj, lay, edges, ovg)      = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
     val (bareRoutes, paths, onGrid) = Routing.edgeRoutes(obstacles, ports)

@@ -15,7 +15,7 @@ object Debugging:
     val svg      = Svg.withDefaults.copy(edgeBends = Svg.EdgeBends.Straight, edgeColor = Svg.EdgeColor.Single("gray"))
     val rectsSvg = svg.drawObstacles(obstacles)
     val nodesSvg = svg.drawNodes(layout)
-    val edgesSvg = svg.drawStraightEdges(EdgeWeightedGraph.fromAdjacencyList(graph), layout)
+    val edgesSvg = svg.drawStraightEdges(WeightedEdgeList.fromAdjacencyList(graph), layout)
     val portsSvg = svg.drawPorts(ports)
     Files.writeString(Paths.get("debug-ovg.svg"), svg.make(edgesSvg ++ portsSvg ++ nodesSvg ++ rectsSvg))
     Files.writeString(Paths.get("debug-ovg-input.svg"), svg.make(rectsSvg ++ svg.drawPorts(ports)))
@@ -32,7 +32,7 @@ object Debugging:
     val edgesSvg = svg.drawEdgeRoutes(routes)
     svg.make(rectsSvg ++ edgesSvg ++ portsSvg)
 
-  def debugSvg(ewg: EdgeWeightedGraph, vl: VertexLayout) =
+  def debugSvg(ewg: WeightedEdgeList, vl: VertexLayout) =
     val svg      = Svg.withDefaults.copy(edgeColor = Svg.EdgeColor.Single("gray"))
     val nodesSvg = svg.drawNodes(vl)
     val edgesSvg = svg.drawStraightEdges(ewg, vl)
@@ -43,5 +43,5 @@ object Debugging:
     val vl       = VertexLayout(obs.nodes.map(_.center))
     val rectsSvg = svg.drawObstacles(obs)
     val nodesSvg = svg.drawNodes(vl)
-    val edgesSvg = svg.drawStraightEdges(EdgeWeightedGraph.fromAdjacencyList(adj), vl)
+    val edgesSvg = svg.drawStraightEdges(WeightedEdgeList.fromAdjacencyList(adj), vl)
     svg.make(rectsSvg ++ edgesSvg ++ nodesSvg)

@@ -51,7 +51,7 @@ case class Svg(
     )
     SvgFrag(bbox(points), labels)
 
-  def drawStraightEdges(g: EdgeWeightedGraph, vl: VertexLayout) =
+  def drawStraightEdges(g: WeightedEdgeList, vl: VertexLayout) =
     val lines =
       edgeColor.zip(g.edges).map((edge, color) => lineFrag(vl(edge.from), vl(edge.to), color, edgeStrokeWidth))
     SvgFrag(bbox(vl.nodes), lines)

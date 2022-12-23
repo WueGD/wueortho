@@ -59,7 +59,7 @@ object Nachmanson:
     // println(s"number of edges to process: ${augmented.map(_.size)}")
 
     augmented.map(edges =>
-      val adjacencies = AdjacencyList.fromEWG(EdgeWeightedGraph.fromEdgeList(edges))
+      val adjacencies = AdjacencyList.fromEdgeList(WeightedEdgeList.fromEdgeList(edges))
       val mst         = MinimumSpanningTree.create(adjacencies)
       grow(mst, rects),
     )

@@ -93,7 +93,7 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   val alignedFat = Nachmanson.align(withMargin)
   val aligned    = alignedFat.map(r => r.copy(span = r.span - Vec2D(0.5, 0.5)))
   val triag0     = triangulate(rects.map(_.center))
-  val graph0     = EdgeWeightedGraph.fromEdgeList(triag0.map(de => Edge(de.u, de.v, 1)))
+  val graph0     = WeightedEdgeList.fromEdgeList(triag0.map(de => Edge(de.u, de.v, 1)))
 
   val svg       = Svg.withDefaults.copy(edgeBends = Svg.EdgeBends.Straight, edgeColor = Svg.EdgeColor.Single("gray"))
   val vl        = VertexLayout(rects.map(_.center))
@@ -108,19 +108,19 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 @main def runMst: Unit =
   val vertices = ForceDirected.initLayout(Random(0x00c0ffee), 24)
   val edges    = triangulate(vertices.nodes)
-  val graph    = EdgeWeightedGraph.fromEdgeList(
+  val graph    = WeightedEdgeList.fromEdgeList(
     edges.map(de => Edge(de.u, de.v, (vertices.nodes(de.u.toInt) - vertices.nodes(de.v.toInt)).len)),
   )
-  val mst      = MinimumSpanningTree.create(AdjacencyList.fromEWG(graph))
+  val mst      = MinimumSpanningTree.create(AdjacencyList.fromEdgeList(graph))
   mst.vertices.foreach(l => println(l.neighbors.mkString("[", ", ", "]")))
   val edgeList = mst.vertices.zipWithIndex.flatMap((adj, u) => adj.neighbors.map((v, w) => Edge(NodeIndex(u), v, w)))
-  val svg      = debugSvg(EdgeWeightedGraph.fromEdgeList(edgeList), vertices)
+  val svg      = debugSvg(WeightedEdgeList.fromEdgeList(edgeList), vertices)
   Files.writeString(Paths.get("mst.svg"), svg)
 
 @main def runTriangulate: Unit =
   val vertices = ForceDirected.initLayout(Random(0xffc0ffee), 24)
   val edges    = triangulate(vertices.nodes)
-  val graph    = EdgeWeightedGraph.fromEdgeList(edges.map(de => Edge(de.u, de.v, 1)))
+  val graph    = WeightedEdgeList.fromEdgeList(edges.map(de => Edge(de.u, de.v, 1)))
   val svg      = debugSvg(graph, vertices)
   Files.writeString(Paths.get("delauny.svg"), svg)
 
@@ -132,7 +132,7 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   val svg    = debugSvg(graph, layout)
   Files.writeString(Paths.get("fd.svg"), svg)
 
-val k4  = EdgeWeightedGraph.fromEdgeList(
+val k4  = WeightedEdgeList.fromEdgeList(
   List(
     rawE(0, 1, 1),
     rawE(0, 2, 1),
@@ -142,7 +142,7 @@ val k4  = EdgeWeightedGraph.fromEdgeList(
     rawE(2, 3, 1),
   ),
 )
-val c4  = EdgeWeightedGraph.fromEdgeList(
+val c4  = WeightedEdgeList.fromEdgeList(
   List(
     rawE(0, 1, 1),
     rawE(1, 2, 1),
@@ -150,7 +150,7 @@ val c4  = EdgeWeightedGraph.fromEdgeList(
     rawE(3, 0, 1),
   ),
 )
-val p12 = EdgeWeightedGraph.fromEdgeList(
+val p12 = WeightedEdgeList.fromEdgeList(
   List(
     rawE(0, 2, 1),
     rawE(0, 4, 1),
@@ -186,8 +186,8 @@ val p12 = EdgeWeightedGraph.fromEdgeList(
 )
 
 // see https://upload.wikimedia.org/wikipedia/commons/5/57/Dijkstra_Animation.gif
-val dijkstraExample = AdjacencyList.fromEWG(
-  EdgeWeightedGraph.fromEdgeList(
+val dijkstraExample = AdjacencyList.fromEdgeList(
+  WeightedEdgeList.fromEdgeList(
     IndexedSeq(
       rawE(0, 5, 14),
       rawE(0, 2, 9),
