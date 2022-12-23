@@ -10,8 +10,20 @@ import drawings.util.Constraint.CTerm
 object ORTools:
   com.google.ortools.Loader.loadNativeLibraries()
 
-  case class LPInstance(cstr: Seq[Constraint], obj: CTerm, maximize: Boolean)
-  case class LPResult(solutions: IndexedSeq[Double], objVal: Double)
+  case class LPInstance(cstr: Seq[Constraint], obj: CTerm, maximize: Boolean):
+    override def toString(): String =
+      val goal = if maximize then "maximize" else "minimize"
+      val obj_ = Debugging.showCTerm(obj)
+      val cs_  = cstr.map(Debugging.showConstraint).mkString("\n")
+      s"LPInstance($goal $obj_\nWith constraints:\n$cs_)"
+
+  case class LPResult(solutions: IndexedSeq[Double], objVal: Double):
+    def apply(ct: CTerm): Double = ct match
+      case CTerm.Constant(c)  => c
+      case CTerm.Variable(id) => solutions(id)
+      case CTerm.Sum(a, b)    => apply(a) + apply(b)
+      case CTerm.Negate(a)    => -apply(a)
+      case CTerm.Scale(l, a)  => l * apply(a)
 
   private val PInf = MPSolver.infinity()
   private val NInf = -PInf

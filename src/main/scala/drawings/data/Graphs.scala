@@ -25,7 +25,8 @@ object WeightedEdgeList:
       if u < v.toInt
     yield Edge(NodeIndex(u), v, w))
 
-case class Edge(from: NodeIndex, to: NodeIndex, weight: Double)
+case class Edge(from: NodeIndex, to: NodeIndex, weight: Double):
+  def unweighted = SimpleEdge(from, to)
 
 case class SimpleEdge(u: NodeIndex, v: NodeIndex):
   def withWeight(w: Double) = Edge(u, v, w)
@@ -53,9 +54,8 @@ case class Link(toNode: NodeIndex, weight: Double, backIndex: Int):
 
 case class DiGraph(vertices: IndexedSeq[DiVertex]):
   def apply(i: NodeIndex) = vertices(i.toInt)
-  def undirected          =
-    val edges = vertices.zipWithIndex.flatMap((v, i) => v.neighbors.map((j, w) => Edge(NodeIndex(i), j, w)))
-    AdjacencyList.fromEdgeList(WeightedEdgeList.fromEdgeList(edges))
+  def edges               = vertices.zipWithIndex.flatMap((v, i) => v.neighbors.map((j, w) => Edge(NodeIndex(i), j, w)))
+  def undirected          = AdjacencyList.fromEdgeList(WeightedEdgeList.fromEdgeList(edges))
 
 case class DiVertex(neighbors: Seq[(NodeIndex, Double)])
 

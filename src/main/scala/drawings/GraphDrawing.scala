@@ -38,7 +38,8 @@ object GraphDrawing:
 
     val (adj, lay, edges, ovg)      = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
     val (bareRoutes, paths, onGrid) = Routing.edgeRoutes(obstacles, ports)
-    val routes                      = Nudging.calcEdgeRoutes(ovg, onGrid, paths, ports, obstacles)
+    val oldRoutes                   = Nudging.calcEdgeRoutes(ovg, onGrid, paths, ports, obstacles)
+    val routes                      = GeoNudging.calcEdgeRoutes(ovg, lay, onGrid, paths, ports, obstacles)
 
     assert(m == graph.edges.size, s"graph has $m edges but got ${graph.edges.size} edges (EWG)")
     assert(m == ports.byEdge.size, s"graph has $m edges but got ${ports.byEdge.size} pairs of terminals")
@@ -49,11 +50,16 @@ object GraphDrawing:
     val portsSvg     = svg.drawPorts(ports)
     val portLabelSvg = svg.drawPortLabels(ports)
     val edgesSvg     = svg.drawEdgeRoutes(routes)
+    val oldEdgesSvg  = svg.drawEdgeRoutes(oldRoutes)
     val bareEdgesSvg = svg.copy(edgeBends = Svg.EdgeBends.Straight).drawEdgeRoutes(bareRoutes)
     val nodeLabelSvg = svg.drawNodeLabels(VertexLayout(obstacles.nodes.map(_.center)))
     Files.writeString(
       Paths.get(s"res_n${n}m${m}#${seed.toHexString}.svg"),
       svg.make(rectsSvg ++ edgesSvg ++ portsSvg ++ nodeLabelSvg ++ portLabelSvg),
+    )
+    Files.writeString(
+      Paths.get(s"res_n${n}m${m}#${seed.toHexString}_old-routing.svg"),
+      svg.make(rectsSvg ++ oldEdgesSvg ++ portsSvg ++ nodeLabelSvg ++ portLabelSvg),
     )
     Files.writeString(
       Paths.get(s"res_n${n}m${m}#${seed.toHexString}_no-nudging.svg"),

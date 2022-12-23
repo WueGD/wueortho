@@ -2,52 +2,29 @@ package drawings.util
 
 import drawings.data.*
 import scala.collection.mutable
-import scala.annotation.tailrec
 
 object TransitiveReduction:
+  // based on https://cs.stackexchange.com/a/83704
   def apply(g: DiGraph): DiGraph =
-    val edges = longestPaths(g)
-    DiGraph.fromEdgeList(edges)
+    val edges   = mutable.HashSet.from(g.edges.map(_.unweighted))
+    val visited = mutable.ArrayBuffer.fill(g.vertices.length)(mutable.BitSet.empty)
 
-/// IDEA:
-/// return g with only edges u, v that fullfill:
-/// the longest path between u and v in g has length 1
+    def visit(v: NodeIndex): Unit =
+      if visited(v.toInt).isEmpty then
+        val indirect = mutable.BitSet.empty
+        for (w, _) <- g(v).neighbors do
+          visit(w)
+          indirect |= visited(w.toInt)
+        end for
+        visited(v.toInt) |= indirect
+        for (w, _) <- g(v).neighbors do
+          visited(v.toInt) += w.toInt
+          if indirect(w.toInt) then edges -= SimpleEdge(v, w)
+        end for
+    end visit
 
-  private def longestPaths(g: DiGraph): Seq[Edge] =
-    val topo = topoSort(g)
-    assert(topo.length == g.vertices.length, "topological sorting changed number of elements")
+    for v <- NodeIndex(0) to (g.vertices.length - 1) do visit(v)
 
-    val edges = for _s <- 0 until g.vertices.length yield
-      val dist = mutable.ArrayBuffer.fill(g.vertices.length)(Double.PositiveInfinity)
-      val ptrs = mutable.ArrayBuffer.fill(g.vertices.length)(-1)
-      dist(topo(_s).toInt) = 0
-
-      for _u <- _s until topo.length do
-        val u = topo(_u).toInt
-        for (v, _) <- g.vertices(u).neighbors do
-          if dist(v.toInt) > dist(u) - 1 then
-            dist(v.toInt) = dist(u) - 1
-            ptrs(v.toInt) = u
-
-      val s = topo(_s).toInt
-      for
-        (p, i) <- ptrs.zipWithIndex
-        if p == s
-      yield Edge(NodeIndex(s), NodeIndex(i), 0.0)
-
-    edges.flatten
-
-  /** this assumes g is acyclic! */
-  def topoSort(g: DiGraph): IndexedSeq[NodeIndex] =
-    val marks = mutable.BitSet.empty
-
-    def visit(u: NodeIndex): List[NodeIndex] =
-      if marks(u.toInt) then Nil
-      else
-        marks += u.toInt
-        val next = g.vertices(u.toInt).neighbors.map((v, _) => visit(v)).flatten.toList
-        u :: next
-
-    (0 until g.vertices.size).map(i => visit(NodeIndex(i))).reverse.flatten
-
+    DiGraph.fromEdgeList(edges.toSeq.map(_.withWeight(1.0)))
+  end apply
 end TransitiveReduction

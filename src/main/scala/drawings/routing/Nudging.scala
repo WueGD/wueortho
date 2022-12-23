@@ -1,8 +1,7 @@
 package drawings.routing
 
 import drawings.data.*
-import drawings.util.{Constraint, ORTools}
-import drawings.util.Constraint.CTerm
+import drawings.util.{Constraint, ORTools}, Constraint.CTerm, ORTools.LPResult
 import scala.annotation.{tailrec, nowarn}
 
 object Nudging:
@@ -88,18 +87,6 @@ object Nudging:
           .find(s => s.group.dir.isHorizontal && s.group.nodes.contains(nodeIdx))
           .getOrElse(sys.error(s"path $pathIdx has no horizontal segment containing node $nodeIdx"))
 
-      // def mkTerms(node: NodeIndex, res: List[CTerm]) =
-      //   val pathsOrdered = (routes(node.toInt).toRight.map(resolveHSegment(node, _).normal)).toList
-      //   val segments     = ovg(node).right match
-      //     case NavigableLink.Node(_) =>
-      //       ovg(node).obstacle match
-      //         case None    => pathsOrdered
-      //         case Some(i) =>
-      //           val obs = obstacles.nodes(i)
-      //           pathsOrdered ::: List(mkConst(obs.bottom), mkConst(obs.top))
-
-      //   ???
-
       @tailrec def seek(res: List[Constraint], base: Option[CTerm], next: NodeIndex): Set[Constraint] =
         val pathsOrdered            = (base ++ routes(next.toInt).toRight.map(resolveHSegment(next, _).normal)).toList
         val (constraints, nextBase) = ovg(next).right match
@@ -170,21 +157,14 @@ object Nudging:
       )).fold(Set.empty)(_ ++ _)
     end mkHConstraints
 
-    def mkRoutes(pathSegs: IndexedSeq[List[VarSeg]], sols: IndexedSeq[Double]) =
-      def calc(ct: CTerm): Double = ct match
-        case CTerm.Constant(c)  => c
-        case CTerm.Variable(id) => sols(id)
-        case CTerm.Sum(a, b)    => calc(a) + calc(b)
-        case CTerm.Negate(a)    => -calc(a)
-        case CTerm.Scale(l, a)  => l * calc(a)
-
+    def mkRoutes(pathSegs: IndexedSeq[List[VarSeg]], sols: LPResult) =
       def segmentize(p: List[VarSeg], start: Vec2D) =
         import EdgeRoute.OrthoSeg
         @tailrec
         def go(res: List[OrthoSeg], pos: Vec2D, queue: List[VarSeg]): List[OrthoSeg] = queue match
           case Nil          => res.reverse
           case head :: next =>
-            val to = calc(head.endsAt)
+            val to = sols(head.endsAt)
             if head.group.dir.isHorizontal then go(OrthoSeg.HSeg(to - pos.x1) :: res, pos.copy(x1 = to), next)
             else go(OrthoSeg.VSeg(to - pos.x2) :: res, pos.copy(x2 = to), next)
         go(Nil, start, p)
@@ -199,7 +179,7 @@ object Nudging:
     assert(vars.flatten.map(_.id).max == vars.flatten.size - 1)
     println(s"DEBUG: #vars: ${vars.length} #constraints: ${vcs.size + hcs.size}")
 
-    val ORTools.LPResult(sols, _) = ORTools
+    val sols = ORTools
       .solve(ORTools.LPInstance((vcs ++ hcs).toSeq, marginVar, maximize = true))
       .fold(sys.error, identity)
 

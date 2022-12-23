@@ -11,6 +11,8 @@ object Debugging:
 
   def rawDV(nbrs: (Int, Double)*) = DiVertex(nbrs.map((v, w) => NodeIndex(v) -> w))
 
+  def dbg[T](t: T, show: T => String = (_: T).toString): T = { println(s"DEBUG: ${show(t)}"); t }
+
   def debugOVG(obstacles: Obstacles, graph: AdjacencyList, layout: VertexLayout, ports: PortLayout) =
     val svg      = Svg.withDefaults.copy(edgeBends = Svg.EdgeBends.Straight, edgeColor = Svg.EdgeColor.Single("gray"))
     val rectsSvg = svg.drawObstacles(obstacles)
@@ -45,3 +47,14 @@ object Debugging:
     val nodesSvg = svg.drawNodes(vl)
     val edgesSvg = svg.drawStraightEdges(WeightedEdgeList.fromAdjacencyList(adj), vl)
     svg.make(rectsSvg ++ edgesSvg ++ nodesSvg)
+
+  def showCTerm(t: Constraint.CTerm): String = t match
+    case Constraint.CTerm.Constant(c)  => c.toString
+    case Constraint.CTerm.Variable(id) => s"var#$id"
+    case Constraint.CTerm.Sum(a, b)    => s"(${showCTerm(a)} + ${showCTerm(b)})"
+    case Constraint.CTerm.Negate(a)    => s"-${showCTerm(a)}"
+    case Constraint.CTerm.Scale(l, a)  => s"$l * ${showCTerm(a)}"
+
+  def showConstraint(c: Constraint) = c match
+    case Constraint.SmallerOrEqual(a, b) => s"${showCTerm(a)} <= ${showCTerm(b)}"
+    case Constraint.Equal(a, b)          => s"${showCTerm(a)} == ${showCTerm(b)}"

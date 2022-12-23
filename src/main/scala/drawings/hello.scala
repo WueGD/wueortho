@@ -18,16 +18,24 @@ import drawings.util.Debugging._
 import drawings.util.DifferenceConstraints
 val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 
-@main def runRandomized = GraphDrawing.runRandomSample(0x96c0ffee, 10, 24)
+@main def runRandomized = GraphDrawing.runRandomSample(0x97c0ffee, 20, 50)
 
 @main def runIntervalTree =
   import drawings.util.mutable
 
-  val uut = mutable.IntervalTree(intervals: _*)
-  mutable.IntervalTree.debugPrintAll(uut)
+  val uut = mutable.BreinIntervalTree(intervals: _*)
+  mutable.BreinIntervalTree.debugPrintAll(uut)
   println(uut.overlaps(0.3, 0.8).mkString("overlaps: [", ", ", "]"))
   uut.cutout(0.3, 0.8)
-  mutable.IntervalTree.debugPrintAll(uut)
+  mutable.BreinIntervalTree.debugPrintAll(uut)
+
+  println("=============== BREIN TREE ^^^ | vvv LINEAR TREE ===============")
+
+  val uut2 = mutable.LinearIntervalTree(intervals: _*)
+  mutable.LinearIntervalTree.debugPrintAll(uut2)
+  println(uut2.overlaps(0.3, 0.8).mkString("overlaps: [", ", ", "]"))
+  uut2.cutout(0.3, 0.8)
+  mutable.LinearIntervalTree.debugPrintAll(uut2)
 
 @main def runTransitiveReduction =
   println(TransitiveReduction(tRedExample))
@@ -51,6 +59,8 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   val (_, paths, routes)     = Routing.edgeRoutes(OvgSample.obstacles, OvgSample.ports)
   val edgeRoutes             = Nudging.calcEdgeRoutes(ovg, routes, paths, OvgSample.ports, OvgSample.obstacles)
   Files.writeString(Paths.get("constrained-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, edgeRoutes))
+
+  val test = GeoNudging.calcEdgeRoutes(ovg, lay, routes, paths, OvgSample.ports, OvgSample.obstacles)
 
 @main def runRouting =
   val (routes, _, _) = Routing.edgeRoutes(OvgSample.obstacles, OvgSample.ports)

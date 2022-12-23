@@ -21,6 +21,8 @@ object Constraint:
     @targetName("minus") def -(o: CTerm)   = CTerm.Sum(this, CTerm.Negate(o))
     @targetName("scaler") def *(l: Double) = CTerm.Scale(l, this)
 
+    def negated = CTerm.Negate(this)
+
     @targetName("smalleq") def <=(o: CTerm) = Constraint.SmallerOrEqual(this, o)
     @targetName("equal") def ===(o: CTerm)  = Constraint.Equal(this, o)
     @targetName("greateq") def >=(o: CTerm) = Constraint.SmallerOrEqual(o, this)
