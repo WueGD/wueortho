@@ -18,7 +18,7 @@ import drawings.util.Debugging._
 import drawings.util.DifferenceConstraints
 val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 
-@main def runRandomized = GraphDrawing.runRandomSample(0x97c0ffee, 20, 50)
+@main def runRandomized = GraphDrawing.runRandomSample(n = 30, m = 60, seed = 0x99c0ffee)
 
 @main def runIntervalTree =
   import drawings.util.mutable

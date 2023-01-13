@@ -94,10 +94,17 @@ object GeoNudging:
           case Direction.North => gs.nodes.init.flatMap(i => routes(i.toInt).toTop.takeWhile(_ != pathId))
         )
         if lut.nonEmpty then
-          Debugging.dbg(s"path #$pathId ${gs.dir} is after ${lut.mkString("[", ", ", "]")}")
-          if gs.dir.isHorizontal then
-            println(gs.nodes.map(i => s"TRACE: $i to right: ${routes(i.toInt).toRight.mkString(", ")}").mkString("\n"))
-          else println(gs.nodes.map(i => s"TRACE: $i to top: ${routes(i.toInt).toTop.mkString(", ")}").mkString("\n"))
+          Debugging.dbg(s"path #$pathId ${gs.dir} (@${gs.norm}) is after ${lut.mkString("[", ", ", "]")}")
+          println(gs.dir match
+            case Direction.North =>
+              gs.nodes.init.map(i => s"TRACE: $i to top: ${routes(i.toInt).toTop.mkString(", ")}").mkString("\n")
+            case Direction.East  =>
+              gs.nodes.init.map(i => s"TRACE: $i to right: ${routes(i.toInt).toRight.mkString(", ")}").mkString("\n")
+            case Direction.South =>
+              gs.nodes.tail.map(i => s"TRACE: $i to top: ${routes(i.toInt).toTop.mkString(", ")}").mkString("\n")
+            case Direction.West  =>
+              gs.nodes.tail.map(i => s"TRACE: $i to right: ${routes(i.toInt).toRight.mkString(", ")}").mkString("\n"),
+          )
         SegmentInfo(gs, pathId, endsAt, lut, None)
 
       type MkInfoPA = (SegInOVG, CTerm) => SegmentInfo
@@ -151,27 +158,13 @@ object GeoNudging:
   end Segment
 
   object CNode:
-    given Ordering[CNode] = Ordering
-      .by[CNode, Double](_.at)
-      .orElse(
-        Ordering.comparatorToOrdering[CNode]((a, b) =>
-          a.nn -> b.nn match
-            case (_: EndOfWorld, _: EndOfWorld)               => 0
-            case (BeginObstacle(ia, _), BeginObstacle(ib, _)) => ia - ib
-            case (EndObstacle(ia, _), EndObstacle(ib, _))     => ia - ib
-            case (a: EndOfWorld, _)                           => if a.at < 0 then -1 else 1
-            case (_, b: EndOfWorld)                           => if b.at > 0 then -1 else 1
-            case (_: EndObstacle, _) | (_, _: BeginObstacle)  => -1
-            case (_, _: EndObstacle) | (_: BeginObstacle, _)  => 1
-            case (a: Segment, b: Segment)                     =>
-              val (ai, bi) = a.info -> b.info
-              if ai.pathsBefore(bi.pathId) then 1
-              else if bi.pathsBefore(ai.pathId) then -1
-              else
-                println(s"WARN: comparing incomparable segments: ${Segment.show(a)} vs ${Segment.show(b)}")
-                0,
-        ),
-      )
+    def lt(a: CNode, b: CNode) = a.nn -> b.nn match
+      case (_: EndOfWorld, _) | (_, _: EndOfWorld)      => sys.error(s"EoW comparison: ${a -> b}")
+      case (BeginObstacle(ia, _), BeginObstacle(ib, _)) => ia < ib
+      case (EndObstacle(ia, _), EndObstacle(ib, _))     => ia < ib
+      case (_: EndObstacle, _) | (_, _: BeginObstacle)  => true
+      case (_, _: EndObstacle) | (_: BeginObstacle, _)  => false
+      case (a: Segment, b: Segment)                     => b.info.pathsBefore(a.info.pathId)
 
   /** This requires the indices allocated by `NodeData.mkNodes` to be consecutive and in the order of the input!
     * @param segments
@@ -231,6 +224,26 @@ object GeoNudging:
           case EndOfWorld(dir, _)                => dir.isVertical
           case _: BeginObstacle | _: EndObstacle => true
           case s: Segment                        => s.info.dir.isHorizontal
+
+    def mkQueue(nodes: Seq[NodeData[CNode]]) =
+      import scala.collection.mutable
+      if nodes.length < 2 then IndexedSeq.from(nodes)
+      else
+        val buf    = mutable.ArrayBuffer.from(nodes.sortBy(_.data.at))
+        var (i, j) = (buf.length - 1, buf.length - 2)
+        while i > 0 do
+          while j >= 0 && buf(i).data.at == buf(j).data.at do
+            if CNode.lt(buf(i).data, buf(j).data) then
+              val tmp = buf(i)
+              buf(i) = buf(j)
+              buf(j) = tmp
+              j = i - 1
+            else j = j - 1
+          end while
+          i = i - 1
+          j = i - 1
+        end while
+        buf.toIndexedSeq
 
     def mkSepEdges(queue: Seq[NodeData[CNode]], dir: Direction) =
       val iTree = mutable.LinearIntervalTree.empty()
@@ -321,23 +334,14 @@ object GeoNudging:
       val fixedSegs = segments.zipWithIndex.map((path, i) => go(path.toList, ports(i).uTerm.x1, Nil))
       CGraph(segments, eow, obsH, obsV, obstacles, ports)
 
-    def debug(g: DiGraph) = println(
-      g.vertices.zipWithIndex
-        .map((v, i) =>
-          val node = allNodes(i)
-          s"DEBUG: ${node.id} (${node.data.getClass.getSimpleName}) -> ${v.neighbors.unzip._1.mkString("[", ", ", "]")}",
-        )
-        .mkString("\n"),
-    )
-
     lazy val hGraph: DiGraph =
-      val digraph = DiGraph.fromEdgeList(mkHEdges(allNodes.filter(onlyH).sorted).map(_.withWeight(1)).toSeq)
+      val digraph = DiGraph.fromEdgeList(mkHEdges(mkQueue(allNodes.filter(onlyH))).map(_.withWeight(1)).toSeq)
       val res     = TransitiveReduction(digraph)
       debug(res)
       res
 
     lazy val vGraph: DiGraph =
-      val digraph = DiGraph.fromEdgeList(mkVEdges(allNodes.filter(onlyV).sorted).map(_.withWeight(1)).toSeq)
+      val digraph = DiGraph.fromEdgeList(mkVEdges(mkQueue(allNodes.filter(onlyV))).map(_.withWeight(1)).toSeq)
       val res     = TransitiveReduction(digraph)
       debug(res)
       res
@@ -378,6 +382,18 @@ object GeoNudging:
 
       for (terms, path) <- ports.byEdge zip segments yield EdgeRoute(terms, go(Nil, terms.uTerm, path.toList))
     end mkRoutes
+
+    def debug(g: DiGraph) = println(
+      g.vertices.zipWithIndex
+        .map((v, i) =>
+          val node = allNodes(i)
+          s"DEBUG: ${node.id} (${node.data.getClass.getSimpleName}) -> ${v.neighbors.unzip._1.mkString("[", ", ", "]")}",
+        )
+        .mkString("\n"),
+    )
+
+    def debugSegments =
+      segments.flatMap(identity).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(Debugging.dbg(_))
   end CGraph
 
   private def isBorderNode(node: NodeData[CNode] | CNode): Boolean = node.data match
@@ -421,6 +437,7 @@ object GeoNudging:
     val hSol            = Debugging.dbg(maximize(hcs, hObj))
 
     val hSolved = cGraph.partiallySolvedH(hSol)
+    cGraph.debugSegments
 
     val (vcs, afterVcs) = hSolved.mkVConstraints(afterHcs)
     val vObj            = 0.5 * (mkVar(afterSegs + 2) + mkVar(afterSegs + 3).negated) + marginObj(afterHcs, afterVcs)
