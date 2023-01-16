@@ -1,7 +1,7 @@
 package drawings.routing
 
 import drawings.data.*
-import drawings.util.{Constraint, TransitiveReduction, GraphSearch, ORTools, Debugging}, Constraint.CTerm
+import drawings.util.*, Constraint.CTerm
 
 import scala.annotation.{tailrec, nowarn}
 import scala.collection.BitSet
@@ -336,15 +336,11 @@ object GeoNudging:
 
     lazy val hGraph: DiGraph =
       val digraph = DiGraph.fromEdgeList(mkHEdges(mkQueue(allNodes.filter(onlyH))).map(_.withWeight(1)).toSeq)
-      val res     = TransitiveReduction(digraph)
-      debug(res)
-      res
+      TransitiveReduction(digraph)
 
     lazy val vGraph: DiGraph =
       val digraph = DiGraph.fromEdgeList(mkVEdges(mkQueue(allNodes.filter(onlyV))).map(_.withWeight(1)).toSeq)
-      val res     = TransitiveReduction(digraph)
-      debug(res)
-      res
+      TransitiveReduction(digraph)
 
     def borderConstraintsH =
       val (min, max) = (obsH.minBy(_.at), obsH.maxBy(_.at))
@@ -357,17 +353,15 @@ object GeoNudging:
     def mkHConstraints(marginVarIdx: Int): (Seq[Constraint], Int) =
       val (res, varIds) = (for
         (cmp, i) <- split(hGraph.undirected).zipWithIndex
-        _ <- List(println(s"DEBUG: HComponent #$i: ${cmp.toSeq.mkString("[", ", ", "]")}")) // fixme: DEBUG
         res      <- mkConstraintsForComponent(hGraph, cmp, Constraint.builder.mkVar(marginVarIdx + i))
-      yield Debugging.dbg(res, Debugging.showConstraint) -> (marginVarIdx + i)).unzip
+      yield res -> (marginVarIdx + i)).unzip
       (res ++ borderConstraintsH) -> (varIds.last + 1)
 
     def mkVConstraints(marginVarIdx: Int): (Seq[Constraint], Int) =
       val (res, varIds) = (for
         (cmp, i) <- split(vGraph.undirected).zipWithIndex
-        _ <- List(println(s"DEBUG: VComponent #$i: ${cmp.toSeq.mkString("[", ", ", "]")}")) // fixme: DEBUG
         res      <- mkConstraintsForComponent(vGraph, cmp, Constraint.builder.mkVar(marginVarIdx + i))
-      yield Debugging.dbg(res, Debugging.showConstraint) -> (marginVarIdx + i)).unzip
+      yield res -> (marginVarIdx + i)).unzip
       (res ++ borderConstraintsV) -> (varIds.last + 1)
 
     def mkRoutes(solve: ORTools.LPResult) =
@@ -382,18 +376,6 @@ object GeoNudging:
 
       for (terms, path) <- ports.byEdge zip segments yield EdgeRoute(terms, go(Nil, terms.uTerm, path.toList))
     end mkRoutes
-
-    def debug(g: DiGraph) = println(
-      g.vertices.zipWithIndex
-        .map((v, i) =>
-          val node = allNodes(i)
-          s"DEBUG: ${node.id} (${node.data.getClass.getSimpleName}) -> ${v.neighbors.unzip._1.mkString("[", ", ", "]")}",
-        )
-        .mkString("\n"),
-    )
-
-    def debugSegments =
-      segments.flatMap(identity).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(Debugging.dbg(_))
   end CGraph
 
   private def isBorderNode(node: NodeData[CNode] | CNode): Boolean = node.data match
@@ -415,10 +397,11 @@ object GeoNudging:
       ports: PortLayout,
       obstacles: Obstacles,
   ) =
-    import Constraint.builder.*, Direction.*
+    import Constraint.builder.*, Direction.*, Debugging.dbg
+
+    for (p, i) <- paths.zipWithIndex do dbg(s"path #$i: " + p.nodes.mkString("[", ", ", "]"))
 
     val (segs, afterSegs) = Segment.mkAll(paths, ovg, ovgLayout, routes, ports, startIdx = 0)
-    println(segs.zipWithIndex.map((p, i) => s"path #$i:\n${p.map(Segment.show).mkString("\n")}").mkString("\n"))
     val eow               = List(
       EndOfWorld(West, mkVar(afterSegs)),
       EndOfWorld(East, mkVar(afterSegs + 1)),
@@ -427,6 +410,8 @@ object GeoNudging:
     )
     val afterEow          = afterSegs + 4
 
+    segs.flatMap(identity).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_))
+
     val obsH = obstacles.nodes.zipWithIndex.flatMap((o, i) => List(BeginObstacle(i, o.left), EndObstacle(i, o.right)))
     val obsV = obstacles.nodes.zipWithIndex.flatMap((o, i) => List(BeginObstacle(i, o.bottom), EndObstacle(i, o.top)))
 
@@ -434,14 +419,13 @@ object GeoNudging:
 
     val (hcs, afterHcs) = cGraph.mkHConstraints(afterEow)
     val hObj            = 0.5 * (mkVar(afterSegs) + mkVar(afterSegs + 1).negated) + marginObj(afterEow, afterHcs)
-    val hSol            = Debugging.dbg(maximize(hcs, hObj))
+    val hSol            = maximize(hcs, hObj)
 
     val hSolved = cGraph.partiallySolvedH(hSol)
-    cGraph.debugSegments
 
     val (vcs, afterVcs) = hSolved.mkVConstraints(afterHcs)
     val vObj            = 0.5 * (mkVar(afterSegs + 2) + mkVar(afterSegs + 3).negated) + marginObj(afterHcs, afterVcs)
-    val sol             = Debugging.dbg(maximize(vcs ++ hcs, vObj + hObj))
+    val sol             = maximize(vcs ++ hcs, vObj + hObj)
 
     hSolved.mkRoutes(sol)
   end calcEdgeRoutes

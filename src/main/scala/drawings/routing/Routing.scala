@@ -124,8 +124,7 @@ object Routing:
 
     for
       i <- 0 until pathBuf.length
-      j <- 0 until pathBuf.length
-      if i < j
+      j <- (i + 1) until pathBuf.length
     do
       val isecs = intersect(pathBuf(i), pathBuf(j)).toList
       if isecs.length > 1 then
