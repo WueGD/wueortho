@@ -23,13 +23,13 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 @main def runIntervalTree =
   import drawings.util.mutable
 
-  val uut = mutable.BreinIntervalTree(intervals: _*)
-  mutable.BreinIntervalTree.debugPrintAll(uut)
-  println(uut.overlaps(0.3, 0.8).mkString("overlaps: [", ", ", "]"))
-  uut.cutout(0.3, 0.8)
-  mutable.BreinIntervalTree.debugPrintAll(uut)
+  // val uut = mutable.BreinIntervalTree(intervals: _*)
+  // mutable.BreinIntervalTree.debugPrintAll(uut)
+  // println(uut.overlaps(0.3, 0.8).mkString("overlaps: [", ", ", "]"))
+  // uut.cutout(0.3, 0.8)
+  // mutable.BreinIntervalTree.debugPrintAll(uut)
 
-  println("=============== BREIN TREE ^^^ | vvv LINEAR TREE ===============")
+  // println("=============== BREIN TREE ^^^ | vvv LINEAR TREE ===============")
 
   val uut2 = mutable.LinearIntervalTree(intervals: _*)
   mutable.LinearIntervalTree.debugPrintAll(uut2)
