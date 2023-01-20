@@ -23,63 +23,39 @@ object Routing:
 
   case class DijTrans(dir: Direction, dist: Double)
 
-  def edgeRoutes(obstacles: Obstacles, ports: PortLayout) =
-    val (gridGraph, gridLayout, gridPaths, ovg) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
-
-    // println(gridLayout.nodes.zipWithIndex.map((n, i) => s"node $i @ $n").mkString("\n"))
-    // println(gridPaths.zipWithIndex.map((n, i) => s"edge $i is $n").mkString("\n"))
-
-    def isNeighbor(uPos: Vec2D, link: NavigableLink) = link match
-      case NavigableLink.EndOfWorld  => None
-      case NavigableLink.Obstacle(_) => None
-      case NavigableLink.Node(idx)   => Some(idx -> (gridLayout.nodes(idx.toInt) - uPos).len)
-      case NavigableLink.Port(idx)   => Some(NodeIndex(ovg.length + idx) -> 0.0)
-
-    def neighbors(u: NodeIndex) = if ovg.isPort(u) then
-      val Seq(Link(v, w, _)) = gridGraph.vertices(u.toInt).neighbors
-      val portDir            =
-        val i = ovg.asPortId(u)
-        if i % 2 == 0 then ports(i / 2).uDir
-        else ports(i / 2).vDir
-      List(v -> DijTrans(portDir, 0.0))
-    else
-      val (node, pos) = ovg(u) -> gridLayout.nodes(u.toInt)
-      List(
-        isNeighbor(pos, node.left).map(_   -> DijTrans(Direction.West, _)),
-        isNeighbor(pos, node.top).map(_    -> DijTrans(Direction.North, _)),
-        isNeighbor(pos, node.right).map(_  -> DijTrans(Direction.East, _)),
-        isNeighbor(pos, node.bottom).map(_ -> DijTrans(Direction.South, _)),
-      ).flatten
+  def edgeRoutes(routing: RoutingGraph, edges: IndexedSeq[SimpleEdge], ports: PortLayout) =
+    def transactions(u: NodeIndex) =
+      routing.neighbors(u).map((dir, v) => v -> DijTrans(dir, (routing.locate(v) - routing.locate(u)).len))
 
     given dc: DijkstraCost[DijState, DijTrans] = (t, s0) => s0.transitionCost(t)
 
     val paths = removeEyes(
-      for ((EdgeTerminals(uPos, dir, vPos, _), SimpleEdge(u, v)), i) <- (ports.byEdge zip gridPaths).zipWithIndex
+      for ((EdgeTerminals(uPos, dir, vPos, _), SimpleEdge(u, v)), i) <- (ports.byEdge zip edges).zipWithIndex
       yield dijkstra
-        .shortestPath(neighbors, u, v, DijState(0, 0, 0, dir))
+        .shortestPath(transactions, u, v, DijState(0, 0, 0, dir))
         .fold(err => sys.error(s"cannot find shortest path between $u and $v: $err"), identity),
     )
 
-    val order = PathOrder(ovg, ports, paths)
+    val order = PathOrder(routing, ports, paths)
     // println(order.zipWithIndex.map((n, i) => s"$i: $n").mkString("\n"))
 
     val edgeRoutes =
-      for (path, terminals) <- paths zip ports.byEdge yield pathToOrthoSegs(terminals, path, gridLayout).normalized
+      for (path, terminals) <- paths zip ports.byEdge yield pathToOrthoSegs(terminals, path, routing).normalized
 
     (edgeRoutes, paths, order)
 
-  private def pathToOrthoSegs(terminals: EdgeTerminals, path: Path, layout: VertexLayout) =
+  private def pathToOrthoSegs(terminals: EdgeTerminals, path: Path, routing: RoutingGraph) =
     import drawings.data.EdgeRoute.OrthoSeg.*
     assert(
-      layout.nodes(path.nodes.head.toInt) == terminals.uTerm,
-      s"1st terminal @ ${terminals.uTerm} does not match path.head ${path.nodes.head.toInt} @ ${layout.nodes(path.nodes.head.toInt)}",
+      routing.locate(path.nodes.head) == terminals.uTerm,
+      s"1st terminal @ ${terminals.uTerm} does not match path.head ${path.nodes.head.toInt} @ ${routing.locate(path.nodes.head)}",
     )
     assert(
-      layout.nodes(path.nodes.last.toInt) == terminals.vTerm,
-      s"2nd terminal @ ${terminals.vTerm} does not match path.last ${path.nodes.last.toInt} @ ${layout.nodes(path.nodes.last.toInt)}",
+      routing.locate(path.nodes.last) == terminals.vTerm,
+      s"2nd terminal @ ${terminals.vTerm} does not match path.last ${path.nodes.last.toInt} @ ${routing.locate(path.nodes.last)}",
     )
     val route = for Seq(u, v) <- path.nodes.sliding(2) yield
-      val (uPos, vPos) = (layout.nodes(u.toInt), layout.nodes(v.toInt))
+      val (uPos, vPos) = (routing.locate(u), routing.locate(v))
       if uPos.x1 == vPos.x1 then VSeg(vPos.x2 - uPos.x2)
       else if uPos.x2 == vPos.x2 then HSeg(vPos.x1 - uPos.x1)
       else sys.error(s"grid graph not orthogonal at $uPos -- $vPos")

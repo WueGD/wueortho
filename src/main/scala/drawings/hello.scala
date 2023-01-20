@@ -56,14 +56,15 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 
 @main def runConstraints =
   val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
-  val (_, paths, routes)     = Routing.edgeRoutes(OvgSample.obstacles, OvgSample.ports)
+  val (_, paths, routes)     = Routing.edgeRoutes(adj, lay, edges, ovg, OvgSample.ports)
   val edgeRoutes             = Nudging.calcEdgeRoutes(ovg, routes, paths, OvgSample.ports, OvgSample.obstacles)
   Files.writeString(Paths.get("constrained-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, edgeRoutes))
 
   val test = GeoNudging.calcEdgeRoutes(ovg, lay, routes, paths, OvgSample.ports, OvgSample.obstacles)
 
 @main def runRouting =
-  val (routes, _, _) = Routing.edgeRoutes(OvgSample.obstacles, OvgSample.ports)
+  val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
+  val (routes, _, _)         = Routing.edgeRoutes(adj, lay, edges, ovg, OvgSample.ports)
   routes foreach { case EdgeRoute(terminals, route) =>
     println(s"From ${terminals.uTerm} to ${terminals.vTerm}: ${route.mkString("[", ", ", "]")}")
   }

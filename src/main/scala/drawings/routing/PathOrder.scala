@@ -29,11 +29,11 @@ object PathOrder:
     case Direction.West  => Direction.East
     case Direction.South => Direction.North
 
-  def apply(ovg: OVG, ports: PortLayout, paths: IndexedSeq[Path]) =
-    val onGrid = mutable.ArrayBuffer.fill(ovg.length + 2 * paths.length)(PathsOnGridNode(Nil, Nil))
+  def apply($ : RoutingGraph, ports: PortLayout, paths: IndexedSeq[Path]) =
+    val onGrid = mutable.ArrayBuffer.fill($.size)(PathsOnGridNode(Nil, Nil))
 
-    def leftOnGrid(u: NodeIndex)   = ovg.neighbor(u, Direction.West).toList.flatMap(onGrid(_).toRight)
-    def bottomOnGrid(u: NodeIndex) = ovg.neighbor(u, Direction.South).toList.flatMap(onGrid(_).toTop)
+    def leftOnGrid(u: NodeIndex)   = $.neighbor(u, Direction.West).toList.flatMap(n => onGrid(n.toInt).toRight)
+    def bottomOnGrid(u: NodeIndex) = $.neighbor(u, Direction.South).toList.flatMap(n => onGrid(n.toInt).toTop)
 
     def otherPathsOrder(u: NodeIndex, mainDir: Direction) = mainDir match
       case Direction.East  => bottomOnGrid(u).reverse ::: leftOnGrid(u) ::: onGrid(u.toInt).toTop
@@ -45,24 +45,24 @@ object PathOrder:
       (path, i) <- paths.zipWithIndex
       Seq(u, v) <- path.nodes.sliding(2)
     do
-      if ovg.isPort(u) then // a port should have only one path
-        val mainDir = ports.portDir(ovg.asPortId(u))
-        ifTopOrRight(mainDir) { tr =>
-          onGrid(u.toInt) = onGrid(u.toInt).prepended(tr, i)
-        } { lb =>
-          onGrid(v.toInt) = onGrid(v.toInt).prepended(reverseDir(lb), i)
-        }
-      else
-        val mainDir = (if ovg.isPort(v) then ovg(u).dirToPort(ovg.asPortId(v)) else ovg(u).dirToNode(v))
-          .getOrElse(sys.error(s"path unconnected between ${ovg(u)} and ${ovg(v)}"))
-        val others  = otherPathsOrder(u, mainDir)
-        val preIdx  = others.indexOf(i)
-        assert(preIdx > -1, s"segment ${ovg(u)} -> ${ovg(v)} should not be the start of a path")
-        ifTopOrRight(mainDir) { tr =>
-          onGrid(u.toInt) = onGrid(u.toInt).insertWhere(tr, i)(j => !(others.indexOf(j) < preIdx))
-        } { lb =>
-          onGrid(v.toInt) = onGrid(v.toInt).insertWhere(reverseDir(lb), i)(j => !(others.indexOf(j) < preIdx))
-        }
+      $.portId(u) match // a port should have only one path
+        case Some(portId) =>
+          val mainDir = ports.portDir(portId)
+          ifTopOrRight(mainDir) { tr =>
+            onGrid(u.toInt) = onGrid(u.toInt).prepended(tr, i)
+          } { lb =>
+            onGrid(v.toInt) = onGrid(v.toInt).prepended(reverseDir(lb), i)
+          }
+        case None         =>
+          val mainDir = $.edge(u, v).getOrElse(sys.error(s"path disconnected between $u and $v"))
+          val others  = otherPathsOrder(u, mainDir)
+          val preIdx  = others.indexOf(i)
+          assert(preIdx > -1, s"segment $u -> $v should not be the start of a path")
+          ifTopOrRight(mainDir) { tr =>
+            onGrid(u.toInt) = onGrid(u.toInt).insertWhere(tr, i)(j => !(others.indexOf(j) < preIdx))
+          } { lb =>
+            onGrid(v.toInt) = onGrid(v.toInt).insertWhere(reverseDir(lb), i)(j => !(others.indexOf(j) < preIdx))
+          }
     end for
 
     onGrid.toIndexedSeq

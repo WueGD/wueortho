@@ -189,7 +189,6 @@ object OrthogonalVisibilityGraph:
         case Direction.East  => x == r.right && y < r.top && y > r.bottom
         case Direction.South => y == r.bottom && x < r.right && x > r.left
 
-    val rand          = Random(0x99c0ffee)
     val nodes         = mutable.ArrayBuffer.empty[PartialOVGNode]
     val positions     = mutable.ArrayBuffer.empty[Vec2D]
     val obstacleLinks = mutable.ArrayBuffer.fill(rects.length)(-1)
