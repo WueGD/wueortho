@@ -66,7 +66,7 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   val edgeRoutes = Nudging.calcEdgeRoutes(ovg, onGrid, paths, OvgSample.ports, OvgSample.obstacles)
   Files.writeString(Paths.get("constrained-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, edgeRoutes))
 
-  val geoRoutes = GeoNudging.calcEdgeRoutes(ovg, lay, onGrid, paths, OvgSample.ports, OvgSample.obstacles)
+  val geoRoutes = GeoNudging.calcEdgeRoutes(rga, onGrid, paths, OvgSample.ports, OvgSample.obstacles)
   Files.writeString(Paths.get("geo-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, geoRoutes))
 
 @main def runPorts =

@@ -49,8 +49,7 @@ object GeoNudging:
 
     def mkAll(
         paths: IndexedSeq[Path],
-        ovg: OVG,
-        ovgLayout: VertexLayout,
+        rg: RoutingGraph,
         routes: IndexedSeq[PathsOnGridNode],
         ports: PortLayout,
         startIdx: Int,
@@ -58,7 +57,7 @@ object GeoNudging:
       import Segment.*
 
       def mkGroup(dir: Direction, nodes: List[NodeIndex]): SegInOVG =
-        val (first, last)   = ovgLayout(nodes.head) -> ovgLayout(nodes.last)
+        val (first, last)   = rg.locate(nodes.head) -> rg.locate(nodes.last)
         val (from, to, pos) = if dir.isHorizontal then (first.x1, last.x1, first.x2) else (first.x2, last.x2, first.x1)
         if from < to then SegInOVG(dir, from, to, pos, nodes)
         else SegInOVG(dir, to, from, pos, nodes)
@@ -72,15 +71,11 @@ object GeoNudging:
           tail match
             case Nil               => (mkGroup(dir, tmp.reverse) :: res).reverse
             case Seq(u, v) +: tail =>
-              val nextDir = (
-                if ovg.isPort(u) then Some(ports.portDir(ovg.asPortId(u)))
-                else if ovg.isPort(v) then ovg(u).dirToPort(ovg.asPortId(v))
-                else ovg(u).dirToNode(v)
-              ) getOrElse sys.error(s"path disconnected at ${ovg(u)} -- ${ovg(v)}")
+              val nextDir = rg.connection(u, v) getOrElse sys.error(s"path disconnected at $u -- $v")
               if dir == nextDir then go(res, tail)(v :: tmp, dir)
               else go(mkGroup(dir, tmp.reverse) :: res, tail)(List(v, u), nextDir)
 
-        go(Nil, path.nodes.sliding(2).toList)(List(path.nodes.head), ports.portDir(ovg.asPortId(path.nodes.head)))
+        go(Nil, path.nodes.sliding(2).toList)(List(path.nodes.head), ports.portDir(rg.portId(path.nodes.head).get))
       end splitIntoSegments
 
       def mkInfo_(pathId: Int)(gs: SegInOVG, endsAt: CTerm) =
@@ -390,8 +385,7 @@ object GeoNudging:
     ORTools.solve(ORTools.LPInstance(cs, obj, maximize = true)).fold(sys.error, identity)
 
   def calcEdgeRoutes(
-      ovg: OVG,
-      ovgLayout: VertexLayout,
+      routing: RoutingGraph,
       routes: IndexedSeq[PathsOnGridNode],
       paths: IndexedSeq[Path],
       ports: PortLayout,
@@ -401,7 +395,7 @@ object GeoNudging:
 
     for (p, i) <- paths.zipWithIndex do dbg(s"path #$i: " + p.nodes.mkString("[", ", ", "]"))
 
-    val (segs, afterSegs) = Segment.mkAll(paths, ovg, ovgLayout, routes, ports, startIdx = 0)
+    val (segs, afterSegs) = Segment.mkAll(paths, routing, routes, ports, startIdx = 0)
     val eow               = List(
       EndOfWorld(West, mkVar(afterSegs)),
       EndOfWorld(East, mkVar(afterSegs + 1)),

@@ -45,10 +45,7 @@ object RoutingGraph:
     def edgeTo(node: Int)        = adj.toList.zip(dirs).find(_._1 == node).map(_._2)
 
   object RGNode:
-    def empty                         = new RGNode(Array(-1, -1, -1, -1))
-    def apply(left: Int, bottom: Int) =
-      assert(left >= 0 || bottom >= 0, s"left and bottom must be non-negative but were left=$left bottom=$bottom")
-      new RGNode(Array(left, -1, -1, bottom))
+    def empty = new RGNode(Array(-1, -1, -1, -1))
 
     def addTop(node: RGNode, top: Int)       =
       assert(top >= 0 && node.adj(1) == -1, s"won't change top from ${node.adj(1)} to $top")
@@ -225,8 +222,11 @@ object RoutingGraph:
       nodes += node
     end for
 
+    println("horizontal segments:")
+    println(hSegs.zipWithIndex.map((s, i) => s"$i: $s").mkString("\n"))
+
     for (linkTo, segNr) <- vLinks.zipWithIndex do
-      assert(linkTo >= 0, s"no link for vertical segment #$segNr")
+      assert(linkTo >= 0, s"no link for vertical segment #$segNr ${vSegs(segNr)}")
       vSegs(segNr).item match
         case QueueItem.Mid(_, _, Direction.South, portId) =>
           RGNode.addBottom(nodes(portId), linkTo)
@@ -234,7 +234,7 @@ object RoutingGraph:
         case _                                            =>
     end for
     for (linkTo, segNr) <- hLinks.zipWithIndex do
-      assert(linkTo >= 0, s"no link for horizontal segment #$segNr")
+      assert(linkTo >= 0, s"no link for horizontal segment #$segNr ${hSegs(segNr)}")
       hSegs(segNr).item match
         case QueueItem.Mid(_, _, Direction.West, portId) =>
           RGNode.addLeft(nodes(portId), linkTo)

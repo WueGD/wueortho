@@ -26,6 +26,8 @@ object GraphDrawing:
       val hull = for _ <- n to m; (u, v) = randomNodePair yield Edge(u, v, 1.0)
       WeightedEdgeList.fromEdgeList(core.toSeq ++ hull)
 
+    val simpleEdges = graph.edges.map(_.unweighted).toIndexedSeq
+
     val layout = ForceDirected.layout(config)(graph, ForceDirected.initLayout(rndm, graph.nodes.size))
 
     val obstacles = Obstacles(
@@ -33,17 +35,23 @@ object GraphDrawing:
         .align(layout.nodes.map(Rect2D(_, Vec2D(3.0, 2.0))))
         .map(_.copy(span = Vec2D(2.0, 1.0))),
     ).forceGeneralPosition(rndm)
-    // val largeObs  = Obstacles(obstacles.nodes.map(_.copy(span = Vec2D(3.2, 2.2))))
+    val largeObs  = Obstacles(obstacles.nodes.map(_.copy(span = Vec2D(2.2, 1.2))))
 
     val ports = PortHeuristic.makePorts(obstacles, AdjacencyList.fromEdgeList(graph))
     // val largePorts = PortHeuristic.makePorts(largeObs, AdjacencyList.fromEdgeList(graph))
 
-    // val (adj, lay, edges, ovg)      = OrthogonalVisibilityGraph.create(largeObs.nodes, largePorts)
-    val (adj, lay, edges, ovg)      = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
-    val ovgRG                       = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, ports)
-    val (bareRoutes, paths, onGrid) = Routing.edgeRoutes(ovgRG, ports)
-    val routes                      = GeoNudging.calcEdgeRoutes(ovg, lay, onGrid, paths, ports, obstacles)
-    val oldRoutes                   = Nudging.calcEdgeRoutes(ovg, onGrid, paths, ports, obstacles)
+    val routing                     = RoutingGraph.create(obstacles, simpleEdges, ports)
+    val (bareRoutes, paths, onGrid) = Routing.edgeRoutes(routing, ports)
+    val routes                      = GeoNudging.calcEdgeRoutes(routing, onGrid, paths, ports, obstacles)
+
+    val routingWithLargeObs    = RoutingGraph.create(largeObs, simpleEdges, ports)
+    val (_, pathsLO, onGridLO) = Routing.edgeRoutes(routingWithLargeObs, ports)
+    val routesWithLargeObs     = GeoNudging.calcEdgeRoutes(routingWithLargeObs, onGridLO, pathsLO, ports, obstacles)
+
+    val (adj, lay, edges, ovg)   = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
+    val ovgRG                    = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, ports)
+    val (_, oldPaths, onOldGrid) = Routing.edgeRoutes(ovgRG, ports)
+    val oldRoutes                = Nudging.calcEdgeRoutes(ovg, onOldGrid, oldPaths, ports, obstacles)
 
     // val (adjOld, layOld, edgesOld, ovgOld) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
     // val (_, pathsOld, onGridOld) = Routing.edgeRoutes(adjOld, layOld, edgesOld, ovgOld, ports)
@@ -59,6 +67,7 @@ object GraphDrawing:
     val portLabelSvg = svg.drawPortLabels(ports)
     val edgesSvg     = svg.drawEdgeRoutes(routes)
     val oldEdgesSvg  = svg.drawEdgeRoutes(oldRoutes)
+    val loEdgesSvg   = svg.drawEdgeRoutes(routesWithLargeObs)
     val bareEdgesSvg = svg.copy(edgeBends = Svg.EdgeBends.Straight).drawEdgeRoutes(bareRoutes)
     val nodeLabelSvg = svg.drawNodeLabels(VertexLayout(obstacles.nodes.map(_.center)))
     Files.writeString(
@@ -72,4 +81,8 @@ object GraphDrawing:
     Files.writeString(
       Paths.get(s"res_n${n}m${m}#${seed.toHexString}_no-nudging.svg"),
       svg.make(rectsSvg ++ bareEdgesSvg ++ portsSvg ++ nodeLabelSvg ++ portLabelSvg),
+    )
+    Files.writeString(
+      Paths.get(s"res_n${n}m${m}#${seed.toHexString}_large-obstacles.svg"),
+      svg.make(rectsSvg ++ loEdgesSvg ++ portsSvg ++ nodeLabelSvg ++ portLabelSvg),
     )
