@@ -54,7 +54,7 @@ object PathOrder:
             onGrid(v.toInt) = onGrid(v.toInt).prepended(reverseDir(lb), i)
           }
         case None         =>
-          val mainDir = $.edge(u, v).getOrElse(sys.error(s"path disconnected between $u and $v"))
+          val mainDir = $.connection(u, v).getOrElse(sys.error(s"path disconnected between $u and $v"))
           val others  = otherPathsOrder(u, mainDir)
           val preIdx  = others.indexOf(i)
           assert(preIdx > -1, s"segment $u -> $v should not be the start of a path")

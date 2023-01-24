@@ -11,11 +11,13 @@ trait RoutingGraph:
   def locate(node: NodeIndex): Vec2D
   def neighbors(node: NodeIndex): List[(Direction, NodeIndex)]
   def neighbor(node: NodeIndex, dir: Direction): Option[NodeIndex]
-  def edge(u: NodeIndex, v: NodeIndex): Option[Direction]
   def portId(node: NodeIndex): Option[Int]
+
+  def connection(u: NodeIndex, v: NodeIndex): Option[Direction] = neighbors(u).find(_._2 == v).map(_._1)
 
 object RoutingGraph:
   enum QueueItem:
+    case Init(pos: Double)
     case End(pos: Double, obsId: Int)
     case Mid(pos: Double, beginOfObs: Double, dir: Direction, portId: Int)
     case Begin(pos: Double, obsId: Int)
@@ -26,8 +28,8 @@ object RoutingGraph:
 
   case class ProtoSeg(at: Double, low: Double, high: Double, item: QueueItem):
     def isMid = item match
-      case _: QueueItem.End | _: QueueItem.Begin => false
-      case _: QueueItem.Mid                      => true
+      case _: QueueItem.End | _: QueueItem.Begin | _: QueueItem.Init => false
+      case _: QueueItem.Mid                                          => true
 
     def isContainedIn(lower: Double, higher: Double) = low >= lower && high <= higher
 
@@ -63,7 +65,7 @@ object RoutingGraph:
 
   def create(obs: Obstacles, edges: IndexedSeq[SimpleEdge], ports: PortLayout) =
     def mkHQueue =
-      val start    = QueueItem.End(NegativeInfinity, -1)
+      val start    = QueueItem.Init((obs.nodes.map(_.left) ++ ports.toVertexLayout.nodes.map(_.x1)).min)
       val obsItems = for
         (rect, i) <- obs.nodes.zipWithIndex
         res       <- List(QueueItem.Begin(rect.left, i), QueueItem.End(rect.right, i))
@@ -103,6 +105,8 @@ object RoutingGraph:
 
       for item <- queue do
         item match
+          case QueueItem.Init(pos)                         =>
+            buffer += ProtoSeg(pos, NegativeInfinity, PositiveInfinity, item)
           case QueueItem.End(pos, obsId)                   =>
             activeObs -= obsId
             val (lb, ub) = obsBounds(obsId)
@@ -115,11 +119,11 @@ object RoutingGraph:
           case QueueItem.Begin(_, obsId)                   =>
             activeObs += obsId
 
-      buffer.toSeq
+      buffer.toIndexedSeq
     end mkVSegments
 
     def mkVQueue =
-      val start    = QueueItem.End(NegativeInfinity, -1)
+      val start    = QueueItem.Init((obs.nodes.map(_.bottom) ++ ports.toVertexLayout.nodes.map(_.x2)).min)
       val obsItems = for
         (rect, i) <- obs.nodes.zipWithIndex
         res       <- List(QueueItem.Begin(rect.bottom, i), QueueItem.End(rect.top, i))
@@ -159,6 +163,8 @@ object RoutingGraph:
 
       for item <- queue do
         item match
+          case QueueItem.Init(pos)                         =>
+            buffer += ProtoSeg(pos, NegativeInfinity, PositiveInfinity, item)
           case QueueItem.End(pos, obsId)                   =>
             activeObs -= obsId
             val (lb, ub) = obsBounds(obsId)
@@ -171,7 +177,7 @@ object RoutingGraph:
           case QueueItem.Begin(_, obsId)                   =>
             activeObs += obsId
 
-      buffer.toSeq
+      buffer.toIndexedSeq
     end mkHSegments
 
     def intersect(h: ProtoSeg, v: ProtoSeg) =
@@ -194,42 +200,45 @@ object RoutingGraph:
       crossing   <- intersect(hSeg, vSeg)
     do
       positions += crossing
-      val i = nodes.length
+      val i    = nodes.length
+      val node = RGNode.empty
 
-      val bottom = vLinks(vi) -> vSeg.item match
+      vLinks(vi) -> vSeg.item match
         case (-1, QueueItem.Mid(_, _, Direction.North, portId)) =>
           RGNode.addTop(nodes(portId), i)
-          portId
-        case (-1, _)                                            => -1
+          RGNode.addBottom(node, portId)
+        case (-1, _)                                            => // do nothing
         case (vLink, _)                                         =>
           RGNode.addTop(nodes(vLink), i)
-          vLink
-      val left   = hLinks(hi) -> vSeg.item match
+          RGNode.addBottom(node, vLink)
+      hLinks(hi) -> hSeg.item match
         case (-1, QueueItem.Mid(_, _, Direction.East, portId)) =>
           RGNode.addRight(nodes(portId), i)
-          portId
-        case (-1, _)                                           => -1
+          RGNode.addLeft(node, portId)
+        case (-1, _)                                           => // do nothing
         case (hLink, _)                                        =>
           RGNode.addRight(nodes(hLink), i)
-          hLink
+          RGNode.addLeft(node, hLink)
 
       vLinks(vi) = i
       hLinks(hi) = i
-      nodes += RGNode(left, bottom)
+      nodes += node
     end for
 
-    for vi <- vLinks do
-      vSegs(vi).item match
+    for (linkTo, segNr) <- vLinks.zipWithIndex do
+      assert(linkTo >= 0, s"no link for vertical segment #$segNr")
+      vSegs(segNr).item match
         case QueueItem.Mid(_, _, Direction.South, portId) =>
-          RGNode.addBottom(nodes(portId), vi)
-          RGNode.addTop(nodes(vi), portId)
+          RGNode.addBottom(nodes(portId), linkTo)
+          RGNode.addTop(nodes(linkTo), portId)
         case _                                            =>
     end for
-    for hi <- hLinks do
-      hSegs(hi).item match
+    for (linkTo, segNr) <- hLinks.zipWithIndex do
+      assert(linkTo >= 0, s"no link for horizontal segment #$segNr")
+      hSegs(segNr).item match
         case QueueItem.Mid(_, _, Direction.West, portId) =>
-          RGNode.addLeft(nodes(portId), hi)
-          RGNode.addRight(nodes(hi), portId)
+          RGNode.addLeft(nodes(portId), linkTo)
+          RGNode.addRight(nodes(linkTo), portId)
         case _                                           =>
     end for
 
@@ -240,5 +249,7 @@ object RoutingGraph:
       override def resolveEdge(edgeId: Int): (NodeIndex, NodeIndex)             = NodeIndex(2 * edgeId) -> NodeIndex(2 * edgeId + 1)
       override def portId(node: NodeIndex): Option[Int]                         = Option.when(node.toInt < ports.numberOfPorts)(node.toInt)
       override def size: Int                                                    = nodes.length
-      override def edge(u: NodeIndex, v: NodeIndex): Option[Direction]          = nodes(u.toInt).edgeTo(v.toInt)
+
+  def debug(rg: RoutingGraph) = for i <- NodeIndex(0) until rg.size do
+    println(s"$i @ ${rg.locate(i)} -> ${rg.neighbors(i).map((dir, n) => s"$n ${dir.show}").mkString("(", ", ", ")")}")
 end RoutingGraph

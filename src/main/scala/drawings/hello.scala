@@ -54,21 +54,20 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   )
   println(ORTools.solve(lp))
 
-@main def runConstraints =
-  val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
-  val (_, paths, routes)     = Routing.edgeRoutes(adj, lay, edges, ovg, OvgSample.ports)
-  val edgeRoutes             = Nudging.calcEdgeRoutes(ovg, routes, paths, OvgSample.ports, OvgSample.obstacles)
-  Files.writeString(Paths.get("constrained-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, edgeRoutes))
-
-  val test = GeoNudging.calcEdgeRoutes(ovg, lay, routes, paths, OvgSample.ports, OvgSample.obstacles)
-
 @main def runRouting =
-  val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
-  val (routes, _, _)         = Routing.edgeRoutes(adj, lay, edges, ovg, OvgSample.ports)
+  val (adj, lay, edges, ovg)  = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
+  val rga                     = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, OvgSample.ports)
+  val (routes, paths, onGrid) = Routing.edgeRoutes(rga, OvgSample.ports)
   routes foreach { case EdgeRoute(terminals, route) =>
     println(s"From ${terminals.uTerm} to ${terminals.vTerm}: ${route.mkString("[", ", ", "]")}")
   }
   Files.writeString(Paths.get("routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, routes))
+
+  val edgeRoutes = Nudging.calcEdgeRoutes(ovg, onGrid, paths, OvgSample.ports, OvgSample.obstacles)
+  Files.writeString(Paths.get("constrained-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, edgeRoutes))
+
+  val geoRoutes = GeoNudging.calcEdgeRoutes(ovg, lay, onGrid, paths, OvgSample.ports, OvgSample.obstacles)
+  Files.writeString(Paths.get("geo-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, geoRoutes))
 
 @main def runPorts =
   val neighbors = ForceDirected.initLayout(Random(0x99c0ffee), 12).nodes
@@ -94,6 +93,12 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
   debugConnectivity(adj, lay)
   debugOVG(OvgSample.obstacles, adj, lay, OvgSample.ports)
+
+  println("=============== ORTHOGONAL VISIBILITY GRAPH ^^^ | vvv SIMPLIFIED ROUTING GRAPH ===============")
+  val routing        = RoutingGraph.create(OvgSample.obstacles, OvgSample.edges, OvgSample.ports)
+  val (rgAdj, rgLay) = rg2adj(routing)
+  RoutingGraph.debug(routing)
+  debugOVG(OvgSample.obstacles, rgAdj, rgLay, OvgSample.ports, "debug-rg")
 
 @main def runOverlaps: Unit =
   val points     = ForceDirected.initLayout(Random(0x92c0ffee), 12 * 2).nodes
@@ -242,6 +247,11 @@ object OvgSample:
       EdgeTerminals(Vec2D(7, 5), Direction.West, Vec2D(3, 7), Direction.East),
       EdgeTerminals(Vec2D(1, 6), Direction.South, Vec2D(9, 7), Direction.North),
     ),
+  )
+  val edges     = Vector(
+    SimpleEdge(NodeIndex(0), NodeIndex(1)),
+    SimpleEdge(NodeIndex(1), NodeIndex(2)),
+    SimpleEdge(NodeIndex(2), NodeIndex(1)),
   )
 
 // see Corman et al. Intro to Algorithms, 3rd ed. p. 664--667

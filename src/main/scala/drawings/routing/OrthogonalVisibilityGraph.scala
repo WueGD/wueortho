@@ -372,4 +372,26 @@ object OrthogonalVisibilityGraph:
       case NavigableLink.Obstacle(idx) => None
       case NavigableLink.Port(idx)     => Some(ovg.length + idx)
 
+  class RoutingGraphAdapter(ovg: OVG, adj: AdjacencyList, lay: VertexLayout, ports: PortLayout) extends RoutingGraph:
+
+    override def portId(node: NodeIndex) = Option.when(ovg.isPort(node))(ovg.asPortId(node))
+
+    override def neighbor(node: NodeIndex, dir: Direction) =
+      if ovg.isPort(node) then portNeighbor(node, dir) else ovg.neighbor(node, dir).map(NodeIndex(_))
+
+    override def neighbors(node: NodeIndex) = if ovg.isPort(node) then portNeighbors(node)
+    else Direction.values.toList.flatMap(dir => ovg.neighbor(node, dir).map(dir -> NodeIndex(_)))
+
+    override def resolveEdge(edgeId: Int) = NodeIndex(ovg.length + 2 * edgeId) -> NodeIndex(ovg.length + 2 * edgeId + 1)
+
+    override def size = ovg.length + ports.numberOfPorts
+
+    override def locate(node: NodeIndex) = lay(node)
+
+    private def portNeighbor(node: NodeIndex, dir: Direction) =
+      Option.when(ports.portDir(ovg.asPortId(node)) == dir)(adj(node).neighbors.head.toNode)
+
+    private def portNeighbors(node: NodeIndex) =
+      adj(node).neighbors.map(link => ports.portDir(ovg.asPortId(node)) -> link.toNode).toList
+
 end OrthogonalVisibilityGraph

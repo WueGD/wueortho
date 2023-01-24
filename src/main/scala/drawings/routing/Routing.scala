@@ -23,17 +23,19 @@ object Routing:
 
   case class DijTrans(dir: Direction, dist: Double)
 
-  def edgeRoutes(routing: RoutingGraph, edges: IndexedSeq[SimpleEdge], ports: PortLayout) =
+  def edgeRoutes(routing: RoutingGraph, ports: PortLayout) =
     def transactions(u: NodeIndex) =
       routing.neighbors(u).map((dir, v) => v -> DijTrans(dir, (routing.locate(v) - routing.locate(u)).len))
 
     given dc: DijkstraCost[DijState, DijTrans] = (t, s0) => s0.transitionCost(t)
 
     val paths = removeEyes(
-      for ((EdgeTerminals(uPos, dir, vPos, _), SimpleEdge(u, v)), i) <- (ports.byEdge zip edges).zipWithIndex
-      yield dijkstra
-        .shortestPath(transactions, u, v, DijState(0, 0, 0, dir))
-        .fold(err => sys.error(s"cannot find shortest path between $u and $v: $err"), identity),
+      for (EdgeTerminals(uPos, dir, vPos, _), i) <- ports.byEdge.zipWithIndex
+      yield
+        val (u, v) = routing.resolveEdge(i)
+        dijkstra
+          .shortestPath(transactions, u, v, DijState(0, 0, 0, dir))
+          .fold(err => sys.error(s"cannot find shortest path between $u and $v: $err"), identity),
     )
 
     val order = PathOrder(routing, ports, paths)

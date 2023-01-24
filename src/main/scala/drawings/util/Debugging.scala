@@ -1,7 +1,7 @@
 package drawings.util
 
 import drawings.data.*
-import drawings.routing.OrthogonalVisibilityGraph
+import drawings.routing.{OrthogonalVisibilityGraph, RoutingGraph}
 import drawings.io.Svg
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -13,14 +13,29 @@ object Debugging:
 
   def dbg[T](t: T, show: T => String = (_: T).toString): T = { println(s"DEBUG: ${show(t)}"); t }
 
-  def debugOVG(obstacles: Obstacles, graph: AdjacencyList, layout: VertexLayout, ports: PortLayout) =
+  def rg2adj(graph: RoutingGraph) =
+    val layout      = VertexLayout((0 until graph.size).map(i => graph.locate(NodeIndex(i))))
+    val adjacencies = AdjacencyList.fromEdgeList(
+      WeightedEdgeList.fromEdgeList(
+        (NodeIndex(0) until graph.size).flatMap(u => graph.neighbors(u).map((_, v) => Edge(u, v, 1.0))),
+      ),
+    )
+    adjacencies -> layout
+
+  def debugOVG(
+      obstacles: Obstacles,
+      graph: AdjacencyList,
+      layout: VertexLayout,
+      ports: PortLayout,
+      name: String = "debug-ovg",
+  ) =
     val svg      = Svg.withDefaults.copy(edgeBends = Svg.EdgeBends.Straight, edgeColor = Svg.EdgeColor.Single("gray"))
     val rectsSvg = svg.drawObstacles(obstacles)
     val nodesSvg = svg.drawNodes(layout)
     val edgesSvg = svg.drawStraightEdges(WeightedEdgeList.fromAdjacencyList(graph), layout)
     val portsSvg = svg.drawPorts(ports)
-    Files.writeString(Paths.get("debug-ovg.svg"), svg.make(edgesSvg ++ portsSvg ++ nodesSvg ++ rectsSvg))
-    Files.writeString(Paths.get("debug-ovg-input.svg"), svg.make(rectsSvg ++ svg.drawPorts(ports)))
+    Files.writeString(Paths.get(s"$name.svg"), svg.make(edgesSvg ++ portsSvg ++ nodesSvg ++ rectsSvg))
+    Files.writeString(Paths.get(s"$name-input.svg"), svg.make(rectsSvg ++ svg.drawPorts(ports)))
 
   def debugConnectivity(adj: AdjacencyList, lay: VertexLayout) =
     for (pos, u) <- lay.nodes.zipWithIndex do

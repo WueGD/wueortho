@@ -54,9 +54,9 @@ object Direction:
     Math.floorMod(d1.ordinal - d2.ordinal, 4) min Math.floorMod(d2.ordinal - d1.ordinal, 4)
 
   extension (d: Direction)
-    def isHorizontal    = d == Direction.West || d == Direction.East
-    def isVertical      = d == Direction.North || d == Direction.South
-    def otherDirections = List(North, East, South, West).filter(_ != this)
+    def isHorizontal = d == Direction.West || d == Direction.East
+    def isVertical   = d == Direction.North || d == Direction.South
+    def show         = s"[${d.toString.head}]"
 
 trait Positioned1D:
   def pos: Double

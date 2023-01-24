@@ -33,18 +33,21 @@ object GraphDrawing:
         .align(layout.nodes.map(Rect2D(_, Vec2D(3.0, 2.0))))
         .map(_.copy(span = Vec2D(2.0, 1.0))),
     ).forceGeneralPosition(rndm)
-    val largeObs  = Obstacles(obstacles.nodes.map(_.copy(span = Vec2D(3.2, 2.2))))
+    // val largeObs  = Obstacles(obstacles.nodes.map(_.copy(span = Vec2D(3.2, 2.2))))
 
-    val ports      = PortHeuristic.makePorts(obstacles, AdjacencyList.fromEdgeList(graph))
-    val largePorts = PortHeuristic.makePorts(largeObs, AdjacencyList.fromEdgeList(graph))
+    val ports = PortHeuristic.makePorts(obstacles, AdjacencyList.fromEdgeList(graph))
+    // val largePorts = PortHeuristic.makePorts(largeObs, AdjacencyList.fromEdgeList(graph))
 
-    val (adj, lay, edges, ovg)      = OrthogonalVisibilityGraph.create(largeObs.nodes, largePorts)
-    val (bareRoutes, paths, onGrid) = Routing.edgeRoutes(adj, lay, edges, ovg, ports)
+    // val (adj, lay, edges, ovg)      = OrthogonalVisibilityGraph.create(largeObs.nodes, largePorts)
+    val (adj, lay, edges, ovg)      = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
+    val ovgRG                       = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, ports)
+    val (bareRoutes, paths, onGrid) = Routing.edgeRoutes(ovgRG, ports)
     val routes                      = GeoNudging.calcEdgeRoutes(ovg, lay, onGrid, paths, ports, obstacles)
+    val oldRoutes                   = Nudging.calcEdgeRoutes(ovg, onGrid, paths, ports, obstacles)
 
-    val (adjOld, layOld, edgesOld, ovgOld) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
-    val (_, pathsOld, onGridOld)           = Routing.edgeRoutes(adjOld, layOld, edgesOld, ovgOld, ports)
-    val oldRoutes                          = Nudging.calcEdgeRoutes(ovgOld, onGridOld, pathsOld, ports, obstacles)
+    // val (adjOld, layOld, edgesOld, ovgOld) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
+    // val (_, pathsOld, onGridOld) = Routing.edgeRoutes(adjOld, layOld, edgesOld, ovgOld, ports)
+    // val oldRoutes = Nudging.calcEdgeRoutes(ovgOld, onGridOld, pathsOld, ports, obstacles)
 
     assert(m == graph.edges.size, s"graph has $m edges but got ${graph.edges.size} edges (EWG)")
     assert(m == ports.byEdge.size, s"graph has $m edges but got ${ports.byEdge.size} pairs of terminals")
