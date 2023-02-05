@@ -1,7 +1,8 @@
 package drawings.overlaps
 
 import drawings.data.*
-import drawings.util.{triangulate, MinimumSpanningTree}
+import drawings.util.{triangulate, MinimumSpanningTree, GraphConversions}
+import GraphConversions.undirected.*
 import scala.annotation.tailrec
 
 object Nachmanson:
@@ -21,11 +22,11 @@ object Nachmanson:
       s - t * s
     else a dist b
 
-  private def grow(tree: DiGraph, rects: IndexedSeq[Rect2D]) =
+  private def grow(tree: WeightedDiGraph, rects: IndexedSeq[Rect2D]) =
     def go(i: NodeIndex, disp: Vec2D): Seq[(NodeIndex, Rect2D)] =
       val r  = rects(i.toInt)
       val x  = r.copy(center = r.center + disp)
-      val xs = tree.vertices(i.toInt).neighbors flatMap { (j, w) =>
+      val xs = tree.vertices(i.toInt).neighbors flatMap { case WeightedDiLink(j, w) =>
         if w < EPS then
           val n = rects(j.toInt)
           // println(s"t = ${translationFactor(r, n)}")
@@ -40,7 +41,7 @@ object Nachmanson:
 
   def step(rects: IndexedSeq[Rect2D]): Option[IndexedSeq[Rect2D]] =
     val triangulated = triangulate(rects.map(_.center))
-    val edges        = triangulated.map(se => se.withWeight(overlapCost(rects(se.u.toInt), rects(se.v.toInt))))
+    val edges        = triangulated.map(se => se.withWeight(overlapCost(rects(se.from.toInt), rects(se.to.toInt))))
 
     // println(s"weights: ${edges.map(_.weight)}")
 
@@ -59,7 +60,7 @@ object Nachmanson:
     // println(s"number of edges to process: ${augmented.map(_.size)}")
 
     augmented.map(edges =>
-      val adjacencies = AdjacencyList.fromEdgeList(WeightedEdgeList.fromEdgeList(edges))
+      val adjacencies = Graph.fromWeightedEdges(edges).mkWeightedGraph
       val mst         = MinimumSpanningTree.create(adjacencies)
       grow(mst, rects),
     )
@@ -69,10 +70,10 @@ object Nachmanson:
     case Some(rs) => align(rs)
     case None     => rects
 
-  def debugSvg(rects: IndexedSeq[Rect2D], mst: AdjacencyList) =
+  def debugSvg(rects: IndexedSeq[Rect2D], mst: WeightedDiGraph) =
     java.nio.file.Files.writeString(
       java.nio.file.Path.of(s"dbg${cnt}.svg"),
-      drawings.util.Debugging.debugSvg(mst, Obstacles(rects)),
+      drawings.util.Debugging.debugSvg(mst.simple(GraphConversions.UndirectStrategy.AllEdges), Obstacles(rects)),
     )
     cnt += 1
 

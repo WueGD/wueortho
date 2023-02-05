@@ -17,10 +17,10 @@ object GraphSearch:
       dijkstraShortestPath(neighbors, s, t, c0)
 
   trait BellmanFord:
-    def distances(g: DiGraph, start: NodeIndex): Option[IndexedSeq[Double]]
+    def distances(g: WeightedDiGraph, start: NodeIndex): Option[IndexedSeq[Double]]
 
   lazy val bellmanFord = new BellmanFord:
-    override def distances(g: DiGraph, start: NodeIndex) = bellmanFordDistances(g, start)
+    override def distances(g: WeightedDiGraph, start: NodeIndex) = bellmanFordDistances(g, start)
 
   trait BFS:
     def traverse(neighbors: NodeIndex => Seq[NodeIndex], start: NodeIndex): Seq[NodeIndex]
@@ -76,7 +76,7 @@ object GraphSearch:
   object DijkstraCost:
     def apply[C, T](t: T, c0: C)(using dc: DijkstraCost[C, T]): C = dc.calc(t, c0)
 
-  private def bellmanFordDistances(g: DiGraph, start: NodeIndex): Option[IndexedSeq[Double]] =
+  private def bellmanFordDistances(g: WeightedDiGraph, start: NodeIndex): Option[IndexedSeq[Double]] =
     val n            = g.vertices.length
     val dist         = mutable.ArrayBuffer.fill(n)(Double.PositiveInfinity)
     dist(start.toInt) = 0
@@ -87,8 +87,8 @@ object GraphSearch:
       if iterations == n then return None
       else
         for
-          u      <- prev
-          (v, w) <- g.vertices(u).neighbors
+          u                    <- prev
+          WeightedDiLink(v, w) <- g.vertices(u).neighbors
           if dist(v.toInt) > dist(u) + w
         do
           dist(v.toInt) = dist(u) + w
