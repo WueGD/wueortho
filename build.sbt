@@ -6,4 +6,6 @@ libraryDependencies ++= Seq(
   "com.google.ortools" % "ortools-java" % "9.5.2237",
 )
 
-scalacOptions ++= Seq("-Yexplicit-nulls", "-language:strict-equality", "-deprecation", "-Wconf:any:verbose")
+scalacOptions ++= Seq("-Yexplicit-nulls", "-language:strict-equality", "-deprecation", "-feature", "-Wconf:any:verbose")
+
+enablePlugins(JavaAppPackaging)
