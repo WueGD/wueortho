@@ -1,7 +1,7 @@
 package drawings.routing
 
 import drawings.data.*
-import drawings.util.*, Constraint.CTerm
+import drawings.util.*, Constraint.CTerm, GraphConversions.undirected.*
 
 import scala.annotation.{tailrec, nowarn}
 import scala.collection.BitSet
@@ -281,7 +281,7 @@ object GeoNudging:
         yield SimpleEdge(NodeIndex(i + 1), NodeIndex(i))
       mkSepEdges(queue, Direction.North) ++ obsPseudoEdges ++ mkMonotonyEdges(Direction.North)
 
-    def split(g: AdjacencyList) =
+    def split(g: SimpleGraph) =
       import scala.collection.mutable
 
       val visited = mutable.BitSet.empty
@@ -292,7 +292,7 @@ object GeoNudging:
       (for
         node      <- allNodes
         if isBorderNode(node) && node.id.toInt < g.vertices.length // isolated nodes have possibly been dropped
-        candidate <- g(node.id).neighbors.map(_._1)
+        candidate <- g(node.id).neighbors.map(_.toNode)
         if !visited(candidate.toInt)
       yield
         val nodes = GraphSearch.bfs.traverse(neighbors, candidate)
@@ -304,7 +304,7 @@ object GeoNudging:
 
     def mkConstraintsForComponent(g: DiGraph, cmp: BitSet, margin: CTerm) = for
       highNodeId <- cmp.map(NodeIndex(_)).toSeq
-      lowNodeId  <- g(highNodeId).neighbors.map(_._1)
+      lowNodeId  <- g(highNodeId).neighbors
       highNode    = allNodes(highNodeId.toInt)
       lowNode     = allNodes(lowNodeId.toInt)
       if cmp(lowNodeId.toInt) && !(isBorderNode(lowNode) && isBorderNode(highNode))
@@ -330,11 +330,11 @@ object GeoNudging:
       CGraph(segments, eow, obsH, obsV, obstacles, ports)
 
     lazy val hGraph: DiGraph =
-      val digraph = DiGraph.fromEdgeList(mkHEdges(mkQueue(allNodes.filter(onlyH))).map(_.withWeight(1)).toSeq)
+      val digraph = Graph.fromEdges(mkHEdges(mkQueue(allNodes.filter(onlyH))).toSeq).mkDiGraph
       TransitiveReduction(digraph)
 
     lazy val vGraph: DiGraph =
-      val digraph = DiGraph.fromEdgeList(mkVEdges(mkQueue(allNodes.filter(onlyV))).map(_.withWeight(1)).toSeq)
+      val digraph = Graph.fromEdges(mkVEdges(mkQueue(allNodes.filter(onlyV))).toSeq).mkDiGraph
       TransitiveReduction(digraph)
 
     def borderConstraintsH =
@@ -347,14 +347,14 @@ object GeoNudging:
 
     def mkHConstraints(marginVarIdx: Int): (Seq[Constraint], Int) =
       val (res, varIds) = (for
-        (cmp, i) <- split(hGraph.undirected).zipWithIndex
+        (cmp, i) <- split(hGraph.undirected(GraphConversions.UndirectStrategy.AllEdges)).zipWithIndex
         res      <- mkConstraintsForComponent(hGraph, cmp, Constraint.builder.mkVar(marginVarIdx + i))
       yield res -> (marginVarIdx + i)).unzip
       (res ++ borderConstraintsH) -> (varIds.last + 1)
 
     def mkVConstraints(marginVarIdx: Int): (Seq[Constraint], Int) =
       val (res, varIds) = (for
-        (cmp, i) <- split(vGraph.undirected).zipWithIndex
+        (cmp, i) <- split(vGraph.undirected(GraphConversions.UndirectStrategy.AllEdges)).zipWithIndex
         res      <- mkConstraintsForComponent(vGraph, cmp, Constraint.builder.mkVar(marginVarIdx + i))
       yield res -> (marginVarIdx + i)).unzip
       (res ++ borderConstraintsV) -> (varIds.last + 1)
@@ -410,6 +410,8 @@ object GeoNudging:
     val obsV = obstacles.nodes.zipWithIndex.flatMap((o, i) => List(BeginObstacle(i, o.bottom), EndObstacle(i, o.top)))
 
     val cGraph = CGraph(segs, eow, obsH, obsV, obstacles, ports)
+
+    println("path built!")
 
     val (hcs, afterHcs) = cGraph.mkHConstraints(afterEow)
     val hObj            = 0.5 * (mkVar(afterSegs) + mkVar(afterSegs + 1).negated) + marginObj(afterEow, afterHcs)

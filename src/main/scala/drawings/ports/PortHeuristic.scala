@@ -38,21 +38,21 @@ object PortHeuristic:
 
   extension [T <: Tuple](l: List[T]) def eachWith[A](a: A) = l.map(_ ++ Tuple1(a))
 
-  def makePorts(nodes: Obstacles, graph: AdjacencyList) =
+  def makePorts(obs: Obstacles, graph: SimpleGraph) =
     import scala.collection.mutable
-    assert(nodes.nodes.length == graph.vertices.length, "There must be as many obstacles as vertices in the graph!")
+    assert(obs.nodes.length == graph.numberOfVertices, "There must be as many obstacles as vertices in the graph!")
+    // todo: assert no loops or implement proper handling
 
-    val vertices = for
-      (v, nb) <- nodes.nodes zip graph.vertices
-      centers  = nb.neighbors map { case Link(u, _, _) => nodes.nodes(u.toInt).center }
-    yield equidistantPorts(v, centers)
+    val vertices = for (r, v) <- obs.nodes zip graph.vertices yield
+      val centers = v.neighbors.map(l => obs(l.toNode.toInt).center)
+      equidistantPorts(r, centers)
 
     PortLayout(for
-      (tmp, u)           <- graph.vertices.zipWithIndex
-      (Link(v, _, j), i) <- tmp.neighbors.zipWithIndex
+      (tmp, u)              <- graph.vertices.zipWithIndex
+      (SimpleLink(v, j), i) <- tmp.neighbors.zipWithIndex
       if u < v.toInt
-      (posU, dirU)        = vertices(u)(i)
-      (posV, dirV)        = vertices(v.toInt)(j.toInt)
+      (posU, dirU)           = vertices(u)(i)
+      (posV, dirV)           = vertices(v.toInt)(j)
     yield EdgeTerminals(posU, dirU, posV, dirV))
 
 end PortHeuristic

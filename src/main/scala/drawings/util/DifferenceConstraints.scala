@@ -8,7 +8,7 @@ object DifferenceConstraints:
   case class DifferenceConstraint(i: Int, j: Int, b: Double)
 
   def solve(cs: Seq[DifferenceConstraint]): Option[IndexedSeq[Double]] =
-    val tmp = DiGraph.fromEdgeList(cs.map(c => Edge(NodeIndex(c.j + 1), NodeIndex(c.i + 1), c.b)))
-    val v0  = DiVertex((1 until tmp.vertices.length).map(i => NodeIndex(i) -> 0.0))
-    val dg  = tmp.copy(vertices = v0 +: tmp.vertices.tail)
-    bellmanFord.distances(dg, NodeIndex(0)).map(_.tail)
+    val $ = Graph.diBuilder()
+    cs.foreach(c => $.addEdge(NodeIndex(c.j + 1), NodeIndex(c.i + 1), c.b))
+    for i <- 1 until $.size do $.addEdge(NodeIndex(0), NodeIndex(i), 0.0)
+    bellmanFord.distances($.mkWeightedDiGraph, NodeIndex(0)).map(_.tail)

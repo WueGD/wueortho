@@ -1,6 +1,6 @@
 package drawings.layout
 
-import drawings.data.{WeightedEdgeList, Vec2D, VertexLayout}
+import drawings.data.{WeightedGraph, Vec2D, VertexLayout}
 
 import scala.annotation.tailrec
 import scala.util.Random
@@ -10,23 +10,25 @@ import java.lang.Math.sqrt
 object ForceDirected:
   private val EPS = 1e-8
 
-  def layout(cfg: Config)(graph: WeightedEdgeList, init: VertexLayout): VertexLayout =
-    val g = WeightedEdgeList.fromEdgeList(graph.edges.filterNot(e => e.from == e.to))
+  def layout(cfg: Config)(graph: WeightedGraph, init: VertexLayout): VertexLayout =
+    // val g = WeightedEdgeList.fromEdgeList(graph.edges.filterNot(e => e.from == e.to))
+    // todo: assert no loops!
 
     @tailrec
     def go(i: Int, temp: Double, pos: Vector[Vec2D]): Vector[Vec2D] =
       if i >= cfg.iterCap then pos
       else
+        val n        = graph.numberOfVertices
         // repulsive forces:
         val afterRep =
-          for v <- g.nodes yield (for u <- g.nodes if u != v yield
-            val delta = pos(v.toInt) - pos(u.toInt) // todo ensure a gap
-            assert(delta.x1 != 0 || delta.x2 != 0, s"there must be a gap between ${pos(v.toInt)} and ${pos(u.toInt)}")
+          for v <- 0 until n yield (for u <- 0 until n if u != v yield
+            val delta = pos(v) - pos(u) // todo ensure a gap
+            assert(delta.x1 != 0 || delta.x2 != 0, s"there must be a gap between ${pos(v)} and ${pos(u)}")
             delta.scale(cfg.repulsive(delta.len) / delta.len)
           ).fold(Vec2D(0, 0))(_ + _)
 
         // attractive forces:
-        val disp = g.edges.foldLeft(afterRep.toVector)((d, edge) =>
+        val disp = graph.edges.foldLeft(afterRep.toVector)((d, edge) =>
           val delta = pos(edge.to.toInt) - pos(edge.from.toInt) // todo ensure non-zero length edge
           assert(delta.x1 != 0 || delta.x2 != 0, s"Edge $edge must have non-zero length")
           val force = delta.scale(cfg.attractive(delta.len) / delta.len * edge.weight)

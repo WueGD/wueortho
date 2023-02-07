@@ -6,6 +6,7 @@ import drawings.overlaps.Nachmanson
 import drawings.ports.PortHeuristic
 import drawings.routing.*
 import drawings.io.Svg
+import drawings.util.GraphConversions, GraphConversions.toWeighted.*
 import java.nio.file.Files
 import java.nio.file.Paths
 
@@ -22,13 +23,14 @@ object GraphDrawing:
       else NodeIndex(u) -> NodeIndex(v)
 
     val graph =
-      val core = (NodeIndex(0) until n).sliding(2) map { case Seq(u, v) => Edge(u, v, 1.0) }
-      val hull = for _ <- n to m; (u, v) = randomNodePair yield Edge(u, v, 1.0)
-      WeightedEdgeList.fromEdgeList(core.toSeq ++ hull)
+      val core = (NodeIndex(0) until n).sliding(2) map { case Seq(u, v) => SimpleEdge(u, v) }
+      val hull = for _ <- n to m; (u, v) = randomNodePair yield SimpleEdge(u, v)
+      Graph.fromEdges(core.toSeq ++ hull).mkSimpleGraph
 
-    val simpleEdges = graph.edges.map(_.unweighted).toIndexedSeq
-
-    val layout = ForceDirected.layout(config)(graph, ForceDirected.initLayout(rndm, graph.nodes.size))
+    val layout = ForceDirected.layout(config)(
+      graph.withWeights(GraphConversions.withUniformWeights(1)),
+      ForceDirected.initLayout(rndm, graph.numberOfVertices),
+    )
 
     val obstacles = Obstacles(
       Nachmanson
@@ -37,14 +39,14 @@ object GraphDrawing:
     ).forceGeneralPosition(rndm)
     val largeObs  = Obstacles(obstacles.nodes.map(_.copy(span = Vec2D(2.2, 1.2))))
 
-    val ports = PortHeuristic.makePorts(obstacles, AdjacencyList.fromEdgeList(graph))
+    val ports = PortHeuristic.makePorts(obstacles, graph)
     // val largePorts = PortHeuristic.makePorts(largeObs, AdjacencyList.fromEdgeList(graph))
 
-    val routing                     = RoutingGraph.create(obstacles, simpleEdges, ports)
+    val routing                     = RoutingGraph.create(obstacles, graph.edges.toIndexedSeq, ports)
     val (bareRoutes, paths, onGrid) = Routing.edgeRoutes(routing, ports)
     val routes                      = GeoNudging.calcEdgeRoutes(routing, onGrid, paths, ports, obstacles)
 
-    val routingWithLargeObs    = RoutingGraph.create(largeObs, simpleEdges, ports)
+    val routingWithLargeObs    = RoutingGraph.create(largeObs, graph.edges.toIndexedSeq, ports)
     val (_, pathsLO, onGridLO) = Routing.edgeRoutes(routingWithLargeObs, ports)
     val routesWithLargeObs     = GeoNudging.calcEdgeRoutes(routingWithLargeObs, onGridLO, pathsLO, ports, obstacles)
 

@@ -6,18 +6,18 @@ import scala.collection.mutable
 object TransitiveReduction:
   // based on https://cs.stackexchange.com/a/83704
   def apply(g: DiGraph): DiGraph =
-    val edges   = mutable.HashSet.from(g.edges.map(_.unweighted))
+    val edges   = mutable.HashSet.from(g.edges)
     val visited = mutable.ArrayBuffer.fill(g.vertices.length)(mutable.BitSet.empty)
 
     def visit(v: NodeIndex): Unit =
       if visited(v.toInt).isEmpty then
         val indirect = mutable.BitSet.empty
-        for (w, _) <- g(v).neighbors do
+        for w <- g(v).neighbors do
           visit(w)
           indirect |= visited(w.toInt)
         end for
         visited(v.toInt) |= indirect
-        for (w, _) <- g(v).neighbors do
+        for w <- g(v).neighbors do
           visited(v.toInt) += w.toInt
           if indirect(w.toInt) then edges -= SimpleEdge(v, w)
         end for
@@ -25,6 +25,6 @@ object TransitiveReduction:
 
     for v <- NodeIndex(0) to (g.vertices.length - 1) do visit(v)
 
-    DiGraph.fromEdgeList(edges.toSeq.map(_.withWeight(1.0)))
+    Graph.fromEdges(edges.toSeq).mkDiGraph
   end apply
 end TransitiveReduction

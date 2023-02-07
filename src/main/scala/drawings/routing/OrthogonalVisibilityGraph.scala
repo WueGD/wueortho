@@ -94,12 +94,12 @@ object OrthogonalVisibilityGraph:
       case WithTop(top, b)         => Ready(OVGNode(b.left, top, right, b.bottom, b.obstacle))
       case _: WithRight | _: Ready => sys.error(s"cannot add right part to $this")
 
-  def create(rects: IndexedSeq[Rect2D], ports: PortLayout): (AdjacencyList, VertexLayout, IndexedSeq[SimpleEdge], OVG) =
+  def create(rects: IndexedSeq[Rect2D], ports: PortLayout): (WeightedGraph, VertexLayout, IndexedSeq[SimpleEdge], OVG) =
     val (hSegs, vSegs) = buildSegments(rects, ports)
     val (ovg, layout)  = buildGraph(hSegs, vSegs, rects, ports)
     val adj            = adjacencies(ovg, ports)
     val edges          =
-      ((ovg.length until adj.vertices.length by 2) zip (ovg.length + 1 until adj.vertices.length by 2))
+      ((ovg.length until adj.numberOfVertices by 2) zip (ovg.length + 1 until adj.numberOfVertices by 2))
         .map((u, v) => SimpleEdge(NodeIndex(u), NodeIndex(v)))
     (adj, layout, edges, ovg)
 
@@ -281,26 +281,20 @@ object OrthogonalVisibilityGraph:
     (OVG(finalNodes.toIndexedSeq, obstacleLinks.toIndexedSeq), layout)
   end buildGraph
 
-  def adjacencies(ovg: OVG, ports: PortLayout) =
+  def adjacencies(ovg: OVG, ports: PortLayout): WeightedGraph =
     val rand       = Random(0x99c0ffee)
     val portOffset = ovg.length
-    val vertices   = mutable.ArrayBuffer.fill(portOffset + ports.numberOfPorts)(Vertex(IndexedSeq.empty))
+    val builder    = Graph.Builder.reserve(portOffset + ports.numberOfPorts)
     for
       (node, i) <- ovg.nodes.zipWithIndex
       link      <- node.allLinks
     do
       link match
-        case NavigableLink.Node(idx) if idx.toInt < i =>
-          val (u, v) = vertices(i) -> vertices(idx.toInt)
-          vertices(i) = Vertex(u.neighbors :+ Link(NodeIndex(idx.toInt), rand.nextDouble, v.neighbors.size))
-          vertices(idx.toInt) = Vertex(v.neighbors :+ Link(NodeIndex(i), rand.nextDouble, u.neighbors.size))
-        case NavigableLink.Port(idx)                  =>
-          val (u, v) = vertices(i) -> vertices(idx + portOffset)
-          vertices(i) = Vertex(u.neighbors :+ Link(NodeIndex(idx + portOffset), rand.nextDouble, v.neighbors.size))
-          vertices(idx + portOffset) = Vertex(v.neighbors :+ Link(NodeIndex(i), rand.nextDouble, u.neighbors.size))
+        case NavigableLink.Node(idx) if idx.toInt < i => builder.addEdge(NodeIndex(i), idx, rand.nextDouble())
+        case NavigableLink.Port(idx)                  => builder.addEdge(NodeIndex(i), NodeIndex(idx + portOffset), rand.nextDouble())
         case _                                        =>
     end for
-    AdjacencyList(vertices.toIndexedSeq)
+    builder.mkWeightedGraph
   end adjacencies
 
   def obstacleBorder(ovg: OVG)(dir: Direction, oid: Int) =
@@ -372,7 +366,7 @@ object OrthogonalVisibilityGraph:
       case NavigableLink.Obstacle(idx) => None
       case NavigableLink.Port(idx)     => Some(ovg.length + idx)
 
-  class RoutingGraphAdapter(ovg: OVG, adj: AdjacencyList, lay: VertexLayout, ports: PortLayout) extends RoutingGraph:
+  class RoutingGraphAdapter(ovg: OVG, adj: WeightedGraph, lay: VertexLayout, ports: PortLayout) extends RoutingGraph:
 
     override def portId(node: NodeIndex) = Option.when(ovg.isPort(node))(ovg.asPortId(node))
 

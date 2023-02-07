@@ -1,109 +1,143 @@
 package drawings.data
 
-import drawings.routing.Routing
-import scala.util.Random
 import scala.reflect.ClassTag
 import scala.annotation.nowarn
 
-trait WeightedEdgeList:
-  def nodes: Seq[NodeIndex]
-  def edges: Seq[Edge]
+sealed trait Graph[V, E]:
+  def numberOfVertices: Int
+  def apply(i: NodeIndex): Vertex[V]
+  def vertices: IndexedSeq[Vertex[V]]
+  def edges: Seq[E]
 
-object WeightedEdgeList:
-  import scala.collection.mutable
+case class Vertex[V](neighbors: IndexedSeq[V])
 
-  def fromEdgeList(l: Seq[Edge]): WeightedEdgeList =
-    val maxIdx = l.flatMap(e => List(e.from, e.to)).max
-    new WeightedEdgeList:
-      override lazy val nodes = NodeIndex(0) to maxIdx
-      override def edges      = l
+case class SimpleLink(toNode: NodeIndex, reverseIndex: Int):
+  def withWeight(w: Double) = WeightedLink(toNode, w, reverseIndex)
+case class WeightedLink(toNode: NodeIndex, weight: Double, reverseIndex: Int)
+case class WeightedDiLink(toNode: NodeIndex, weight: Double)
 
-  def fromAdjacencyList(l: AdjacencyList): WeightedEdgeList =
-    fromEdgeList(for
-      (tmp, u)      <- l.vertices.zipWithIndex
-      Link(v, w, _) <- tmp.neighbors
-      if u < v.toInt
-    yield Edge(NodeIndex(u), v, w))
-
-case class Edge(from: NodeIndex, to: NodeIndex, weight: Double):
+case class SimpleEdge(from: NodeIndex, to: NodeIndex):
+  def withWeight(w: Double) = WeightedEdge(from, to, w)
+case class WeightedEdge(from: NodeIndex, to: NodeIndex, weight: Double):
   def unweighted = SimpleEdge(from, to)
 
-case class SimpleEdge(u: NodeIndex, v: NodeIndex):
-  def withWeight(w: Double) = Edge(u, v, w)
+sealed trait SimpleGraph     extends Graph[SimpleLink, SimpleEdge]
+sealed trait WeightedGraph   extends Graph[WeightedLink, WeightedEdge]
+sealed trait DiGraph         extends Graph[NodeIndex, SimpleEdge]
+sealed trait WeightedDiGraph extends Graph[WeightedDiLink, WeightedEdge]
 
-case class AdjacencyList(vertices: IndexedSeq[Vertex]):
-  def apply(id: NodeIndex) = vertices(id.toInt)
-  def asDiGraph: DiGraph   = DiGraph(vertices.map(u => DiVertex(u.neighbors map { case Link(v, w, _) => v -> w })))
+object Graph:
+  case class fromEdges(edges: Seq[SimpleEdge], size: Int = -1):
+    def mkSimpleGraph: SimpleGraph =
+      fromEdgesUndirected[SimpleEdge](e => (e.from, e.to, 0.0), edges, size).mkSimpleGraph
+    def mkDiGraph: DiGraph         =
+      fromEdgesDirected[SimpleEdge](e => (e.from, e.to, 0.0), edges, size).mkDiGraph
 
-object AdjacencyList:
+  case class fromWeightedEdges(edges: Seq[WeightedEdge], size: Int = -1):
+    def mkWeightedGraph: WeightedGraph     =
+      fromEdgesUndirected[WeightedEdge](e => (e.from, e.to, e.weight), edges, size).mkWeightedGraph
+    def mkWeightedDiGraph: WeightedDiGraph =
+      fromEdgesDirected[WeightedEdge](e => (e.from, e.to, e.weight), edges, size).mkWeightedDiGraph
+
+  def builder()   = Builder.empty
+  def diBuilder() = DiBuilder.empty
+
+  private def fromEdgesUndirected[E](ex: E => (NodeIndex, NodeIndex, Double), edges: Seq[E], size: Int) =
+    val $ = if size < 0 then builder() else Builder.reserve(size)
+    edges.map(ex).foldLeft($) { case ($, (from, to, w)) => $.addEdge(from, to, w) }
+    if size >= 0 then assert($.size == size, s"node index was out of bounds [0, $size)")
+    $
+
+  private def fromEdgesDirected[E](ex: E => (NodeIndex, NodeIndex, Double), edges: Seq[E], size: Int) =
+    val $ = if size < 0 then diBuilder() else DiBuilder.reserve(size)
+    edges.map(ex).foldLeft($) { case ($, (from, to, w)) => $.addEdge(from, to, w) }
+    if size >= 0 then assert($.size == size, s"node index was out of bounds [0, $size)")
+    $
+
+  private def mkEdges[V, E](nodes: Seq[Vertex[V]], mk: (NodeIndex, V) => E, chk: (Int, V) => Boolean) = for
+    (node, u) <- nodes.zipWithIndex
+    v         <- node.neighbors
+    if chk(u, v)
+  yield mk(NodeIndex(u), v)
+
+  private case class SGImpl private[Graph] (nodes: IndexedSeq[Vertex[SimpleLink]]) extends SimpleGraph:
+    override def apply(i: NodeIndex)     = nodes(i.toInt)
+    override inline def numberOfVertices = nodes.length
+    override def vertices                = nodes
+    override lazy val edges              = mkEdges(nodes, (u, l) => SimpleEdge(u, l.toNode), (u, l) => u <= l.toNode.toInt)
+
+  private case class DGImpl private[Graph] (nodes: IndexedSeq[Vertex[NodeIndex]]) extends DiGraph:
+    override def apply(i: NodeIndex)     = nodes(i.toInt)
+    override inline def numberOfVertices = nodes.length
+    override def vertices                = nodes
+    override lazy val edges              = mkEdges(nodes, SimpleEdge.apply, (_, _) => true)
+
+  private case class WGImpl private[Graph] (nodes: IndexedSeq[Vertex[WeightedLink]]) extends WeightedGraph:
+    override def apply(i: NodeIndex)     = nodes(i.toInt)
+    override inline def numberOfVertices = nodes.length
+    override def vertices                = nodes
+    override lazy val edges              =
+      mkEdges(nodes, (u, l) => WeightedEdge(u, l.toNode, l.weight), (u, l) => u <= l.toNode.toInt)
+
+  private case class WDImpl private[Graph] (nodes: IndexedSeq[Vertex[WeightedDiLink]]) extends WeightedDiGraph:
+    override def apply(i: NodeIndex)     = nodes(i.toInt)
+    override inline def numberOfVertices = nodes.length
+    override def vertices                = nodes
+    override lazy val edges              = mkEdges(nodes, (u, l) => WeightedEdge(u, l.toNode, l.weight), (_, _) => true)
+
   import scala.collection.mutable
 
-  def fromEdgeList(g: WeightedEdgeList) =
-    val lut = g.nodes.map(_ => mutable.ListBuffer.empty[Link]).toIndexedSeq
-    g.edges foreach { case Edge(from, to, weight) =>
-      assert(from != to, s"AdjacencyList must not have loops (loop at node $to)")
-      lut(from.toInt) += Link(to, weight, lut(to.toInt).length)
-      lut(to.toInt) += Link(from, weight, lut(from.toInt).length - 1)
-    }
-    AdjacencyList(lut.map(adj => Vertex(adj.toIndexedSeq)))
+  class Builder private[Graph] (lut: mutable.ArrayBuffer[mutable.ArrayBuffer[(NodeIndex, Double, Int)]]):
+    private def ensureSize(i: Int) = if lut.size <= i then lut ++= Seq.fill(i - lut.size + 1)(mutable.ArrayBuffer.empty)
 
-case class Vertex(neighbors: IndexedSeq[Link])
+    def addEdge(from: NodeIndex, to: NodeIndex, weight: Double): Builder =
+      ensureSize(from.toInt max to.toInt)
+      val toRev = lut(from.toInt).size
+      lut(from.toInt) += ((to, weight, lut(to.toInt).size))
+      lut(to.toInt) += ((from, weight, toRev))
+      this
 
-case class Link(toNode: NodeIndex, weight: Double, backIndex: Int):
-  assert(backIndex >= 0, s"back index must be a valid index (but was: $backIndex)")
+    def addEdge(from: NodeIndex, to: NodeIndex): Builder = addEdge(from, to, 0.0)
 
-case class DiGraph(vertices: IndexedSeq[DiVertex]):
-  def apply(i: NodeIndex) = vertices(i.toInt)
-  def edges               = vertices.zipWithIndex.flatMap((v, i) => v.neighbors.map((j, w) => Edge(NodeIndex(i), j, w)))
-  def undirected          = AdjacencyList.fromEdgeList(WeightedEdgeList.fromEdgeList(edges))
+    def size = lut.size
 
-case class DiVertex(neighbors: Seq[(NodeIndex, Double)])
+    def mkSimpleGraph: SimpleGraph     = SGImpl(
+      lut.map(links => Vertex(links.map((v, _, rl) => SimpleLink(v, rl)).toIndexedSeq)).toIndexedSeq,
+    )
+    def mkWeightedGraph: WeightedGraph = WGImpl(
+      lut.map(links => Vertex(links.map((v, w, rl) => WeightedLink(v, w, rl)).toIndexedSeq)).toIndexedSeq,
+    )
+  end Builder
 
-object DiGraph:
-  import scala.collection.mutable
+  object Builder:
+    def empty           = Builder(mutable.ArrayBuffer.empty)
+    def reserve(n: Int) = Builder(mutable.ArrayBuffer.fill(n)(mutable.ArrayBuffer.empty))
 
-  def fromEdgeList(edges: Seq[Edge]) =
-    val g   = WeightedEdgeList.fromEdgeList(edges)
-    val lut = g.nodes.map(_ => mutable.ListBuffer.empty[(NodeIndex, Double)]).toIndexedSeq
-    g.edges foreach { case Edge(from, to, weight) =>
-      assert(from != to, s"DiGraph must not have loops (loop at node $to)")
-      lut(from.toInt) += to -> weight
-    }
-    DiGraph(lut.map(adj => DiVertex(adj.toList)))
+  class DiBuilder private[Graph] (lut: mutable.ArrayBuffer[mutable.ArrayBuffer[(NodeIndex, Double)]]):
+    private def ensureSize(i: Int) = if lut.size <= i then lut ++= Seq.fill(i - lut.size + 1)(mutable.ArrayBuffer.empty)
+
+    def addEdge(from: NodeIndex, to: NodeIndex, weight: Double): DiBuilder =
+      ensureSize(from.toInt max to.toInt)
+      lut(from.toInt) += ((to, weight))
+      this
+
+    def addEdge(from: NodeIndex, to: NodeIndex): DiBuilder = addEdge(from, to, 0.0)
+
+    def size = lut.size
+
+    def mkDiGraph: DiGraph                 =
+      DGImpl(lut.map(links => Vertex(links.map(_._1).toIndexedSeq)).toIndexedSeq)
+    def mkWeightedDiGraph: WeightedDiGraph =
+      WDImpl(lut.map(links => Vertex(links.map(WeightedDiLink(_, _)).toIndexedSeq)).toIndexedSeq)
+  end DiBuilder
+
+  object DiBuilder:
+    def empty           = DiBuilder(mutable.ArrayBuffer.empty)
+    def reserve(n: Int) = DiBuilder(mutable.ArrayBuffer.fill(n)(mutable.ArrayBuffer.empty))
+
+end Graph
 
 case class Path(nodes: Seq[NodeIndex])
-
-case class EdgeTerminals(uTerm: Vec2D, uDir: Direction, vTerm: Vec2D, vDir: Direction)
-
-case class PortLayout(byEdge: IndexedSeq[EdgeTerminals]):
-  def apply(i: Int)          = byEdge(i)
-  def toVertexLayout         = VertexLayout(byEdge.flatMap(et => List(et.uTerm, et.vTerm)))
-  def portDir(i: Int)        = if i % 2 == 0 then byEdge(i / 2).uDir else byEdge(i / 2).vDir
-  def portCoordinate(i: Int) = if i % 2 == 0 then byEdge(i / 2).uTerm else byEdge(i / 2).vTerm
-  val numberOfPorts          = byEdge.length * 2
-
-case class VertexLayout(nodes: IndexedSeq[Vec2D]):
-  def apply(i: NodeIndex) = nodes(i.toInt)
-
-case class Obstacles(nodes: IndexedSeq[Rect2D]):
-  def apply(idx: Int)                   = nodes(idx)
-  def forceGeneralPosition(rnd: Random) =
-    Obstacles(nodes.map(r => r.copy(center = r.center + Vec2D(rnd.nextGaussian, rnd.nextGaussian).scale(1e-8))))
-
-object Obstacles:
-  def fromVertexLayout(f: (Vec2D, Int) => Rect2D)(vl: VertexLayout) = Obstacles(vl.nodes.zipWithIndex.map(f.tupled))
-
-case class EdgeRoute(terminals: EdgeTerminals, route: Seq[EdgeRoute.OrthoSeg]):
-  assert(route.nonEmpty, "route must not be empty")
-  lazy val normalized = Routing.refineRoute(this)
-
-object EdgeRoute:
-  enum OrthoSeg:
-    case HSeg(dx: Double)
-    case VSeg(dy: Double)
-
-    lazy val len = Math.abs(this match { case HSeg(dx) => dx; case VSeg(dy) => dy })
-    lazy val sgn = Math.signum(this match { case HSeg(dx) => dx; case VSeg(dy) => dy })
 
 case class NodeData[T](id: NodeIndex, data: T)
 

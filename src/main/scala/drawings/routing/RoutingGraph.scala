@@ -70,8 +70,8 @@ object RoutingGraph:
       val midItems = for
         (edge, i)         <- edges.zipWithIndex
         (obs, at, dir, j) <- List(
-                               (obs(edge.u.toInt), ports(i).uTerm, ports(i).uDir, i * 2),
-                               (obs(edge.v.toInt), ports(i).vTerm, ports(i).vDir, i * 2 + 1),
+                               (obs(edge.from.toInt), ports(i).uTerm, ports(i).uDir, i * 2),
+                               (obs(edge.to.toInt), ports(i).vTerm, ports(i).vDir, i * 2 + 1),
                              )
         if dir.isVertical
       yield QueueItem.Mid(at.x1, obs.left, dir, j)
@@ -128,8 +128,8 @@ object RoutingGraph:
       val midItems = for
         (edge, i)         <- edges.zipWithIndex
         (obs, at, dir, j) <- List(
-                               (obs(edge.u.toInt), ports(i).uTerm, ports(i).uDir, i * 2),
-                               (obs(edge.v.toInt), ports(i).vTerm, ports(i).vDir, i * 2 + 1),
+                               (obs(edge.from.toInt), ports(i).uTerm, ports(i).uDir, i * 2),
+                               (obs(edge.to.toInt), ports(i).vTerm, ports(i).vDir, i * 2 + 1),
                              )
         if dir.isHorizontal
       yield QueueItem.Mid(at.x2, obs.bottom, dir, j)
