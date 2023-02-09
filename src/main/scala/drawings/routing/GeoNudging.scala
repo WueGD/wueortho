@@ -226,16 +226,19 @@ object GeoNudging:
       else
         val buf    = mutable.ArrayBuffer.from(nodes.sortBy(_.data.at))
         var (i, j) = (buf.length - 1, buf.length - 2)
+        var inv    = i * j
         while i > 0 do
           while j >= 0 && buf(i).data.at == buf(j).data.at do
+            assert(inv >= 0, "Too many inversions. The constraint graph has cycles.")
             if CNode.lt(buf(i).data, buf(j).data) then
               val tmp = buf(i)
               buf(i) = buf(j)
               buf(j) = tmp
               j = i - 1
-            else j = j - 1
+            else j -= 1
+            inv -= 1
           end while
-          i = i - 1
+          i -= 1
           j = i - 1
         end while
         buf.toIndexedSeq
