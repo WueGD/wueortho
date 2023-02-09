@@ -229,7 +229,7 @@ object GeoNudging:
         var inv    = i * j
         while i > 0 do
           while j >= 0 && buf(i).data.at == buf(j).data.at do
-            assert(inv >= 0, "Too many inversions. The constraint graph has cycles.")
+            assert(inv >= 0, "Too many inversions. The constraint graph probably has cycles.")
             if CNode.lt(buf(i).data, buf(j).data) then
               val tmp = buf(i)
               buf(i) = buf(j)
@@ -294,7 +294,7 @@ object GeoNudging:
 
       (for
         node      <- allNodes
-        if isBorderNode(node) && node.id.toInt < g.vertices.length // isolated nodes have possibly been dropped
+        if isBorderNode(node) // && node.id.toInt < g.vertices.length // isolated nodes have possibly been dropped
         candidate <- g(node.id).neighbors.map(_.toNode)
         if !visited(candidate.toInt)
       yield
@@ -333,11 +333,11 @@ object GeoNudging:
       CGraph(segments, eow, obsH, obsV, obstacles, ports)
 
     lazy val hGraph: DiGraph =
-      val digraph = Graph.fromEdges(mkHEdges(mkQueue(allNodes.filter(onlyH))).toSeq).mkDiGraph
+      val digraph = Graph.fromEdges(mkHEdges(mkQueue(allNodes.filter(onlyH))).toSeq, allNodes.size).mkDiGraph
       TransitiveReduction(digraph)
 
     lazy val vGraph: DiGraph =
-      val digraph = Graph.fromEdges(mkVEdges(mkQueue(allNodes.filter(onlyV))).toSeq).mkDiGraph
+      val digraph = Graph.fromEdges(mkVEdges(mkQueue(allNodes.filter(onlyV))).toSeq, allNodes.size).mkDiGraph
       TransitiveReduction(digraph)
 
     def borderConstraintsH =
@@ -414,8 +414,6 @@ object GeoNudging:
 
     val cGraph = CGraph(segs, eow, obsH, obsV, obstacles, ports)
 
-    println("path built!")
-
     val (hcs, afterHcs) = cGraph.mkHConstraints(afterEow)
     val hObj            = 0.5 * (mkVar(afterSegs) + mkVar(afterSegs + 1).negated) + marginObj(afterEow, afterHcs)
     val hSol            = maximize(hcs, hObj)
@@ -425,6 +423,8 @@ object GeoNudging:
     val (vcs, afterVcs) = hSolved.mkVConstraints(afterHcs)
     val vObj            = 0.5 * (mkVar(afterSegs + 2) + mkVar(afterSegs + 3).negated) + marginObj(afterHcs, afterVcs)
     val sol             = maximize(vcs ++ hcs, vObj + hObj)
+
+    println(s"DEBUG: #vars: ${sol.solutions.size} #constraints: ${vcs.size + hcs.size}")
 
     debugUnderperformer(sol.solutions.slice(afterEow, sol.solutions.size))
 

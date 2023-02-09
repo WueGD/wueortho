@@ -3,7 +3,7 @@ package drawings.util
 import drawings.data.*
 
 object GraphConversions:
-  object all        extends SimpleMixin with ToWeightedMixin with UndirectMixin
+  object all        extends SimpleMixin, ToWeightedMixin, UndirectMixin
   object simple     extends SimpleMixin
   object toWeighted extends ToWeightedMixin
   object undirected extends UndirectMixin
@@ -43,10 +43,12 @@ object GraphConversions:
 
   def withUniformWeights(w: Double): WithWeightStrategy = (_, _, _) => w
 
-  def sg2wg(g: SimpleGraph, s: WithWeightStrategy) =
-    Graph.fromWeightedEdges(g.edges.zipWithIndex.map((e, i) => e.withWeight(s(e.from, e.to, i)))).mkWeightedGraph
-  def dg2wd(g: DiGraph, s: WithWeightStrategy)     =
-    Graph.fromWeightedEdges(g.edges.zipWithIndex.map((e, i) => e.withWeight(s(e.from, e.to, i)))).mkWeightedDiGraph
+  def sg2wg(g: SimpleGraph, s: WithWeightStrategy) = Graph
+    .fromWeightedEdges(g.edges.zipWithIndex.map((e, i) => e.withWeight(s(e.from, e.to, i))), g.numberOfVertices)
+    .mkWeightedGraph
+  def dg2wd(g: DiGraph, s: WithWeightStrategy)     = Graph
+    .fromWeightedEdges(g.edges.zipWithIndex.map((e, i) => e.withWeight(s(e.from, e.to, i))), g.numberOfVertices)
+    .mkWeightedDiGraph
 
   enum UndirectStrategy:
     case AllEdges, OnlyMatchingEdges
@@ -68,9 +70,15 @@ object GraphConversions:
       yield mkE(NodeIndex(u), v, w)
 
   def dg2sg(g: DiGraph, s: UndirectStrategy)         =
-    Graph.fromEdges(extractEdges(g, v => v -> 0, s, (u, v, _) => SimpleEdge(u, v))).mkSimpleGraph
+    Graph.fromEdges(extractEdges(g, v => v -> 0, s, (u, v, _) => SimpleEdge(u, v)), g.numberOfVertices).mkSimpleGraph
   def wd2wg(g: WeightedDiGraph, s: UndirectStrategy) = Graph
-    .fromWeightedEdges(extractEdges(g, v => v.toNode -> v.weight, s, (u, v, w) => WeightedEdge(u, v, w)))
+    .fromWeightedEdges(
+      extractEdges(g, v => v.toNode -> v.weight, s, (u, v, w) => WeightedEdge(u, v, w)),
+      g.numberOfVertices,
+    )
     .mkWeightedGraph
-  def wd2sg(g: WeightedDiGraph, s: UndirectStrategy) =
-    Graph.fromEdges(extractEdges(g, v => v.toNode -> v.weight, s, (u, v, _) => SimpleEdge(u, v))).mkSimpleGraph
+  def wd2sg(g: WeightedDiGraph, s: UndirectStrategy) = Graph
+    .fromEdges(extractEdges(g, v => v.toNode -> v.weight, s, (u, v, _) => SimpleEdge(u, v)), g.numberOfVertices)
+    .mkSimpleGraph
+
+end GraphConversions

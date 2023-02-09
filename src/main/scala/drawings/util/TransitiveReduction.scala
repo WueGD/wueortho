@@ -25,6 +25,6 @@ object TransitiveReduction:
 
     for v <- NodeIndex(0) to (g.vertices.length - 1) do visit(v)
 
-    Graph.fromEdges(edges.toSeq).mkDiGraph
+    Graph.fromEdges(edges.toSeq, g.numberOfVertices).mkDiGraph
   end apply
 end TransitiveReduction
