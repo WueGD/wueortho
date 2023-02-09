@@ -426,6 +426,14 @@ object GeoNudging:
     val vObj            = 0.5 * (mkVar(afterSegs + 2) + mkVar(afterSegs + 3).negated) + marginObj(afterHcs, afterVcs)
     val sol             = maximize(vcs ++ hcs, vObj + hObj)
 
+    debugUnderperformer(sol.solutions.slice(afterEow, sol.solutions.size))
+
     hSolved.mkRoutes(sol)
   end calcEdgeRoutes
+
+  /* we count values as underperformer if they are smaller than 0.5 * median */
+  private def debugUnderperformer(in: Seq[Double]) =
+    val m = in.toIndexedSeq.sorted.apply(in.size / 2)
+    for (x, i) <- in.zipWithIndex if x < m / 2 do println(s"WARN: outlier margin var #$i was $x (median: $m)")
+
 end GeoNudging

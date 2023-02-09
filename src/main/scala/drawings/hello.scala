@@ -19,7 +19,7 @@ import drawings.ports.PortHeuristic
 import drawings.util.DifferenceConstraints
 val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 
-@main def runRandomized = GraphDrawing.runRandomSample(n = 20, m = 40, seed = 0x99c0ffee)
+@main def runRandomized = GraphDrawing.runRandomSample(n = 10, m = 30, seed = 0x97c0ffee)
 
 @main def runIntervalTree =
   import drawings.util.mutable
