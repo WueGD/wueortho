@@ -39,11 +39,12 @@ object GraphSearch:
     val queue = mutable.PriorityQueue(c0 -> s)(implicitly[Ordering[(C, NodeIndex)]].reverse)
 
     def bestPath =
-      @tailrec def go(node: NodeIndex, path: List[NodeIndex]): Either[DijkstraError, Path] = ptrs.get(node) match
-        case None       => Left(DijkstraError.LostTrack(node))
-        case Some(-1)   => Right(Path(node :: path))
-        case Some(next) => go(NodeIndex(next), node :: path)
-      go(t, Nil)
+      @tailrec def go(node: NodeIndex, path: List[NodeIndex]): Either[DijkstraError, List[NodeIndex]] =
+        ptrs.get(node) match
+          case None       => Left(DijkstraError.LostTrack(node))
+          case Some(-1)   => Right(node :: path)
+          case Some(next) => go(NodeIndex(next), node :: path)
+      go(t, Nil).map(l => Path(l.toIndexedSeq))
 
     while queue.nonEmpty do
       val (pathCost, u) = queue.dequeue

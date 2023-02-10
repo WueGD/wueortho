@@ -137,7 +137,7 @@ object Graph:
 
 end Graph
 
-case class Path(nodes: Seq[NodeIndex])
+case class Path(nodes: IndexedSeq[NodeIndex])
 
 case class NodeData[T](id: NodeIndex, data: T)
 

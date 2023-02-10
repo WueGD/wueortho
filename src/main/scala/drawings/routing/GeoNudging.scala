@@ -47,13 +47,7 @@ object GeoNudging:
 
     import Constraint.builder.*, Segment.SegInOVG
 
-    def mkAll(
-        paths: IndexedSeq[Path],
-        rg: RoutingGraph,
-        routes: IndexedSeq[PathsOnGridNode],
-        ports: PortLayout,
-        startIdx: Int,
-    ) =
+    def mkAll(paths: IndexedSeq[Path], rg: RoutingGraph & PathOrder, ports: PortLayout, startIdx: Int) =
       import Segment.*
 
       def mkGroup(dir: Direction, nodes: List[NodeIndex]): SegInOVG =
@@ -83,22 +77,22 @@ object GeoNudging:
         val lut = mutable.BitSet.empty
         // todo: we should replace this with a geometric approach
         lut ++= (gs.dir match
-          case Direction.West  => gs.nodes.tail.flatMap(i => routes(i.toInt).toRight.takeWhile(_ != pathId))
-          case Direction.East  => gs.nodes.init.flatMap(i => routes(i.toInt).toRight.takeWhile(_ != pathId))
-          case Direction.South => gs.nodes.tail.flatMap(i => routes(i.toInt).toTop.takeWhile(_ != pathId))
-          case Direction.North => gs.nodes.init.flatMap(i => routes(i.toInt).toTop.takeWhile(_ != pathId))
+          case Direction.West  => gs.nodes.tail.flatMap(i => rg.rightPaths(i).takeWhile(_ != pathId))
+          case Direction.East  => gs.nodes.init.flatMap(i => rg.rightPaths(i).takeWhile(_ != pathId))
+          case Direction.South => gs.nodes.tail.flatMap(i => rg.topPaths(i).takeWhile(_ != pathId))
+          case Direction.North => gs.nodes.init.flatMap(i => rg.topPaths(i).takeWhile(_ != pathId))
         )
         if lut.nonEmpty then
           Debugging.dbg(s"path #$pathId ${gs.dir} (@${gs.norm}) is after ${lut.mkString("[", ", ", "]")}")
           println(gs.dir match
             case Direction.North =>
-              gs.nodes.init.map(i => s"TRACE: $i to top: ${routes(i.toInt).toTop.mkString(", ")}").mkString("\n")
+              gs.nodes.init.map(i => s"TRACE: $i to top: ${rg.topPaths(i).mkString(", ")}").mkString("\n")
             case Direction.East  =>
-              gs.nodes.init.map(i => s"TRACE: $i to right: ${routes(i.toInt).toRight.mkString(", ")}").mkString("\n")
+              gs.nodes.init.map(i => s"TRACE: $i to right: ${rg.rightPaths(i).mkString(", ")}").mkString("\n")
             case Direction.South =>
-              gs.nodes.tail.map(i => s"TRACE: $i to top: ${routes(i.toInt).toTop.mkString(", ")}").mkString("\n")
+              gs.nodes.tail.map(i => s"TRACE: $i to top: ${rg.topPaths(i).mkString(", ")}").mkString("\n")
             case Direction.West  =>
-              gs.nodes.tail.map(i => s"TRACE: $i to right: ${routes(i.toInt).toRight.mkString(", ")}").mkString("\n"),
+              gs.nodes.tail.map(i => s"TRACE: $i to right: ${rg.rightPaths(i).mkString(", ")}").mkString("\n"),
           )
         SegmentInfo(gs, pathId, endsAt, lut, None)
 
@@ -388,8 +382,7 @@ object GeoNudging:
     ORTools.solve(ORTools.LPInstance(cs, obj, maximize = true)).fold(sys.error, identity)
 
   def calcEdgeRoutes(
-      routing: RoutingGraph,
-      routes: IndexedSeq[PathsOnGridNode],
+      routing: RoutingGraph & PathOrder,
       paths: IndexedSeq[Path],
       ports: PortLayout,
       obstacles: Obstacles,
@@ -398,7 +391,7 @@ object GeoNudging:
 
     for (p, i) <- paths.zipWithIndex do dbg(s"path #$i: " + p.nodes.mkString("[", ", ", "]"))
 
-    val (segs, afterSegs) = Segment.mkAll(paths, routing, routes, ports, startIdx = 0)
+    val (segs, afterSegs) = Segment.mkAll(paths, routing, ports, startIdx = 0)
     val eow               = List(
       EndOfWorld(West, mkVar(afterSegs)),
       EndOfWorld(East, mkVar(afterSegs + 1)),

@@ -4,6 +4,8 @@ import drawings.data.*
 import drawings.util.{Constraint, ORTools}, Constraint.CTerm, ORTools.LPResult
 import scala.annotation.{tailrec, nowarn}
 
+import drawings.deprecated.PathsOnGridNode
+
 object Nudging:
   case class GroupedSeg(dir: Direction, nodes: List[NodeIndex])
   case class VarSeg(id: Int, endsAt: CTerm, normal: CTerm, group: GroupedSeg)

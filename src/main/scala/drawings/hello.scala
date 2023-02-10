@@ -19,7 +19,7 @@ import drawings.ports.PortHeuristic
 import drawings.util.DifferenceConstraints
 val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 
-@main def runRandomized = GraphDrawing.runRandomSample(n = 10, m = 30, seed = 0x97c0ffee)
+@main def runRandomized = GraphDrawing.runRandomSample(n = 10, m = 30, seed = 0x99c0ffee)
 
 @main def runIntervalTree =
   import drawings.util.mutable
@@ -56,9 +56,10 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   println(ORTools.solve(lp))
 
 @main def runRouting =
-  val (adj, lay, edges, ovg)  = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
-  val rga                     = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, OvgSample.ports)
-  val (routes, paths, onGrid) = Routing.edgeRoutes(rga, OvgSample.ports)
+  val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
+  val rga                    = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, OvgSample.ports)
+  val (routes, paths, rgo)   = Routing.edgeRoutes(rga, OvgSample.ports)
+  val onGrid                 = drawings.deprecated.PathOrder(rga, OvgSample.ports, paths)
   routes foreach { case EdgeRoute(terminals, route) =>
     println(s"From ${terminals.uTerm} to ${terminals.vTerm}: ${route.mkString("[", ", ", "]")}")
   }
@@ -67,7 +68,7 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
   val edgeRoutes = Nudging.calcEdgeRoutes(ovg, onGrid, paths, OvgSample.ports, OvgSample.obstacles)
   Files.writeString(Paths.get("constrained-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, edgeRoutes))
 
-  val geoRoutes = GeoNudging.calcEdgeRoutes(rga, onGrid, paths, OvgSample.ports, OvgSample.obstacles)
+  val geoRoutes = GeoNudging.calcEdgeRoutes(rgo, paths, OvgSample.ports, OvgSample.obstacles)
   Files.writeString(Paths.get("geo-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, geoRoutes))
 
 @main def runPorts =

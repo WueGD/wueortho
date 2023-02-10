@@ -38,13 +38,13 @@ object Routing:
           .fold(err => sys.error(s"cannot find shortest path between $u and $v: $err"), identity),
     )
 
-    val order = PathOrder(routing, ports, paths)
+    val orderedRG = PathOrder(routing, paths)
     // println(order.zipWithIndex.map((n, i) => s"$i: $n").mkString("\n"))
 
     val edgeRoutes =
       for (path, terminals) <- paths zip ports.byEdge yield pathToOrthoSegs(terminals, path, routing).normalized
 
-    (edgeRoutes, paths, order)
+    (edgeRoutes, paths, orderedRG)
 
   private def pathToOrthoSegs(terminals: EdgeTerminals, path: Path, routing: RoutingGraph) =
     import drawings.data.EdgeRoute.OrthoSeg.*

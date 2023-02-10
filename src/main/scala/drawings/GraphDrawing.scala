@@ -43,17 +43,18 @@ object GraphDrawing:
     // val largePorts = PortHeuristic.makePorts(largeObs, AdjacencyList.fromEdgeList(graph))
 
     val routing                     = RoutingGraph.create(obstacles, graph.edges.toIndexedSeq, ports)
-    val (bareRoutes, paths, onGrid) = Routing.edgeRoutes(routing, ports)
-    val routes                      = GeoNudging.calcEdgeRoutes(routing, onGrid, paths, ports, obstacles)
+    val (bareRoutes, paths, withPO) = Routing.edgeRoutes(routing, ports)
+    val routes                      = GeoNudging.calcEdgeRoutes(withPO, paths, ports, obstacles)
 
     val routingWithLargeObs    = RoutingGraph.create(largeObs, graph.edges.toIndexedSeq, ports)
-    val (_, pathsLO, onGridLO) = Routing.edgeRoutes(routingWithLargeObs, ports)
-    val routesWithLargeObs     = GeoNudging.calcEdgeRoutes(routingWithLargeObs, onGridLO, pathsLO, ports, obstacles)
+    val (_, pathsLO, withPOLO) = Routing.edgeRoutes(routingWithLargeObs, ports)
+    val routesWithLargeObs     = GeoNudging.calcEdgeRoutes(withPOLO, pathsLO, ports, obstacles)
 
-    val (adj, lay, edges, ovg)   = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
-    val ovgRG                    = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, ports)
-    val (_, oldPaths, onOldGrid) = Routing.edgeRoutes(ovgRG, ports)
-    val oldRoutes                = Nudging.calcEdgeRoutes(ovg, onOldGrid, oldPaths, ports, obstacles)
+    val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
+    val ovgRG                  = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, ports)
+    val (_, oldPaths, _)       = Routing.edgeRoutes(ovgRG, ports)
+    val onGrid                 = drawings.deprecated.PathOrder(ovgRG, ports, oldPaths)
+    val oldRoutes              = Nudging.calcEdgeRoutes(ovg, onGrid, oldPaths, ports, obstacles)
 
     // val (adjOld, layOld, edgesOld, ovgOld) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
     // val (_, pathsOld, onGridOld) = Routing.edgeRoutes(adjOld, layOld, edgesOld, ovgOld, ports)

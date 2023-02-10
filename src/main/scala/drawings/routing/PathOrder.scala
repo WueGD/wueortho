@@ -3,69 +3,99 @@ package drawings.routing
 import drawings.data.*
 import scala.collection.mutable
 
-type TopOrRight   = Direction.North.type | Direction.East.type
-type LeftOrBottom = Direction.West.type | Direction.South.type
+import Direction.*
 
-case class PathsOnGridNode(toTop: List[Int], toRight: List[Int]):
-  def modify(dir: TopOrRight)(f: List[Int] => List[Int]) = dir match
-    case Direction.North => copy(toTop = f(toTop))
-    case Direction.East  => copy(toRight = f(toRight))
-
-  def prepended(dir: TopOrRight, i: Int)                      = modify(dir)(i :: _)
-  def insertWhere(dir: TopOrRight, i: Int)(p: Int => Boolean) = modify(dir) { l =>
-    val at = l.indexWhere(p(_))
-    if at == -1 then l :+ i else l.take(at) ::: i :: l.drop(at)
-  }
+trait PathOrder:
+  def topPaths(n: NodeIndex): Seq[Int]
+  def rightPaths(n: NodeIndex): Seq[Int]
 
 object PathOrder:
-  private def ifTopOrRight[R, R1 <: R, R2 <: R](dir: Direction)(f1: TopOrRight => R1)(f2: LeftOrBottom => R2): R =
-    dir match
-      case Direction.North => f1(Direction.North)
-      case Direction.East  => f1(Direction.East)
-      case Direction.South => f2(Direction.South)
-      case Direction.West  => f2(Direction.West)
+  def apply(rg: RoutingGraph, paths: IndexedSeq[Path]) =
+    val top   = mutable.ArrayBuffer.fill(rg.size)(mutable.ArrayBuffer.empty[Int])
+    val right = mutable.ArrayBuffer.fill(rg.size)(mutable.ArrayBuffer.empty[Int])
 
-  private def reverseDir(dir: LeftOrBottom): TopOrRight = dir match
-    case Direction.West  => Direction.East
-    case Direction.South => Direction.North
+    /*
+     * T1-property: all paths end in a degree 1 vertex
+     * v1---v2 have a north or east edge
+     * all north/east edges starting in a vertex < v1 are sorted
+     * v1.east is sorted before v1.north
+     */
+    def mkLt(v1: NodeIndex, v2: NodeIndex)(pathIdA: Int, pathIdB: Int): Boolean =
+      val startDir         = rg.connection(v2, v1).getOrElse(sys.error(s"graph disconnected between $v1 and $v2"))
+      def isSorted(i: Int) = if startDir == East then i < v1.toInt else i <= v1.toInt
 
-  def apply($ : RoutingGraph, ports: PortLayout, paths: IndexedSeq[Path]) =
-    val onGrid = mutable.ArrayBuffer.fill($.size)(PathsOnGridNode(Nil, Nil))
+      val (pa, pb)             = (paths(pathIdA).nodes, paths(pathIdB).nodes)
+      val (i1a, i1b, i2a, i2b) = (pa.indexOf(v1), pb.indexOf(v1), pa.indexOf(v2), pb.indexOf(v2))
+      assert(i1a > 0 && i1b > 0 && i2a > 0 && i2b > 0, s"could not find vertices #$v1, #$v2 in paths $pa and $pb")
+      val (da, db)             = (i2a - i1a, i2b - i1b)
+      assert((da == 1 || da == -1) && (db == 1 || db == -1), s"not an edge #$v1--#$v2 on paths $pa and $pb")
 
-    def leftOnGrid(u: NodeIndex)   = $.neighbor(u, Direction.West).toList.flatMap(n => onGrid(n.toInt).toRight)
-    def bottomOnGrid(u: NodeIndex) = $.neighbor(u, Direction.South).toList.flatMap(n => onGrid(n.toInt).toTop)
+      def go(a: Int, b: Int, dir: Direction): Boolean =
+        // - a/b terminate in the same vertex: violates T1
+        assert(da > 0 && a > 0 || da < 0 && a < pa.size - 1, s"T1 violation: a=$a in $pa and $pb (starting $v1--$v2)")
+        assert(db > 0 && b > 0 || db < 0 && b < pb.size - 1, s"T1 violation: b=$b in $pa and $pb (starting $v1--$v2)")
 
-    def otherPathsOrder(u: NodeIndex, mainDir: Direction) = mainDir match
-      case Direction.East  => bottomOnGrid(u).reverse ::: leftOnGrid(u) ::: onGrid(u.toInt).toTop
-      case Direction.West  => bottomOnGrid(u) ::: onGrid(u.toInt).toRight ::: onGrid(u.toInt).toTop.reverse
-      case Direction.North => leftOnGrid(u).reverse ::: bottomOnGrid(u) ::: onGrid(u.toInt).toRight
-      case Direction.South => leftOnGrid(u) ::: onGrid(u.toInt).toTop ::: onGrid(u.toInt).toRight.reverse
+        if pa(a - da) != pb(b - db) then
+          // - a/b have no common next vetex towards left/down: check their directions -> you are finished!
+          (for
+            dirA <- rg.connection(pa(a), pa(a - da))
+            dirB <- rg.connection(pb(b), pb(b - db))
+          yield dirOrder(dir, dirA) < dirOrder(dir, dirB))
+            .getOrElse(sys.error(s"path $pa disconnected at #$a || path $pb disconnected at #$b"))
+        else
+          val commonDir   = rg.connection(pa(a), pa(a - da)).getOrElse(sys.error(s"path $pa disconnected at #$a"))
+          val maybeLookup = commonDir match
+            case North => Option.when(isSorted(pa(a).toInt))(top(pa(a).toInt))
+            case East  => Option.when(isSorted(pa(a).toInt))(right(pa(a).toInt))
+            case South => Option.when(isSorted(pa(a - da).toInt))(top(pa(a - da).toInt))
+            case West  => Option.when(isSorted(pa(a - da).toInt))(right(pa(a - da).toInt))
+          twist(dir, commonDir) ^ maybeLookup.fold(go(a - da, b - db, commonDir))(lut =>
+            // extract order from c---a edge
+            val (ia, ib) = lut.indexOf(pathIdA) -> lut.indexOf(pathIdB)
+            assert(ia >= 0 && ib >= 0, s"lost track of paths #$pathIdA and #$pathIdB on node #${pa(a - da)}")
+            ia < ib,
+          )
+      end go
+
+      go(i1a, i1b, startDir)
+    end mkLt
 
     for
       (path, i) <- paths.zipWithIndex
       Seq(u, v) <- path.nodes.sliding(2)
+      dir       <- rg.connection(u, v).orElse(sys.error(s"path disconnected between $u and $v"))
     do
-      $.portId(u) match // a port should have only one path
-        case Some(portId) =>
-          val mainDir = ports.portDir(portId)
-          ifTopOrRight(mainDir) { tr =>
-            onGrid(u.toInt) = onGrid(u.toInt).prepended(tr, i)
-          } { lb =>
-            onGrid(v.toInt) = onGrid(v.toInt).prepended(reverseDir(lb), i)
-          }
-        case None         =>
-          val mainDir = $.connection(u, v).getOrElse(sys.error(s"path disconnected between $u and $v"))
-          val others  = otherPathsOrder(u, mainDir)
-          val preIdx  = others.indexOf(i)
-          assert(preIdx > -1, s"segment $u -> $v should not be the start of a path")
-          ifTopOrRight(mainDir) { tr =>
-            onGrid(u.toInt) = onGrid(u.toInt).insertWhere(tr, i)(j => !(others.indexOf(j) < preIdx))
-          } { lb =>
-            onGrid(v.toInt) = onGrid(v.toInt).insertWhere(reverseDir(lb), i)(j => !(others.indexOf(j) < preIdx))
-          }
+      dir match
+        case North => top(u.toInt) += i
+        case East  => right(u.toInt) += i
+        case South => top(v.toInt) += i
+        case West  => right(v.toInt) += i
     end for
 
-    onGrid.toIndexedSeq
+    for
+      u        <- NodeIndex(0) until rg.size
+      (v, isH) <- rg.neighbor(u, East).map(_ -> true) ++ rg.neighbor(u, North).map(_ -> false)
+    do
+      val ord = Ordering.fromLessThan(mkLt(u, v))
+      if isH then right(u.toInt).sortInPlace()(ord)
+      else top(u.toInt).sortInPlace()(ord)
+
+    new RoutingGraph with PathOrder:
+      export rg.*
+      override def topPaths(n: NodeIndex)   = top(n.toInt).toSeq
+      override def rightPaths(n: NodeIndex) = right(n.toInt).toSeq
   end apply
+
+  // we sort south to north and west to east
+
+  private def dirOrder(cur: Direction, next: Direction) = next match
+    case North => if cur.isHorizontal then 1 else 0
+    case East  => if cur.isHorizontal then 0 else 1
+    case South => if cur.isHorizontal then -1 else 0
+    case West  => if cur.isHorizontal then 0 else -1
+
+  private def twist(cur: Direction, next: Direction) = cur -> next match
+    case (North, East) | (East, North) | (South, West) | (West, South) => true
+    case _                                                             => false
 
 end PathOrder
