@@ -16,14 +16,14 @@ object GraphConversions:
       def directed: WeightedDiGraph = wg2wd(g)
 
   trait ToWeightedMixin:
-    extension (g: SimpleGraph) def withWeights(f: WithWeightStrategy) = sg2wg(g, f)
-    extension (g: DiGraph) def withWeight(f: WithWeightStrategy)      = dg2wd(g, f)
+    extension (g: SimpleGraph) def withWeights(using f: WithWeightStrategy) = sg2wg(g, f)
+    extension (g: DiGraph) def withWeight(using f: WithWeightStrategy)      = dg2wd(g, f)
 
   trait UndirectMixin:
-    extension (g: DiGraph) def undirected(f: UndirectStrategy) = dg2sg(g, f)
+    extension (g: DiGraph) def undirected(using f: UndirectStrategy) = dg2sg(g, f)
     extension (g: WeightedDiGraph)
-      def undirected(f: UndirectStrategy) = wd2wg(g, f)
-      def simple(f: UndirectStrategy)     = wd2sg(g, f)
+      def undirected(using f: UndirectStrategy) = wd2wg(g, f)
+      def simple(using f: UndirectStrategy)     = wd2sg(g, f)
 
   def wg2sg(g: WeightedGraph)   = Graph.fromEdges(g.edges.map(_.unweighted), g.numberOfVertices).mkSimpleGraph
   def wd2dg(g: WeightedDiGraph) = Graph.fromEdges(g.edges.map(_.unweighted), g.numberOfVertices).mkDiGraph

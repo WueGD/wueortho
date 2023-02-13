@@ -19,7 +19,7 @@ import drawings.ports.PortHeuristic
 import drawings.util.DifferenceConstraints
 val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 
-@main def runRandomized = GraphDrawing.runRandomSample(n = 10, m = 30, seed = 0x99c0ffee)
+@main def runRandomized = GraphDrawing.runRandomSample(n = 30, m = 60, seed = 0x99c0ffee)
 
 @main def runIntervalTree =
   import drawings.util.mutable
@@ -133,7 +133,7 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
     .mkWeightedGraph
   val mst      = MinimumSpanningTree.create(graph)
   mst.vertices.foreach(l => println(l.neighbors.mkString("[", ", ", "]")))
-  val svg      = debugSvg(mst.simple(GraphConversions.UndirectStrategy.AllEdges), vertices)
+  val svg      = debugSvg(mst.simple(using GraphConversions.UndirectStrategy.AllEdges), vertices)
   Files.writeString(Paths.get("mst.svg"), svg)
 
 @main def runTriangulate: Unit =

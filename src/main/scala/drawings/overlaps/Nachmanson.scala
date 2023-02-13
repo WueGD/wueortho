@@ -6,7 +6,8 @@ import GraphConversions.undirected.*
 import scala.annotation.tailrec
 
 object Nachmanson:
-  private val EPS = 1e-8
+  given GraphConversions.UndirectStrategy = GraphConversions.UndirectStrategy.AllEdges
+  private val EPS                         = 1e-8
 
   private def translationFactor(a: Rect2D, b: Rect2D) =
     val dx = (a.center.x1 - b.center.x1).abs
@@ -73,7 +74,7 @@ object Nachmanson:
   def debugSvg(rects: IndexedSeq[Rect2D], mst: WeightedDiGraph) =
     java.nio.file.Files.writeString(
       java.nio.file.Path.of(s"dbg${cnt}.svg"),
-      drawings.util.Debugging.debugSvg(mst.simple(GraphConversions.UndirectStrategy.AllEdges), Obstacles(rects)),
+      drawings.util.Debugging.debugSvg(mst.simple, Obstacles(rects)),
     )
     cnt += 1
 

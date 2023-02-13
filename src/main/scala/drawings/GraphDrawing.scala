@@ -28,7 +28,7 @@ object GraphDrawing:
       Graph.fromEdges(core.toSeq ++ hull).mkSimpleGraph
 
     val layout = ForceDirected.layout(config)(
-      graph.withWeights(GraphConversions.withUniformWeights(1)),
+      graph.withWeights(using GraphConversions.withUniformWeights(1)),
       ForceDirected.initLayout(rndm, graph.numberOfVertices),
     )
 

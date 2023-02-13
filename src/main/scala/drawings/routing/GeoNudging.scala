@@ -24,6 +24,8 @@ object GeoNudging:
   case class BeginObstacle(obsId: Int, override val at: Double) extends CNode
   case class EndObstacle(obsId: Int, override val at: Double)   extends CNode
 
+  given GraphConversions.UndirectStrategy = GraphConversions.UndirectStrategy.AllEdges
+
   case class SegmentInfo(
       group: Segment.SegInOVG,
       pathId: Int,
@@ -344,14 +346,14 @@ object GeoNudging:
 
     def mkHConstraints(marginVarIdx: Int): (Seq[Constraint], Int) =
       val (res, varIds) = (for
-        (cmp, i) <- split(hGraph.undirected(GraphConversions.UndirectStrategy.AllEdges)).zipWithIndex
+        (cmp, i) <- split(hGraph.undirected).zipWithIndex
         res      <- mkConstraintsForComponent(hGraph, cmp, Constraint.builder.mkVar(marginVarIdx + i))
       yield res -> (marginVarIdx + i)).unzip
       (res ++ borderConstraintsH) -> (varIds.last + 1)
 
     def mkVConstraints(marginVarIdx: Int): (Seq[Constraint], Int) =
       val (res, varIds) = (for
-        (cmp, i) <- split(vGraph.undirected(GraphConversions.UndirectStrategy.AllEdges)).zipWithIndex
+        (cmp, i) <- split(vGraph.undirected).zipWithIndex
         res      <- mkConstraintsForComponent(vGraph, cmp, Constraint.builder.mkVar(marginVarIdx + i))
       yield res -> (marginVarIdx + i)).unzip
       (res ++ borderConstraintsV) -> (varIds.last + 1)
