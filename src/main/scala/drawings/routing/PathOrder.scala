@@ -22,7 +22,7 @@ object PathOrder:
      */
     def mkLt(v1: NodeIndex, v2: NodeIndex)(pathIdA: Int, pathIdB: Int): Boolean =
       val startDir         = rg.connection(v2, v1).getOrElse(sys.error(s"graph disconnected between $v1 and $v2"))
-      def isSorted(i: Int) = if startDir == East then i < v1.toInt else i <= v1.toInt
+      def isSorted(i: Int) = if startDir == West then i < v1.toInt else i <= v1.toInt
 
       val (pa, pb)             = (paths(pathIdA).nodes, paths(pathIdB).nodes)
       val (i1a, i1b, i2a, i2b) = (pa.indexOf(v1), pb.indexOf(v1), pa.indexOf(v2), pb.indexOf(v2))
