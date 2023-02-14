@@ -1,11 +1,11 @@
 package drawings.util
 
 import drawings.data.*
-import org.tinfour.{common => tinfour}
+import org.tinfour.{common as tinfour}
 import org.tinfour.standard.IncrementalTin
 
 object triangulate:
-  import scala.jdk.CollectionConverters._
+  import scala.jdk.CollectionConverters.*
 
   def apply(vertices: IndexedSeq[Vec2D]) =
     val tin = IncrementalTin()

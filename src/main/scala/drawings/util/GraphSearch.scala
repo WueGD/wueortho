@@ -3,7 +3,7 @@ package drawings.util
 import drawings.data.*
 
 import scala.annotation.tailrec
-import scala.math.Ordering.Implicits._
+import scala.math.Ordering.Implicits.*
 import scala.collection.mutable
 
 object GraphSearch:

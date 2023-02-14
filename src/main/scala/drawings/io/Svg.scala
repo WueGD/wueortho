@@ -2,9 +2,9 @@ package drawings.io
 
 import scala.annotation.{targetName, tailrec}
 import scalatags.Text.{Frag, svgAttrs as ^}
-import scalatags.Text.svgTags._
-import scalatags.Text.implicits._
-import drawings.data._
+import scalatags.Text.svgTags.*
+import scalatags.Text.implicits.*
+import drawings.data.*
 import Svg.*
 
 /** all numbers a pixels */
@@ -29,7 +29,7 @@ case class Svg(
 
   private val (tx, ty)               = pixelTransformers(this)
   private def bbox(ps: Seq[Vec2D])   = Rect2D.boundingBox(ps).scaled(pixelsPerUnit)
-  private def bboxR(rs: Seq[Rect2D]) = Rect2D.boundingBoxOfRects(rs: _*).scaled(pixelsPerUnit)
+  private def bboxR(rs: Seq[Rect2D]) = Rect2D.boundingBoxOfRects(rs*).scaled(pixelsPerUnit)
 
   def drawObstacles(obstacles: Obstacles) =
     SvgFrag(bboxR(obstacles.nodes), obstacles.nodes.map(rectFrag(_, obstacleColor, obstacleStrokeWidth, obstacleFill)))
@@ -166,7 +166,7 @@ object Svg:
     def zip[T](ts: Seq[T]) = this match
       case EdgeColor.Single(color) => ts.map(_ -> color)
       case EdgeColor.Cycle(colors) =>
-        lazy val repeated: LazyList[String] = LazyList(colors: _*) #::: repeated
+        lazy val repeated: LazyList[String] = LazyList(colors*) #::: repeated
         ts zip repeated
 
   val defaultColors = List(

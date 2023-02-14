@@ -1,10 +1,9 @@
 package drawings.ports
 
 import drawings.data.*
+import Vec2D.angle
 
 object PortHeuristic:
-  def angle(a: Vec2D, b: Vec2D) = Math.atan2(b.x2 * a.x1 - b.x1 * a.x2, b.x1 * a.x1 + b.x2 * a.x2)
-
   def equidistantPorts(vertex: Rect2D, neighbors: Seq[Vec2D]) =
     val tlAngle = angle(vertex.span, vertex.span.copy(x1 = -vertex.span.x1))
     val brAngle = angle(vertex.span, vertex.span.copy(x2 = -vertex.span.x2))

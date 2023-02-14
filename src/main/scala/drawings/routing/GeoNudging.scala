@@ -2,14 +2,14 @@ package drawings.routing
 
 import drawings.data.*
 import drawings.util.*, Constraint.CTerm, GraphConversions.undirected.*
+import ORTools.{LPResult, LPInstance}
 
 import scala.annotation.{tailrec, nowarn}
 import scala.collection.BitSet
 
 import java.util.Comparator
 
-/// constraint variables assignment:
-/// 0 |- segments -|- EoW-horizontal -|- EoW-vertical -|- margins -| ∞
+import GeoNudging.Segment.*
 
 object GeoNudging:
   sealed trait CNode:
@@ -27,13 +27,13 @@ object GeoNudging:
   given GraphConversions.UndirectStrategy = GraphConversions.UndirectStrategy.AllEdges
 
   case class SegmentInfo(
-      group: Segment.SegInOVG,
+      dir: Direction,
+      min: Double,
+      max: Double,
       pathId: Int,
       endsAt: CTerm,
       pathsBefore: BitSet,
-      fixedDimensions: Option[(Double, Double)],
-  ):
-    def dir = group.dir
+  )
 
   enum Segment extends CNode:
     case FixedSegment(override val at: Double, info: SegmentInfo)
@@ -41,40 +41,37 @@ object GeoNudging:
     def info: SegmentInfo
 
   object Segment:
-    case class SegInOVG(dir: Direction, min: Double, max: Double, norm: Double, nodes: List[NodeIndex])
+    case class SegInRG(dir: Direction, min: Double, max: Double, norm: Double, nodes: List[NodeIndex])
 
     def updateInfo(seg: Segment, newInfo: SegmentInfo) = seg match
       case FixedSegment(at, info)         => FixedSegment(at, newInfo)
       case FloatingSegment(at, pos, info) => FloatingSegment(at, pos, newInfo)
 
-    import Constraint.builder.*, Segment.SegInOVG
+    import Constraint.builder.*, Segment.SegInRG
 
-    def mkAll(paths: IndexedSeq[Path], rg: RoutingGraph & PathOrder, ports: PortLayout, startIdx: Int) =
+    def mkAll(paths: IndexedSeq[Path], rg: RoutingGraph & PathOrder, ports: PortLayout) =
       import Segment.*
 
-      def mkGroup(dir: Direction, nodes: List[NodeIndex]): SegInOVG =
+      def mkGroup(dir: Direction, nodes: List[NodeIndex]): SegInRG =
         val (first, last)   = rg.locate(nodes.head) -> rg.locate(nodes.last)
         val (from, to, pos) = if dir.isHorizontal then (first.x1, last.x1, first.x2) else (first.x2, last.x2, first.x1)
-        if from < to then SegInOVG(dir, from, to, pos, nodes)
-        else SegInOVG(dir, to, from, pos, nodes)
+        if from < to then SegInRG(dir, from, to, pos, nodes)
+        else SegInRG(dir, to, from, pos, nodes)
 
       def splitIntoSegments(path: Path) =
         @tailrec
-        def go(res: List[SegInOVG], tail: Seq[Seq[NodeIndex]])(
-            tmp: List[NodeIndex],
-            dir: Direction,
-        ): List[SegInOVG] =
+        def go(res: List[SegInRG], tail: Seq[Seq[NodeIndex]], tmp: List[NodeIndex], dir: Direction): List[SegInRG] =
           tail match
             case Nil               => (mkGroup(dir, tmp.reverse) :: res).reverse
             case Seq(u, v) +: tail =>
               val nextDir = rg.connection(u, v) getOrElse sys.error(s"path disconnected at $u -- $v")
-              if dir == nextDir then go(res, tail)(v :: tmp, dir)
-              else go(mkGroup(dir, tmp.reverse) :: res, tail)(List(v, u), nextDir)
+              if dir == nextDir then go(res, tail, v :: tmp, dir)
+              else go(mkGroup(dir, tmp.reverse) :: res, tail, List(v, u), nextDir)
 
-        go(Nil, path.nodes.sliding(2).toList)(List(path.nodes.head), ports.portDir(rg.portId(path.nodes.head).get))
+        go(Nil, path.nodes.sliding(2).toList, List(path.nodes.head), ports.portDir(rg.portId(path.nodes.head).get))
       end splitIntoSegments
 
-      def mkInfo_(pathId: Int)(gs: SegInOVG, endsAt: CTerm) =
+      def mkInfo(pathId: Int, gs: SegInRG, endsAt: CTerm) =
         import scala.collection.mutable
         val lut = mutable.BitSet.empty
         // todo: we should replace this with a geometric approach
@@ -96,56 +93,56 @@ object GeoNudging:
             case Direction.West  =>
               gs.nodes.tail.map(i => s"TRACE: $i to right: ${rg.rightPaths(i).mkString(", ")}").mkString("\n"),
           )
-        SegmentInfo(gs, pathId, endsAt, lut, None)
+        SegmentInfo(gs.dir, gs.min, gs.max, pathId, endsAt, lut)
 
-      type MkInfoPA = (SegInOVG, CTerm) => SegmentInfo
+      def mkFixed2(pathId: Int, gs: SegInRG, at: Vec2D, to: Vec2D) = State.pure[(Int, Int), FixedSegment](
+        if gs.dir.isHorizontal then FixedSegment(at.x2, mkInfo(pathId, gs, mkConst(to.x1)))
+        else FixedSegment(at.x1, mkInfo(pathId, gs, mkConst(to.x2))),
+      )
 
-      @tailrec
-      @nowarn("name=PatternMatchExhaustivity")
-      def go(res: List[List[Segment]], vIdx: Int, tail: Seq[(Path, Int)]): (IndexedSeq[Seq[Segment]], Int) = tail match
-        case Nil               => res.reverse.toIndexedSeq -> vIdx
-        case (path, i) +: tail =>
-          val (u, v) = ports(i).uTerm -> ports(i).vTerm
-          val mkInfo = mkInfo_(i)
-          splitIntoSegments(path) match
-            case Nil                         => sys.error("empty paths are unsupported")
-            case one :: Nil                  =>
-              println(s"WARN: this path has only one segment ($one)")
-              val seg =
-                if one.dir.isHorizontal then FixedSegment(v.x2, mkInfo(one, mkConst(v.x1)))
-                else FixedSegment(v.x1, mkInfo(one, mkConst(v.x2)))
-              go(List(seg) :: res, vIdx, tail)
-            case first :: last :: Nil        =>
-              val segs = mk2Segs(mkInfo, first, last, u, v)
-              go(segs :: res, vIdx, tail)
-            case first +: mid :+ stl :+ last =>
-              val begin      = FixedSegment(if first.dir.isHorizontal then u.x2 else u.x1, mkInfo(first, mkVar(vIdx)))
-              val (mids, vi) = mid.foldLeft(List.empty[Segment] -> vIdx) { case ((res, vi), grp) =>
-                (FloatingSegment(grp.norm, mkVar(vi), mkInfo(grp, mkVar(vi + 1))) :: res, vi + 1)
-              }
-              val end        = mkTailSegs(mkInfo, stl, last, u, v, vi)
-              go((begin :: mids.reverse ::: end) :: res, vi + 1, tail)
+      def mkFixed1(pathId: Int, gs: SegInRG, at: Vec2D) = State[(Int, Int), FixedSegment]((xv, yv) =>
+        if gs.dir.isHorizontal then (xv, yv) -> FixedSegment(at.x2, mkInfo(pathId, gs, mkVar(xv)))
+        else (xv, yv)                        -> FixedSegment(at.x1, mkInfo(pathId, gs, mkVar(yv))),
+      )
+
+      def mkFloat2(pathId: Int, gs: SegInRG) = State[(Int, Int), FloatingSegment]((xv, yv) =>
+        if gs.dir.isHorizontal then (xv, yv + 1) -> FloatingSegment(gs.norm, mkVar(yv), mkInfo(pathId, gs, mkVar(xv)))
+        else (xv + 1, yv)                        -> FloatingSegment(gs.norm, mkVar(xv), mkInfo(pathId, gs, mkVar(yv))),
+      )
+
+      def mkFloat1(pathId: Int, gs: SegInRG, to: Vec2D) = State[(Int, Int), FloatingSegment]((xv, yv) =>
+        if gs.dir.isHorizontal then
+          (xv, yv + 1)    -> FloatingSegment(gs.norm, mkVar(yv), mkInfo(pathId, gs, mkConst(to.x1)))
+        else (xv + 1, yv) -> FloatingSegment(gs.norm, mkVar(xv), mkInfo(pathId, gs, mkConst(to.x2))),
+      )
+
+      @tailrec @nowarn("name=PatternMatchExhaustivity")
+      def go(
+          res: List[List[State[(Int, Int), Segment]]],
+          tail: Seq[(Path, Int)],
+      ): State[(Int, Int), IndexedSeq[Seq[Segment]]] =
+        tail match
+          case Nil               => res.reverse.map(_.sequence).sequence.map(_.toIndexedSeq)
+          case (path, i) +: tail =>
+            val (u, v) = ports(i).uTerm -> ports(i).vTerm
+            splitIntoSegments(path) match
+              case Nil                         => sys.error("empty paths are unsupported")
+              case one :: Nil                  =>
+                println(s"WARN: this path has only one segment ($one)")
+                go(List(mkFixed2(i, one, v, v)) :: res, tail)
+              case first :: last :: Nil        => go(List(mkFixed2(i, first, u, v), mkFixed2(i, last, v, v)) :: res, tail)
+              case first +: mid :+ stl :+ last =>
+                val mids = mid.foldRight(List.empty[State[(Int, Int), Segment]])((gs, ss) => mkFloat2(i, gs) :: ss)
+                go((mkFixed1(i, first, u) :: mids ::: List(mkFloat1(i, stl, v), mkFixed2(i, last, v, v))) :: res, tail)
       end go
 
-      def mk2Segs(mkInfo: MkInfoPA, first: SegInOVG, last: SegInOVG, u: Vec2D, v: Vec2D) =
-        if first.dir.isHorizontal then
-          List(FixedSegment(u.x2, mkInfo(first, mkConst(v.x1))), FixedSegment(v.x1, mkInfo(last, mkConst(v.x2))))
-        else List(FixedSegment(u.x1, mkInfo(first, mkConst(v.x2))), FixedSegment(v.x2, mkInfo(last, mkConst(v.x1))))
-
-      def mkTailSegs(mkInfo: MkInfoPA, stl: SegInOVG, last: SegInOVG, u: Vec2D, v: Vec2D, vi: Int) =
-        if last.dir.isHorizontal then
-          FloatingSegment(stl.norm, mkVar(vi), mkInfo(stl, mkConst(v.x2))) ::
-            FixedSegment(v.x2, mkInfo(last, mkConst(v.x1))) :: Nil
-        else
-          FloatingSegment(stl.norm, mkVar(vi), mkInfo(stl, mkConst(v.x1))) ::
-            FixedSegment(v.x1, mkInfo(last, mkConst(v.x2))) :: Nil
-
-      go(Nil, startIdx, paths.zipWithIndex)
+      go(Nil, paths.zipWithIndex)
     end mkAll
 
     def show(s: Segment) =
       val dir = if s.info.dir.isHorizontal then "H" else "V"
-      s"$dir-Seg(at: ${s.at} path: ${s.info.pathId} is after: ${s.info.pathsBefore.mkString("[", ", ", "]")})"
+      s"$dir-Seg(at: ${s.at} = ${Debugging.showCTerm(s.pos)} ends at ${Debugging.showCTerm(s.info.endsAt)} " +
+        s"path: ${s.info.pathId} is after: ${s.info.pathsBefore.mkString("[", ", ", "]")})"
   end Segment
 
   object CNode:
@@ -157,96 +154,32 @@ object GeoNudging:
       case (_, _: EndObstacle) | (_: BeginObstacle, _)  => false
       case (a: Segment, b: Segment)                     => b.info.pathsBefore(a.info.pathId)
 
-  /** This requires the indices allocated by `NodeData.mkNodes` to be consecutive and in the order of the input!
-    * @param segments
-    *   one entry per path, for each path the segments in order
-    * @param eow
-    *   end of world nodes in oder: left, right, bottom, top
-    * @param obsH
-    *   two consecutive entries per obstacle in order: BeginOfObstacle (= left), EndOfObstacle (= right)
-    * @param obsV
-    *   two consecutive entries per obstacle in order: BeginOfObstacle (= bottom), EndOfObstacle (= top)
-    */
-  class CGraph(
-      segments: IndexedSeq[Seq[Segment]],
-      eow: Seq[EndOfWorld],
-      obsH: IndexedSeq[CNode],
-      obsV: IndexedSeq[CNode],
-      obstacles: Obstacles,
-      ports: PortLayout,
-  ):
-    import drawings.util.mutable
+  private trait Common:
+    val obstacles: Obstacles
+    val segments: IndexedSeq[Segment]
+    val allNodes: IndexedSeq[NodeData[CNode]]
+    val eow: IndexedSeq[EndOfWorld]
+    val obs: Seq[CNode]
+    val isHorizontal: Boolean
+    lazy val obsOffset = segments.size + eow.size
 
-    assert(obsH.length == obsV.length, "there should be as many horizontal obstacles as vertical ones")
+    def dimensions(node: CNode, horizontal: Boolean) = (horizontal, node) match
+      case _ -> EndOfWorld(_, _)                                      => Double.NegativeInfinity -> Double.PositiveInfinity
+      case true -> BeginObstacle(obsId, _)                            => obstacles(obsId).bottom -> obstacles(obsId).top
+      case false -> BeginObstacle(obsId, _)                           => obstacles(obsId).left   -> obstacles(obsId).right
+      case true -> EndObstacle(obsId, _)                              => obstacles(obsId).bottom -> obstacles(obsId).top
+      case false -> EndObstacle(obsId, _)                             => obstacles(obsId).left   -> obstacles(obsId).right
+      case _ -> (s: Segment) if horizontal != s.info.dir.isHorizontal => s.info.min              -> s.info.max
+      case _                                                          => sys.error(s"querying ${if horizontal then "vertical" else "horizontal"} dimensions for $node")
 
-    val pathOffsets = segments.scanLeft(0)(_ + _.length).init
-    val allNodes    = NodeData.mkNodes(segments.flatten ++ eow ++ obsH ++ obsV, startIndex = 0)
-    val obsOffset   = segments.map(_.size).sum + eow.size
-    val segsOffset  = 0
-
-    def dimensions(node: CNode, direction: Direction) = (direction.isHorizontal, node) match
-      case _ -> EndOfWorld(_, _)            => Double.NegativeInfinity -> Double.PositiveInfinity
-      case true -> BeginObstacle(obsId, _)  => obstacles(obsId).bottom -> obstacles(obsId).top
-      case false -> BeginObstacle(obsId, _) => obstacles(obsId).left   -> obstacles(obsId).right
-      case true -> EndObstacle(obsId, _)    => obstacles(obsId).bottom -> obstacles(obsId).top
-      case false -> EndObstacle(obsId, _)   => obstacles(obsId).left   -> obstacles(obsId).right
-      case isHorizontal -> (s: Segment)     =>
-        if isHorizontal == s.info.dir.isHorizontal then
-          // s.info.norm -> s.info.norm
-          sys.error(s"querying ${if isHorizontal then "vertical" else "horizontal"} dimensions for $s")
-        else
-          s.info.fixedDimensions match
-            case None             => s.info.group.min -> s.info.group.max
-            case Some((min, max)) => min              -> max
-
-    def onlyH(node: NodeData[CNode]) =
-      // reject horizontal parts of obstacles
-      if node.id.toInt >= obsOffset + obsH.size && node.id.toInt < obsOffset + obsH.size + obsV.size then false
-      else
-        node.data match
-          case EndOfWorld(dir, _)                => dir.isHorizontal
-          case _: BeginObstacle | _: EndObstacle => true
-          case s: Segment                        => s.info.dir.isVertical
-
-    def onlyV(node: NodeData[CNode]) =
-      if node.id.toInt >= obsOffset && node.id.toInt < obsOffset + obsH.size then false
-      else
-        node.data match
-          case EndOfWorld(dir, _)                => dir.isVertical
-          case _: BeginObstacle | _: EndObstacle => true
-          case s: Segment                        => s.info.dir.isHorizontal
-
-    def mkQueue(nodes: Seq[NodeData[CNode]]) =
-      import scala.collection.mutable
-      if nodes.length < 2 then IndexedSeq.from(nodes)
-      else
-        val buf    = mutable.ArrayBuffer.from(nodes.sortBy(_.data.at))
-        var (i, j) = (buf.length - 1, buf.length - 2)
-        var inv    = i * j
-        while i > 0 do
-          while j >= 0 && buf(i).data.at == buf(j).data.at do
-            assert(inv >= 0, "Too many inversions. The constraint graph probably has cycles.")
-            if CNode.lt(buf(i).data, buf(j).data) then
-              val tmp = buf(i)
-              buf(i) = buf(j)
-              buf(j) = tmp
-              j = i - 1
-            else j -= 1
-            inv -= 1
-          end while
-          i -= 1
-          j = i - 1
-        end while
-        buf.toIndexedSeq
-
-    def mkSepEdges(queue: Seq[NodeData[CNode]], dir: Direction) =
+    def mkSepEdges(queue: Seq[NodeData[CNode]], horizontal: Boolean) =
       val iTree = mutable.LinearIntervalTree.empty()
       (queue flatMap { next =>
         val (isBO, isEO) = next.data match
           case _: EndOfWorld | _: Segment => false -> false
           case _: BeginObstacle           => true  -> false
           case _: EndObstacle             => false -> true
-        val (low, high)  = dimensions(next.data, dir)
+        val (low, high)  = dimensions(next.data, horizontal)
 
         val edges = if isEO then Nil else iTree.overlaps(low, high).map(ol => SimpleEdge(next.id, NodeIndex(ol)))
         if !isBO then
@@ -255,175 +188,204 @@ object GeoNudging:
         edges
       }).toSet
 
-    def mkMonotonyEdges(dir: Direction) = for
-      (path, i)              <- segments.zipWithIndex
-      if path.size > 3
-      Seq((a, j), _, (b, _)) <- path.zipWithIndex.sliding(3)
-      if a.info.dir.isVertical == dir.isHorizontal
-    yield
-      assert(a.info.dir.isVertical == b.info.dir.isVertical, s"malformed path: $path")
-      val (ai, bi) = (segsOffset + pathOffsets(i) + j, segsOffset + pathOffsets(i) + j + 2)
-      if a.at < b.at then SimpleEdge(NodeIndex(bi), NodeIndex(ai))
-      else SimpleEdge(NodeIndex(ai), NodeIndex(bi))
-
-    def mkHEdges(queue: Seq[NodeData[CNode]]) =
-      println(queue.map(x => s"DEBUG: ${x.id} (@${x.data.at}): ${x.data.getClass.getSimpleName}").mkString("\n"))
+    def mkEdges(queue: Seq[NodeData[CNode]]) =
       val obsPseudoEdges =
-        for i <- obsOffset until (obsOffset + obsH.size) by 2
+        for i <- obsOffset until (obsOffset + obs.size) by 2
         yield SimpleEdge(NodeIndex(i + 1), NodeIndex(i))
-      mkSepEdges(queue, Direction.East) ++ obsPseudoEdges ++ mkMonotonyEdges(Direction.East)
+      mkSepEdges(queue, isHorizontal) ++ obsPseudoEdges ++ mkMonotonyEdges(allNodes.slice(0, segments.size))
 
-    def mkVEdges(queue: Seq[NodeData[CNode]]) =
-      println(queue.map(x => s"DEBUG: ${x.id} (@${x.data.at}): ${x.data.getClass.getSimpleName}").mkString("\n"))
-      val obsPseudoEdges =
-        for i <- (obsOffset + obsH.size) until (obsOffset + obsH.size + obsV.size) by 2
-        yield SimpleEdge(NodeIndex(i + 1), NodeIndex(i))
-      mkSepEdges(queue, Direction.North) ++ obsPseudoEdges ++ mkMonotonyEdges(Direction.North)
-
-    def split(g: SimpleGraph) =
-      import scala.collection.mutable
-
-      val visited = mutable.BitSet.empty
-
-      def neighbors(id: NodeIndex) =
-        if isBorderNode(allNodes(id.toInt)) then Nil else g(id).neighbors.map(_.toNode).filter(i => !visited(i.toInt))
-
-      (for
-        node      <- allNodes
-        if isBorderNode(node) // && node.id.toInt < g.vertices.length // isolated nodes have possibly been dropped
-        candidate <- g(node.id).neighbors.map(_.toNode)
-        if !visited(candidate.toInt)
-      yield
-        val nodes = GraphSearch.bfs.traverse(neighbors, candidate)
-        visited ++= nodes.filter(i => !isBorderNode(allNodes(i.toInt))).map(_.toInt)
-        if nodes.size < 2 then BitSet.empty else BitSet(nodes.map(_.toInt): _*)
-      )
-        .filter(_.nonEmpty)
-    end split
-
-    def mkConstraintsForComponent(g: DiGraph, cmp: BitSet, margin: CTerm) = for
-      highNodeId <- cmp.map(NodeIndex(_)).toSeq
-      lowNodeId  <- g(highNodeId).neighbors
-      highNode    = allNodes(highNodeId.toInt)
-      lowNode     = allNodes(lowNodeId.toInt)
-      if cmp(lowNodeId.toInt) && !(isBorderNode(lowNode) && isBorderNode(highNode))
-    yield lowNode.data.pos + margin <= highNode.data.pos
-
-    def partiallySolvedH(sols: ORTools.LPResult) =
-      import Constraint.builder.*, Segment.*
-
-      @tailrec def go(queue: List[Segment], start: Double, updated: List[Segment]): Seq[Segment] = queue match
-        case Nil          => updated.reverse
-        case head :: next =>
-          (head, head.info.dir.isHorizontal) match
-            case (res: FixedSegment, false)              => go(next, start, res :: updated)
-            case (FloatingSegment(at, pos, info), false) =>
-              val fixed = sols(pos)
-              go(next, start, FloatingSegment(fixed, mkConst(fixed), info) :: updated)
-            case (seg, true)                             =>
-              val end = sols(seg.info.endsAt)
-              val res = updateInfo(seg, seg.info.copy(endsAt = mkConst(end), fixedDimensions = Some(start -> end)))
-              go(next, end, res :: updated)
-
-      val fixedSegs = segments.zipWithIndex.map((path, i) => go(path.toList, ports(i).uTerm.x1, Nil))
-      CGraph(segments, eow, obsH, obsV, obstacles, ports)
-
-    lazy val hGraph: DiGraph =
-      val digraph = Graph.fromEdges(mkHEdges(mkQueue(allNodes.filter(onlyH))).toSeq, allNodes.size).mkDiGraph
+    lazy val graph: DiGraph =
+      val digraph = Graph.fromEdges(mkEdges(mkQueue(allNodes)).toSeq, allNodes.size).mkDiGraph
       TransitiveReduction(digraph)
 
-    lazy val vGraph: DiGraph =
-      val digraph = Graph.fromEdges(mkVEdges(mkQueue(allNodes.filter(onlyV))).toSeq, allNodes.size).mkDiGraph
-      TransitiveReduction(digraph)
-
-    def borderConstraintsH =
-      val (min, max) = (obsH.minBy(_.at), obsH.maxBy(_.at))
+    def borderConstraints =
+      val (min, max) = (obs.minBy(_.at), obs.maxBy(_.at))
       List(eow(0).pos <= min.pos, eow(1).pos >= max.pos)
 
-    def borderConstraintsV =
-      val (min, max) = (obsV.minBy(_.at), obsV.maxBy(_.at))
-      List(eow(2).pos <= min.pos, eow(3).pos >= max.pos)
+    def mkConstraints: State[(Int, Int), (Seq[Constraint], CTerm)] = split(graph.undirected, allNodes).toList
+      .map(cmp => mkConstraintsForComponent(graph, cmp, allNodes, isHorizontal))
+      .sequence
+      .map(in =>
+        val (res, obj) = in.unzip
+        (res.flatten ++ borderConstraints, 0.5 * (eow(0).pos + eow(1).pos.negated) + obj.reduce(_ + _)),
+      )
+  end Common
 
-    def mkHConstraints(marginVarIdx: Int): (Seq[Constraint], Int) =
-      val (res, varIds) = (for
-        (cmp, i) <- split(hGraph.undirected).zipWithIndex
-        res      <- mkConstraintsForComponent(hGraph, cmp, Constraint.builder.mkVar(marginVarIdx + i))
-      yield res -> (marginVarIdx + i)).unzip
-      (res ++ borderConstraintsH) -> (varIds.last + 1)
+  private def mkMonotonyEdges(segments: Seq[NodeData[CNode]]): Seq[SimpleEdge] =
+    def check(a: NodeData[CNode], b: NodeData[CNode]) = Some(a -> b).collect {
+      case (NodeData(i, a: FloatingSegment), NodeData(j, b: Segment))
+          if a.info.pathId == b.info.pathId && a.at != b.at =>
+        NodeData(i, a) -> NodeData(j, b)
+      case (NodeData(i, a: Segment), NodeData(j, b: FloatingSegment))
+          if a.info.pathId == b.info.pathId && a.at != b.at =>
+        NodeData(i, a) -> NodeData(j, b)
+    }
+    if segments.size < 2 then Seq.empty
+    else
+      (for
+        Seq(a_, b_) <- segments.sliding(2)
+        (a, b)      <- check(a_, b_)
+      yield if a.data.at < b.data.at then SimpleEdge(b.id, a.id) else SimpleEdge(a.id, b.id)).toSeq
 
-    def mkVConstraints(marginVarIdx: Int): (Seq[Constraint], Int) =
-      val (res, varIds) = (for
-        (cmp, i) <- split(vGraph.undirected).zipWithIndex
-        res      <- mkConstraintsForComponent(vGraph, cmp, Constraint.builder.mkVar(marginVarIdx + i))
-      yield res -> (marginVarIdx + i)).unzip
-      (res ++ borderConstraintsV) -> (varIds.last + 1)
+  private class HGraph(
+      allSegs: IndexedSeq[Seq[Segment]],
+      override val eow: IndexedSeq[EndOfWorld],
+      override val obstacles: Obstacles,
+  ) extends Common:
+    override val isHorizontal: Boolean = true
+    override val segments              = allSegs.flatMap(_.filter(_.info.dir.isVertical))
+    override val obs                   =
+      obstacles.nodes.zipWithIndex.flatMap((o, i) => List(BeginObstacle(i, o.left), EndObstacle(i, o.right)))
+    override val allNodes              = NodeData.mkNodes(segments ++ eow ++ obs, startIndex = 0)
+  end HGraph
 
-    def mkRoutes(solve: ORTools.LPResult) =
-      import EdgeRoute.OrthoSeg
+  private class VGraph(
+      allSegs: IndexedSeq[Seq[Segment]],
+      solved: LPResult, // solved horizontal constraints
+      override val eow: IndexedSeq[EndOfWorld],
+      override val obstacles: Obstacles,
+      ports: PortLayout,
+  ) extends Common:
+    import Constraint.builder.*
 
-      @tailrec def go(res: List[OrthoSeg], pos: Vec2D, queue: List[Segment]): List[OrthoSeg] = queue match
+    override val isHorizontal: Boolean = false
+
+    override val segments =
+      @tailrec def go(queue: List[Segment], start: Double, res: List[Segment]): Seq[Segment] = queue match
         case Nil          => res.reverse
         case head :: next =>
-          val to = solve(head.info.endsAt)
-          if head.info.dir.isHorizontal then go(OrthoSeg.HSeg(to - pos.x1) :: res, pos.copy(x1 = to), next)
-          else go(OrthoSeg.VSeg(to - pos.x2) :: res, pos.copy(x2 = to), next)
+          if head.info.dir.isVertical then go(next, start, res)
+          else
+            val end = solved(head.info.endsAt)
+            val s   = updateInfo(head, head.info.copy(endsAt = mkConst(end), min = start min end, max = start max end))
+            go(next, end, s :: res)
+      allSegs.zipWithIndex.flatMap((path, i) => go(path.toList, ports(i).uTerm.x1, Nil))
 
-      for (terms, path) <- ports.byEdge zip segments yield EdgeRoute(terms, go(Nil, terms.uTerm, path.toList))
-    end mkRoutes
-  end CGraph
+    override val obs      =
+      obstacles.nodes.zipWithIndex.flatMap((o, i) => List(BeginObstacle(i, o.bottom), EndObstacle(i, o.top)))
+    override val allNodes = NodeData.mkNodes(segments ++ eow ++ obs, startIndex = 0)
+  end VGraph
+
+  private def mkQueue(nodes: Seq[NodeData[CNode]]) =
+    import scala.collection.mutable
+    if nodes.length < 2 then IndexedSeq.from(nodes)
+    else
+      val buf    = mutable.ArrayBuffer.from(nodes.sortBy(_.data.at))
+      var (i, j) = (buf.length - 1, buf.length - 2)
+      var inv    = i * j
+      while i > 0 do
+        while j >= 0 && buf(i).data.at == buf(j).data.at do
+          assert(inv >= 0, "Too many inversions. The constraint graph probably has cycles.")
+          if CNode.lt(buf(i).data, buf(j).data) then
+            val tmp = buf(i)
+            buf(i) = buf(j)
+            buf(j) = tmp
+            j = i - 1
+          else j -= 1
+          inv -= 1
+        end while
+        i -= 1
+        j = i - 1
+      end while
+      buf.toIndexedSeq
+  end mkQueue
 
   private def isBorderNode(node: NodeData[CNode] | CNode): Boolean = node.data match
     case _: Segment.FloatingSegment => false
     case _                          => true
 
-  private def marginObj(from: Int, to: Int) =
-    if to <= from then Constraint.builder.mkConst(0)
-    else (from until to).map(Constraint.builder.mkVar).reduce(_ + _)
+  private def split(g: SimpleGraph, allNodes: IndexedSeq[NodeData[CNode]]) =
+    import scala.collection.mutable
+
+    val visited = mutable.BitSet.empty
+
+    def neighbors(id: NodeIndex) =
+      if isBorderNode(allNodes(id.toInt)) then Nil else g(id).neighbors.map(_.toNode).filter(i => !visited(i.toInt))
+
+    (for
+      node      <- allNodes
+      if isBorderNode(node) // && node.id.toInt < g.vertices.length // isolated nodes have possibly been dropped
+      candidate <- g(node.id).neighbors.map(_.toNode)
+      if !visited(candidate.toInt)
+    yield
+      val nodes = GraphSearch.bfs.traverse(neighbors, candidate)
+      visited ++= nodes.filter(i => !isBorderNode(allNodes(i.toInt))).map(_.toInt)
+      if nodes.size < 2 then BitSet.empty else BitSet(nodes.map(_.toInt)*)
+    )
+      .filter(_.nonEmpty)
+  end split
+
+  private def mkConstraintsForComponent(
+      g: DiGraph,
+      cmp: BitSet,
+      allNodes: IndexedSeq[NodeData[CNode]],
+      isH: Boolean,
+  ): State[(Int, Int), (Seq[Constraint], CTerm)] =
+    import Constraint.builder.*
+    for
+      (xv, yv) <- State.get[(Int, Int)]
+      s        <- State.set(if isH then (xv + 1, yv) else (xv, yv + 1)).flatMap(_ => State.get)
+    yield
+      val margin      = if isH then mkVar(xv) else mkVar(yv)
+      val constraints = for
+        highNodeId <- cmp.map(NodeIndex(_)).toSeq
+        lowNodeId  <- g(highNodeId).neighbors
+        highNode    = allNodes(highNodeId.toInt)
+        lowNode     = allNodes(lowNodeId.toInt)
+        if cmp(lowNodeId.toInt) && !(isBorderNode(lowNode) && isBorderNode(highNode))
+      yield lowNode.data.pos + margin <= highNode.data.pos
+      constraints -> (if constraints.isEmpty then mkConst(0) else margin)
 
   private def maximize(cs: Seq[Constraint], obj: CTerm) =
-    ORTools.solve(ORTools.LPInstance(cs, obj, maximize = true)).fold(sys.error, identity)
+    ORTools.solve(LPInstance(cs, obj, maximize = true)).fold(sys.error, identity)
+
+  def mkRoutes(xSols: LPResult, ySols: LPResult, segments: IndexedSeq[Seq[Segment]], ports: PortLayout) =
+    import EdgeRoute.OrthoSeg
+
+    @tailrec def go(res: List[OrthoSeg], pos: Vec2D, queue: List[Segment]): List[OrthoSeg] = queue match
+      case Nil          => res.reverse
+      case head :: next =>
+        val to = if head.info.dir.isHorizontal then xSols(head.info.endsAt) else ySols(head.info.endsAt)
+        if head.info.dir.isHorizontal then go(OrthoSeg.HSeg(to - pos.x1) :: res, pos.copy(x1 = to), next)
+        else go(OrthoSeg.VSeg(to - pos.x2) :: res, pos.copy(x2 = to), next)
+
+    for (terms, path) <- ports.byEdge zip segments yield EdgeRoute(terms, go(Nil, terms.uTerm, path.toList))
+  end mkRoutes
 
   def calcEdgeRoutes(
       routing: RoutingGraph & PathOrder,
       paths: IndexedSeq[Path],
       ports: PortLayout,
       obstacles: Obstacles,
-  ) =
+  ): IndexedSeq[EdgeRoute] =
     import Constraint.builder.*, Direction.*, Debugging.dbg
 
     for (p, i) <- paths.zipWithIndex do dbg(s"path #$i: " + p.nodes.mkString("[", ", ", "]"))
 
-    val (segs, afterSegs) = Segment.mkAll(paths, routing, ports, startIdx = 0)
-    val eow               = List(
-      EndOfWorld(West, mkVar(afterSegs)),
-      EndOfWorld(East, mkVar(afterSegs + 1)),
-      EndOfWorld(South, mkVar(afterSegs + 2)),
-      EndOfWorld(North, mkVar(afterSegs + 3)),
-    )
-    val afterEow          = afterSegs + 4
+    val mkEowH: State[(Int, Int), IndexedSeq[EndOfWorld]] =
+      State((xv, yv) => (xv + 2, yv) -> Vector(EndOfWorld(West, mkVar(xv)), EndOfWorld(East, mkVar(xv + 1))))
+    val mkEowV: State[(Int, Int), IndexedSeq[EndOfWorld]] =
+      State((xv, yv) => (xv, yv + 2) -> Vector(EndOfWorld(South, mkVar(yv)), EndOfWorld(North, mkVar(yv + 1))))
 
-    segs.flatMap(identity).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_))
-
-    val obsH = obstacles.nodes.zipWithIndex.flatMap((o, i) => List(BeginObstacle(i, o.left), EndObstacle(i, o.right)))
-    val obsV = obstacles.nodes.zipWithIndex.flatMap((o, i) => List(BeginObstacle(i, o.bottom), EndObstacle(i, o.top)))
-
-    val cGraph = CGraph(segs, eow, obsH, obsV, obstacles, ports)
-
-    val (hcs, afterHcs) = cGraph.mkHConstraints(afterEow)
-    val hObj            = 0.5 * (mkVar(afterSegs) + mkVar(afterSegs + 1).negated) + marginObj(afterEow, afterHcs)
-    val hSol            = maximize(hcs, hObj)
-
-    val hSolved = cGraph.partiallySolvedH(hSol)
-
-    val (vcs, afterVcs) = hSolved.mkVConstraints(afterHcs)
-    val vObj            = 0.5 * (mkVar(afterSegs + 2) + mkVar(afterSegs + 3).negated) + marginObj(afterHcs, afterVcs)
-    val sol             = maximize(vcs ++ hcs, vObj + hObj)
-
-    println(s"DEBUG: #vars: ${sol.solutions.size} #constraints: ${vcs.size + hcs.size}")
-
-    debugUnderperformer(sol.solutions.slice(afterEow, sol.solutions.size))
-
-    hSolved.mkRoutes(sol)
+    (for
+      allSegs     <- Segment.mkAll(paths, routing, ports)
+      _ = allSegs.flatten.zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_)) // DEBUG
+      eowH        <- mkEowH
+      hGraph       = HGraph(allSegs, eowH, obstacles)
+      (hcs, hObj) <- hGraph.mkConstraints
+      hSol         = maximize(hcs, hObj)
+      dbghsol      = hSol.solutions.map("%+10.6f".format(_)).mkString("[", ", ", "]")
+      eowV        <- mkEowV
+      vGraph       = VGraph(allSegs, hSol, eowV, obstacles, ports)
+      (vcs, vObj) <- vGraph.mkConstraints
+      vSol         = maximize(vcs, vObj)
+      _            = {
+        println(s"DEBUG: #vars: ${vSol.solutions.size + hSol.solutions.size} #constraints: ${vcs.size + hcs.size}")
+        println(s"TRACE: h-solved $dbghsol")
+        println(s"TRACE: v-solved ${vSol.solutions.map("%+10.6f".format(_)).mkString("[", ", ", "]")}")
+        // debugUnderperformer(sol.solutions.slice(afterEow, sol.solutions.size)),
+      }
+    yield mkRoutes(hSol, vSol, allSegs, ports)).runA(0 -> 0)
   end calcEdgeRoutes
 
   /* we count values as underperformer if they are smaller than 0.5 * median */

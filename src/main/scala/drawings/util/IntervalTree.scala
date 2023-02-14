@@ -1,7 +1,7 @@
 package drawings.util.mutable
 
-import scala.jdk.CollectionConverters._
-import scala.jdk.StreamConverters._
+import scala.jdk.CollectionConverters.*
+import scala.jdk.StreamConverters.*
 import scala.annotation.targetName
 import scala.collection.mutable.ArrayBuffer
 

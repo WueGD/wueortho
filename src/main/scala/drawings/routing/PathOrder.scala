@@ -21,8 +21,8 @@ object PathOrder:
      * v1.east is sorted before v1.north
      */
     def mkLt(v1: NodeIndex, v2: NodeIndex)(pathIdA: Int, pathIdB: Int): Boolean =
-      val startDir         = rg.connection(v2, v1).getOrElse(sys.error(s"graph disconnected between $v1 and $v2"))
-      def isSorted(i: Int) = if startDir == West then i < v1.toInt else i <= v1.toInt
+      val startDir = rg.connection(v2, v1).getOrElse(sys.error(s"graph disconnected between $v1 and $v2"))
+      val isSorted = if startDir == West then (i: Int) => i < v1.toInt else (i: Int) => i <= v1.toInt
 
       val (pa, pb)             = (paths(pathIdA).nodes, paths(pathIdB).nodes)
       val (i1a, i1b, i2a, i2b) = (pa.indexOf(v1), pb.indexOf(v1), pa.indexOf(v2), pb.indexOf(v2))
@@ -31,7 +31,7 @@ object PathOrder:
       assert((da == 1 || da == -1) && (db == 1 || db == -1), s"not an edge #$v1--#$v2 on paths $pa and $pb")
 
       def go(a: Int, b: Int, dir: Direction): Boolean =
-        // - a/b terminate in the same vertex: violates T1
+        // - a/b terminate in the same vertex -> violates T1
         assert(da > 0 && a > 0 || da < 0 && a < pa.size - 1, s"T1 violation: a=$a in $pa and $pb (starting $v1--$v2)")
         assert(db > 0 && b > 0 || db < 0 && b < pb.size - 1, s"T1 violation: b=$b in $pa and $pb (starting $v1--$v2)")
 

@@ -11,5 +11,5 @@ object NodeIndex:
   extension (i: NodeIndex)
     inline def toInt: Int = i
 
-    def to(j: NodeIndex | Int): IndexedSeq[NodeIndex]    = Range.inclusive(i, j).map(NodeIndex(_))
-    def until(j: NodeIndex | Int): IndexedSeq[NodeIndex] = Range(i, j).map(NodeIndex(_))
+    infix def to(j: NodeIndex | Int): IndexedSeq[NodeIndex]    = Range.inclusive(i, j).map(NodeIndex(_))
+    infix def until(j: NodeIndex | Int): IndexedSeq[NodeIndex] = Range(i, j).map(NodeIndex(_))

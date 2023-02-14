@@ -12,14 +12,14 @@ import drawings.io.Svg
 import drawings.layout.ForceDirected
 import drawings.util.GraphSearch.*
 import drawings.util.DifferenceConstraints.DifferenceConstraint
-import drawings.util.Debugging._
+import drawings.util.Debugging.*
 import drawings.util.GraphConversions.all.*
 import drawings.ports.PortHeuristic
 
 import drawings.util.DifferenceConstraints
 val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 
-@main def runRandomized = GraphDrawing.runRandomSample(n = 30, m = 60, seed = 0x99c0ffee)
+@main def runRandomized = GraphDrawing.runRandomSample(n = 20, m = 60, seed = 0x99c0ffee)
 
 @main def runIntervalTree =
   import drawings.util.mutable
@@ -32,7 +32,7 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 
   // println("=============== BREIN TREE ^^^ | vvv LINEAR TREE ===============")
 
-  val uut2 = mutable.LinearIntervalTree(intervals: _*)
+  val uut2 = mutable.LinearIntervalTree(intervals*)
   mutable.LinearIntervalTree.debugPrintAll(uut2)
   println(uut2.overlaps(0.3, 0.8).mkString("overlaps: [", ", ", "]"))
   uut2.cutout(0.3, 0.8)

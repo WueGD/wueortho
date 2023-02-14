@@ -1,6 +1,6 @@
 package drawings.util
 
-import drawings.data._
+import drawings.data.*
 import scala.collection.mutable
 
 object MinimumSpanningTree:

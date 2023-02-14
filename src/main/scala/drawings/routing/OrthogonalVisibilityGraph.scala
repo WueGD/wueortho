@@ -108,8 +108,8 @@ object OrthogonalVisibilityGraph:
 
     case class State[S <: HSegment | VSegment](posHP: Set[Double], negHP: Set[Double], segments: List[S])
 
-    def nextNHP(s: State[_], start: Double) = s.negHP.filter(_ >= start).minOption.getOrElse(Double.PositiveInfinity)
-    def nextPHP(s: State[_], start: Double) = s.posHP.filter(_ <= start).maxOption.getOrElse(Double.NegativeInfinity)
+    def nextNHP(s: State[?], start: Double) = s.negHP.filter(_ >= start).minOption.getOrElse(Double.PositiveInfinity)
+    def nextPHP(s: State[?], start: Double) = s.posHP.filter(_ <= start).maxOption.getOrElse(Double.NegativeInfinity)
 
     val hSegs =
       val queue = (nodes.zipWithIndex.flatMap((rect, i) => List(Start(rect.bottom, rect, i), End(rect.top, rect, i)))
