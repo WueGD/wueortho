@@ -2,7 +2,7 @@ package drawings.routing
 
 import drawings.data.*
 import drawings.util.GraphSearch.*
-import drawings.data.EdgeRoute.OrthoSeg
+import drawings.data.EdgeRoute.OrthoSeg, OrthoSeg.*
 import scala.annotation.nowarn
 
 object Routing:
@@ -42,12 +42,11 @@ object Routing:
     // println(order.zipWithIndex.map((n, i) => s"$i: $n").mkString("\n"))
 
     val edgeRoutes =
-      for (path, terminals) <- paths zip ports.byEdge yield pathToOrthoSegs(terminals, path, routing).normalized
+      for (path, terminals) <- paths zip ports.byEdge yield refineRoute(pathToOrthoSegs(terminals, path, routing))
 
     (edgeRoutes, paths, orderedRG)
 
   private def pathToOrthoSegs(terminals: EdgeTerminals, path: Path, routing: RoutingGraph) =
-    import drawings.data.EdgeRoute.OrthoSeg.*
     assert(
       routing.locate(path.nodes.head) == terminals.uTerm,
       s"1st terminal @ ${terminals.uTerm} does not match path.head ${path.nodes.head.toInt} @ ${routing.locate(path.nodes.head)}",
@@ -62,6 +61,34 @@ object Routing:
       else if uPos.x2 == vPos.x2 then HSeg(vPos.x1 - uPos.x1)
       else sys.error(s"grid graph not orthogonal at $uPos -- $vPos")
     EdgeRoute(terminals, route.toSeq)
+
+  def removeEyes(paths: IndexedSeq[Path]): IndexedSeq[Path] =
+    def intersect(pa: Path, pb: Path) =
+      for
+        (a, i) <- pa.nodes.zipWithIndex
+        (b, j) <- pb.nodes.zipWithIndex
+        if a == b
+      yield i -> j
+
+    val pathBuf = mutable.ArrayBuffer.from(paths)
+
+    for
+      i <- 0 until pathBuf.length
+      j <- (i + 1) until pathBuf.length
+    do
+      val isecs = intersect(pathBuf(i), pathBuf(j)).toList
+      if isecs.length > 1 then
+        val (a, b)               = (pathBuf(i).nodes, pathBuf(j).nodes)
+        val ((a0, b0), (a1, b1)) = (isecs.head, isecs.last)
+
+        // we mutilate b
+        val patch = a.drop(a0 + 1).take(a1 - a0)
+        pathBuf(j) =
+          if b0 < b1 then Path(b.take(b0 + 1) ++ patch ++ b.drop(b1 + 1))
+          else Path(b.take(b1) ++ patch.reverse ++ b.drop(b0))
+
+    pathBuf.toIndexedSeq
+  end removeEyes
 
   def refineRoute(r: EdgeRoute) =
     import Direction.*, OrthoSeg.*
@@ -87,32 +114,19 @@ object Routing:
         }
 
     EdgeRoute(r.terminals, compact)
+  end refineRoute
 
-  def removeEyes(paths: IndexedSeq[Path]): IndexedSeq[Path] =
-    def intersect(pa: Path, pb: Path) =
-      for
-        (a, i) <- pa.nodes.zipWithIndex
-        (b, j) <- pb.nodes.zipWithIndex
-        if a == b
-      yield i -> j
-
-    import scala.collection.mutable
-
-    val pathBuf = mutable.ArrayBuffer.from(paths)
-
-    for
-      i <- 0 until pathBuf.length
-      j <- (i + 1) until pathBuf.length
-    do
-      val isecs = intersect(pathBuf(i), pathBuf(j)).toList
-      if isecs.length > 1 then
-        val (a, b)               = (pathBuf(i).nodes, pathBuf(j).nodes)
-        val ((a0, b0), (a1, b1)) = (isecs.head, isecs.last)
-
-        // we mutilate b
-        val patch = a.drop(a0 + 1).take(a1 - a0)
-        pathBuf(j) =
-          if b0 < b1 then Path(b.take(b0 + 1) ++ patch ++ b.drop(b1 + 1))
-          else Path(b.take(b1) ++ patch.reverse ++ b.drop(b0))
-
-    pathBuf.toIndexedSeq
+  def removeInnerZeroSegs(edgeRoute: EdgeRoute) =
+    val r = edgeRoute.route
+    @nowarn("name=PatternMatchExhaustivity")
+    val res =
+      if r.size < 3 then r
+      else
+        r.head :: r.sliding(3).foldRight(r.last :: Nil) { case (Seq(a, b, _), c :: tail) =>
+          if b.len < EPS then
+            c match
+              case HSeg(dx) => HSeg(dx + a.len) :: tail
+              case VSeg(dy) => VSeg(dy + a.len) :: tail
+          else b :: c :: tail
+        }
+    edgeRoute.copy(route = res)

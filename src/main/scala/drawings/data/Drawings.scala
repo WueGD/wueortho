@@ -24,7 +24,6 @@ object Obstacles:
 
 case class EdgeRoute(terminals: EdgeTerminals, route: Seq[EdgeRoute.OrthoSeg]):
   assert(route.nonEmpty, "route must not be empty")
-  lazy val normalized = drawings.routing.Routing.refineRoute(this)
 
 object EdgeRoute:
   enum OrthoSeg:

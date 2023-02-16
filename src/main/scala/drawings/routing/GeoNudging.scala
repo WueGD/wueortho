@@ -355,7 +355,8 @@ object GeoNudging:
         if head.info.dir.isHorizontal then go(OrthoSeg.HSeg(to - pos.x1) :: res, pos.copy(x1 = to), next)
         else go(OrthoSeg.VSeg(to - pos.x2) :: res, pos.copy(x2 = to), next)
 
-    for (terms, path) <- ports.byEdge zip segments yield EdgeRoute(terms, go(Nil, terms.uTerm, path.toList))
+    for (terms, path) <- ports.byEdge zip segments
+    yield Routing.removeInnerZeroSegs(EdgeRoute(terms, go(Nil, terms.uTerm, path.toList)))
   end mkRoutes
 
   def calcEdgeRoutes(
