@@ -146,9 +146,3 @@ object NodeData:
 
   def mkNodes[T](ts: Seq[T], startIndex: Int) =
     ts.zipWithIndex.toIndexedSeq.map((t, i) => NodeData(NodeIndex(startIndex + i), t))
-
-  extension [T](node: NodeData[T] | T)(using tt: ClassTag[T])
-    @nowarn("name=PatternMatchExhaustivity") // see issue: https://github.com/lampepfl/dotty/issues/11541
-    def data: T = node match
-      case res: T               => res
-      case NodeData(_, tt(res)) => res

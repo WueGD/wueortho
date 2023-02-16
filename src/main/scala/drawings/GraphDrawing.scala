@@ -42,13 +42,9 @@ object GraphDrawing:
     val ports = PortHeuristic.makePorts(obstacles, graph)
     // val largePorts = PortHeuristic.makePorts(largeObs, AdjacencyList.fromEdgeList(graph))
 
-    val routing                     = RoutingGraph.create(obstacles, graph.edges.toIndexedSeq, ports)
-    val (bareRoutes, paths, withPO) = Routing.edgeRoutes(routing, ports)
-    val routes                      = GeoNudging.calcEdgeRoutes(withPO, paths, ports, obstacles)
-
-    val routingWithLargeObs    = RoutingGraph.create(largeObs, graph.edges.toIndexedSeq, ports)
-    val (_, pathsLO, withPOLO) = Routing.edgeRoutes(routingWithLargeObs, ports)
-    val routesWithLargeObs     = GeoNudging.calcEdgeRoutes(withPOLO, pathsLO, ports, obstacles)
+    val routingWithLargeObs         = RoutingGraph.create(largeObs, graph.edges.toIndexedSeq, ports)
+    val (bareRoutes, paths, withPO) = Routing.edgeRoutes(routingWithLargeObs, ports)
+    val routesWithLargeObs          = GeoNudging.calcEdgeRoutes(withPO, paths, ports, obstacles)
 
     val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
     val ovgRG                  = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, ports)
@@ -63,19 +59,17 @@ object GraphDrawing:
     assert(m == graph.edges.size, s"graph has $m edges but got ${graph.edges.size} edges (EWG)")
     assert(m == ports.byEdge.size, s"graph has $m edges but got ${ports.byEdge.size} pairs of terminals")
     assert(m == bareRoutes.size, s"graph has $m edges but got ${bareRoutes.size} routes (bare)")
-    assert(m == routes.size, s"graph has $m edges but got ${routes.size} routes")
 
     val rectsSvg     = svg.drawObstacles(obstacles)
     val portsSvg     = svg.drawPorts(ports)
     val portLabelSvg = svg.drawPortLabels(ports)
-    val edgesSvg     = svg.drawEdgeRoutes(routes)
     val oldEdgesSvg  = svg.drawEdgeRoutes(oldRoutes)
     val loEdgesSvg   = svg.drawEdgeRoutes(routesWithLargeObs)
     val bareEdgesSvg = svg.copy(edgeBends = Svg.EdgeBends.Straight).drawEdgeRoutes(bareRoutes)
     val nodeLabelSvg = svg.drawNodeLabels(VertexLayout(obstacles.nodes.map(_.center)))
     Files.writeString(
       Paths.get(s"res_n${n}m${m}#${seed.toHexString}.svg"),
-      svg.make(rectsSvg ++ edgesSvg ++ portsSvg ++ nodeLabelSvg ++ portLabelSvg),
+      svg.make(rectsSvg ++ loEdgesSvg ++ portsSvg ++ nodeLabelSvg ++ portLabelSvg),
     )
     Files.writeString(
       Paths.get(s"res_n${n}m${m}#${seed.toHexString}_old-routing.svg"),
@@ -84,8 +78,4 @@ object GraphDrawing:
     Files.writeString(
       Paths.get(s"res_n${n}m${m}#${seed.toHexString}_no-nudging.svg"),
       svg.make(rectsSvg ++ bareEdgesSvg ++ portsSvg ++ nodeLabelSvg ++ portLabelSvg),
-    )
-    Files.writeString(
-      Paths.get(s"res_n${n}m${m}#${seed.toHexString}_large-obstacles.svg"),
-      svg.make(rectsSvg ++ loEdgesSvg ++ portsSvg ++ nodeLabelSvg ++ portLabelSvg),
     )

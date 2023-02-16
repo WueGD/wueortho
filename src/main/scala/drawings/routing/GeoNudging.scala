@@ -26,6 +26,8 @@ object GeoNudging:
 
   given GraphConversions.UndirectStrategy = GraphConversions.UndirectStrategy.AllEdges
 
+  private type S[A] = State[(Int, Int), A]
+
   case class SegmentInfo(
       dir: Direction,
       min: Double,
@@ -95,32 +97,26 @@ object GeoNudging:
           )
         SegmentInfo(gs.dir, gs.min, gs.max, pathId, endsAt, lut)
 
-      def mkFixed2(pathId: Int, gs: SegInRG, at: Vec2D, to: Vec2D) = State.pure[(Int, Int), FixedSegment](
+      def mkFixed2(pathId: Int, gs: SegInRG, at: Vec2D, to: Vec2D): S[FixedSegment] = State.pure(
         if gs.dir.isHorizontal then FixedSegment(at.x2, mkInfo(pathId, gs, mkConst(to.x1)))
         else FixedSegment(at.x1, mkInfo(pathId, gs, mkConst(to.x2))),
       )
-
-      def mkFixed1(pathId: Int, gs: SegInRG, at: Vec2D) = State[(Int, Int), FixedSegment]((xv, yv) =>
+      def mkFixed1(pathId: Int, gs: SegInRG, at: Vec2D): S[FixedSegment]            = State((xv, yv) =>
         if gs.dir.isHorizontal then (xv, yv) -> FixedSegment(at.x2, mkInfo(pathId, gs, mkVar(xv)))
         else (xv, yv)                        -> FixedSegment(at.x1, mkInfo(pathId, gs, mkVar(yv))),
       )
-
-      def mkFloat2(pathId: Int, gs: SegInRG) = State[(Int, Int), FloatingSegment]((xv, yv) =>
+      def mkFloat2(pathId: Int, gs: SegInRG): S[FloatingSegment]                    = State((xv, yv) =>
         if gs.dir.isHorizontal then (xv, yv + 1) -> FloatingSegment(gs.norm, mkVar(yv), mkInfo(pathId, gs, mkVar(xv)))
         else (xv + 1, yv)                        -> FloatingSegment(gs.norm, mkVar(xv), mkInfo(pathId, gs, mkVar(yv))),
       )
-
-      def mkFloat1(pathId: Int, gs: SegInRG, to: Vec2D) = State[(Int, Int), FloatingSegment]((xv, yv) =>
+      def mkFloat1(pathId: Int, gs: SegInRG, to: Vec2D): S[FloatingSegment]         = State((xv, yv) =>
         if gs.dir.isHorizontal then
           (xv, yv + 1)    -> FloatingSegment(gs.norm, mkVar(yv), mkInfo(pathId, gs, mkConst(to.x1)))
         else (xv + 1, yv) -> FloatingSegment(gs.norm, mkVar(xv), mkInfo(pathId, gs, mkConst(to.x2))),
       )
 
       @tailrec @nowarn("name=PatternMatchExhaustivity")
-      def go(
-          res: List[List[State[(Int, Int), Segment]]],
-          tail: Seq[(Path, Int)],
-      ): State[(Int, Int), IndexedSeq[Seq[Segment]]] =
+      def go(res: List[List[S[Segment]]], tail: Seq[(Path, Int)]): S[IndexedSeq[Seq[Segment]]] =
         tail match
           case Nil               => res.reverse.map(_.sequence).sequence.map(_.toIndexedSeq)
           case (path, i) +: tail =>
@@ -132,7 +128,7 @@ object GeoNudging:
                 go(List(mkFixed2(i, one, v, v)) :: res, tail)
               case first :: last :: Nil        => go(List(mkFixed2(i, first, u, v), mkFixed2(i, last, v, v)) :: res, tail)
               case first +: mid :+ stl :+ last =>
-                val mids = mid.foldRight(List.empty[State[(Int, Int), Segment]])((gs, ss) => mkFloat2(i, gs) :: ss)
+                val mids = mid.foldRight(List.empty[S[Segment]])((gs, ss) => mkFloat2(i, gs) :: ss)
                 go((mkFixed1(i, first, u) :: mids ::: List(mkFloat1(i, stl, v), mkFixed2(i, last, v, v))) :: res, tail)
       end go
 
@@ -202,7 +198,7 @@ object GeoNudging:
       val (min, max) = (obs.minBy(_.at), obs.maxBy(_.at))
       List(eow(0).pos <= min.pos, eow(1).pos >= max.pos)
 
-    def mkConstraints: State[(Int, Int), (Seq[Constraint], CTerm)] = split(graph.undirected, allNodes).toList
+    def mkConstraints: S[(Seq[Constraint], CTerm)] = split(graph.undirected, allNodes).toList
       .map(cmp => mkConstraintsForComponent(graph, cmp, allNodes, isHorizontal))
       .sequence
       .map(in =>
@@ -290,7 +286,7 @@ object GeoNudging:
       buf.toIndexedSeq
   end mkQueue
 
-  private def isBorderNode(node: NodeData[CNode] | CNode): Boolean = node.data match
+  private def isBorderNode(node: CNode): Boolean = node match
     case _: Segment.FloatingSegment => false
     case _                          => true
 
@@ -300,16 +296,17 @@ object GeoNudging:
     val visited = mutable.BitSet.empty
 
     def neighbors(id: NodeIndex) =
-      if isBorderNode(allNodes(id.toInt)) then Nil else g(id).neighbors.map(_.toNode).filter(i => !visited(i.toInt))
+      if isBorderNode(allNodes(id.toInt).data) then Nil
+      else g(id).neighbors.map(_.toNode).filter(i => !visited(i.toInt))
 
     (for
       node      <- allNodes
-      if isBorderNode(node) // && node.id.toInt < g.vertices.length // isolated nodes have possibly been dropped
+      if isBorderNode(node.data) // && node.id.toInt < g.vertices.length // isolated nodes have possibly been dropped
       candidate <- g(node.id).neighbors.map(_.toNode)
       if !visited(candidate.toInt)
     yield
       val nodes = GraphSearch.bfs.traverse(neighbors, candidate)
-      visited ++= nodes.filter(i => !isBorderNode(allNodes(i.toInt))).map(_.toInt)
+      visited ++= nodes.filter(i => !isBorderNode(allNodes(i.toInt).data)).map(_.toInt)
       if nodes.size < 2 then BitSet.empty else BitSet(nodes.map(_.toInt)*)
     )
       .filter(_.nonEmpty)
@@ -320,21 +317,30 @@ object GeoNudging:
       cmp: BitSet,
       allNodes: IndexedSeq[NodeData[CNode]],
       isH: Boolean,
-  ): State[(Int, Int), (Seq[Constraint], CTerm)] =
+  ): S[(Seq[Constraint], CTerm)] =
     import Constraint.builder.*
-    for
-      (xv, yv) <- State.get[(Int, Int)]
-      s        <- State.set(if isH then (xv + 1, yv) else (xv, yv + 1)).flatMap(_ => State.get)
+
+    def isInner(a: CNode, b: CNode) = PartialFunction.cond(a -> b) {
+      case (a: Segment, b: Segment) if a.info.pathId == b.info.pathId => true
+    }
+
+    def mkConstraints(margin: CTerm) = for
+      highNodeId <- cmp.map(NodeIndex(_)).toSeq
+      lowNodeId  <- g(highNodeId).neighbors
+      highNode    = allNodes(highNodeId.toInt).data
+      lowNode     = allNodes(lowNodeId.toInt).data
+      if cmp(lowNodeId.toInt) && !(isBorderNode(lowNode) && isBorderNode(highNode))
     yield
-      val margin      = if isH then mkVar(xv) else mkVar(yv)
-      val constraints = for
-        highNodeId <- cmp.map(NodeIndex(_)).toSeq
-        lowNodeId  <- g(highNodeId).neighbors
-        highNode    = allNodes(highNodeId.toInt)
-        lowNode     = allNodes(lowNodeId.toInt)
-        if cmp(lowNodeId.toInt) && !(isBorderNode(lowNode) && isBorderNode(highNode))
-      yield lowNode.data.pos + margin <= highNode.data.pos
-      constraints -> (if constraints.isEmpty then mkConst(0) else margin)
+      if isInner(lowNode, highNode) then (lowNode.pos <= highNode.pos, false)
+      else (lowNode.pos + margin <= highNode.pos, true)
+
+    for
+      (xv, yv)  <- State.get[(Int, Int)]
+      margin     = if isH then mkVar(xv) else mkVar(yv)
+      (cs, m)    = mkConstraints(margin).unzip
+      usedMargin = m.reduce(_ || _)
+      _         <- if usedMargin then State.set(if isH then (xv + 1, yv) else (xv, yv + 1)) else State.pure(())
+    yield cs -> (if usedMargin then margin else mkConst(0))
 
   private def maximize(cs: Seq[Constraint], obj: CTerm) =
     ORTools.solve(LPInstance(cs, obj, maximize = true)).fold(sys.error, identity)
@@ -362,9 +368,9 @@ object GeoNudging:
 
     for (p, i) <- paths.zipWithIndex do dbg(s"path #$i: " + p.nodes.mkString("[", ", ", "]"))
 
-    val mkEowH: State[(Int, Int), IndexedSeq[EndOfWorld]] =
+    val mkEowH: S[IndexedSeq[EndOfWorld]] =
       State((xv, yv) => (xv + 2, yv) -> Vector(EndOfWorld(West, mkVar(xv)), EndOfWorld(East, mkVar(xv + 1))))
-    val mkEowV: State[(Int, Int), IndexedSeq[EndOfWorld]] =
+    val mkEowV: S[IndexedSeq[EndOfWorld]] =
       State((xv, yv) => (xv, yv + 2) -> Vector(EndOfWorld(South, mkVar(yv)), EndOfWorld(North, mkVar(yv + 1))))
 
     (for
