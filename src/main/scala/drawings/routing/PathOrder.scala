@@ -60,7 +60,7 @@ object PathOrder:
       go(i1a, i1b, startDir)
     end mkLt
 
-    for
+    for // init
       (path, i) <- paths.zipWithIndex
       Seq(u, v) <- path.nodes.sliding(2)
       dir       <- rg.connection(u, v).orElse(sys.error(s"path disconnected between $u and $v"))
@@ -72,18 +72,28 @@ object PathOrder:
         case West  => right(v.toInt) += i
     end for
 
-    for
+    for // sort
       u        <- NodeIndex(0) until rg.size
       (v, isH) <- rg.neighbor(u, East).map(_ -> true) ++ rg.neighbor(u, North).map(_ -> false)
     do
       val ord = Ordering.fromLessThan(mkLt(u, v))
-      if isH then right(u.toInt).sortInPlace()(ord)
-      else top(u.toInt).sortInPlace()(ord)
+      if isH then right(u.toInt).sortInPlace()(using ord)
+      else top(u.toInt).sortInPlace()(using ord)
+
+    // todo knock-knees
+
+    /*  test for knock-knees:
+     * has 4 neigbors
+     * all non-empty
+     * no straight passages
+     */
 
     new RoutingGraph with PathOrder:
+      val (t, r) = (top.map(_.toSeq), right.map(_.toSeq))
+
       export rg.*
-      override def topPaths(n: NodeIndex)   = top(n.toInt).toSeq
-      override def rightPaths(n: NodeIndex) = right(n.toInt).toSeq
+      override def topPaths(n: NodeIndex)   = t(n.toInt)
+      override def rightPaths(n: NodeIndex) = r(n.toInt)
   end apply
 
   // we sort south to north and west to east

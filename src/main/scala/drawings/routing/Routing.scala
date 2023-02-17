@@ -122,11 +122,11 @@ object Routing:
     val res =
       if r.size < 3 then r
       else
-        r.head :: r.sliding(3).foldRight(r.last :: Nil) { case (Seq(a, b, _), c :: tail) =>
-          if b.len < EPS then
-            c match
-              case HSeg(dx) => HSeg(dx + a.len) :: tail
-              case VSeg(dy) => VSeg(dy + a.len) :: tail
-          else b :: c :: tail
+        (null +: r).sliding(3).foldRight(r.last :: Nil) { case (Seq(a, b, _), c :: tail) =>
+          (a, b, c) match
+            case (_, _: HSeg, _: HSeg) | (_, _: VSeg, _: VSeg)    => c :: tail
+            case (HSeg(x1), b: OrthoSeg, HSeg(x2)) if b.len < EPS => HSeg(x1 + x2) :: tail
+            case (VSeg(y1), b: OrthoSeg, VSeg(y2)) if b.len < EPS => VSeg(y1 + y2) :: tail
+            case (_, b: OrthoSeg, _)                              => b :: c :: tail
         }
     edgeRoute.copy(route = res)

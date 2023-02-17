@@ -12,6 +12,10 @@ import java.util.Comparator
 import GeoNudging.Segment.*
 
 object GeoNudging:
+  private given GraphConversions.UndirectStrategy = GraphConversions.UndirectStrategy.AllEdges
+
+  private type S[A] = State[(Int, Int), A]
+
   sealed trait CNode:
     def at: Double
     def pos: CTerm = Constraint.builder.mkConst(at)
@@ -23,10 +27,6 @@ object GeoNudging:
 
   case class BeginObstacle(obsId: Int, override val at: Double) extends CNode
   case class EndObstacle(obsId: Int, override val at: Double)   extends CNode
-
-  given GraphConversions.UndirectStrategy = GraphConversions.UndirectStrategy.AllEdges
-
-  private type S[A] = State[(Int, Int), A]
 
   case class SegmentInfo(
       dir: Direction,
@@ -153,10 +153,10 @@ object GeoNudging:
   private trait Common:
     val obstacles: Obstacles
     val segments: IndexedSeq[Segment]
-    val allNodes: IndexedSeq[NodeData[CNode]]
     val eow: IndexedSeq[EndOfWorld]
     val obs: Seq[CNode]
     val isHorizontal: Boolean
+    val allNodes: IndexedSeq[NodeData[CNode]]
     lazy val obsOffset = segments.size + eow.size
 
     def dimensions(node: CNode, horizontal: Boolean) = (horizontal, node) match
@@ -203,7 +203,7 @@ object GeoNudging:
       .sequence
       .map(in =>
         val (res, obj) = in.unzip
-        (res.flatten ++ borderConstraints, 0.5 * (eow(0).pos + eow(1).pos.negated) + obj.reduce(_ + _)),
+        (res.flatten ++ borderConstraints, obj.size.toDouble * (eow(0).pos + eow(1).pos.negated) + obj.reduce(_ + _)),
       )
   end Common
 
@@ -301,7 +301,7 @@ object GeoNudging:
 
     (for
       node      <- allNodes
-      if isBorderNode(node.data) // && node.id.toInt < g.vertices.length // isolated nodes have possibly been dropped
+      if isBorderNode(node.data)
       candidate <- g(node.id).neighbors.map(_.toNode)
       if !visited(candidate.toInt)
     yield
@@ -355,8 +355,11 @@ object GeoNudging:
         if head.info.dir.isHorizontal then go(OrthoSeg.HSeg(to - pos.x1) :: res, pos.copy(x1 = to), next)
         else go(OrthoSeg.VSeg(to - pos.x2) :: res, pos.copy(x2 = to), next)
 
-    for (terms, path) <- ports.byEdge zip segments
-    yield Routing.removeInnerZeroSegs(EdgeRoute(terms, go(Nil, terms.uTerm, path.toList)))
+    for (terms, (path, i)) <- ports.byEdge zip segments.zipWithIndex
+    yield
+      val res = Routing.removeInnerZeroSegs(EdgeRoute(terms, go(Nil, terms.uTerm, path.toList)))
+      Debugging.dbg(s"$i: ${res.route.mkString("[", ", ", "]")}")
+      res
   end mkRoutes
 
   def calcEdgeRoutes(
@@ -381,7 +384,7 @@ object GeoNudging:
       hGraph       = HGraph(allSegs, eowH, obstacles)
       (hcs, hObj) <- hGraph.mkConstraints
       hSol         = maximize(hcs, hObj)
-      dbghsol      = hSol.solutions.map("%+10.6f".format(_)).mkString("[", ", ", "]")
+      dbghsol = hSol.solutions.map("%+10.6f".format(_)).mkString("[", ", ", "]")                // DEBUG
       eowV        <- mkEowV
       vGraph       = VGraph(allSegs, hSol, eowV, obstacles, ports)
       (vcs, vObj) <- vGraph.mkConstraints
