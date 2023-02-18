@@ -61,129 +61,102 @@ object RoutingGraph:
       node.adj(0) = left
 
   def create(obs: Obstacles, edges: IndexedSeq[SimpleEdge], ports: PortLayout) =
-    def mkHQueue =
-      val start    = QueueItem.Init((obs.nodes.map(_.left) ++ ports.toVertexLayout.nodes.map(_.x1)).min)
-      val obsItems = for
-        (rect, i) <- obs.nodes.zipWithIndex
-        res       <- List(QueueItem.Begin(rect.left, i), QueueItem.End(rect.right, i))
-      yield res
-      val midItems = for
-        (edge, i)         <- edges.zipWithIndex
-        (obs, at, dir, j) <- List(
-                               (obs(edge.from.toInt), ports(i).uTerm, ports(i).uDir, i * 2),
-                               (obs(edge.to.toInt), ports(i).vTerm, ports(i).vDir, i * 2 + 1),
-                             )
-        if dir.isVertical
-      yield QueueItem.Mid(at.x1, obs.left, dir, j)
-      (start +: obsItems ++: midItems).sorted
+    trait Builder:
+      def low(obs: Rect2D): Double
+      def high(obs: Rect2D): Double
+      def begin(obs: Rect2D): Double
+      def pos(p: Vec2D): Double
+      def isDir(dir: Direction): Boolean
+      def whenDir[R](dir: Direction)(neg: => R)(pos: => R): R
 
-    def mkVSegments(queue: Seq[QueueItem]) =
-      val activeObs = mutable.BitSet.empty
-      val buffer    = mutable.ArrayBuffer.empty[ProtoSeg]
+      def mkQueue =
+        val start    = QueueItem.Init((obs.nodes.map(low) ++ ports.toVertexLayout.nodes.map(pos)).min)
+        val obsItems = for
+          (rect, i) <- obs.nodes.zipWithIndex
+          res       <- List(QueueItem.Begin(low(rect), i), QueueItem.End(high(rect), i))
+        yield res
+        val midItems = for
+          (edge, i)         <- edges.zipWithIndex
+          (obs, at, dir, j) <- List(
+                                 (obs(edge.from.toInt), ports(i).uTerm, ports(i).uDir, i * 2),
+                                 (obs(edge.to.toInt), ports(i).vTerm, ports(i).vDir, i * 2 + 1),
+                               )
+          if !isDir(dir)
+        yield QueueItem.Mid(pos(at), low(obs), dir, j)
+        (start +: obsItems ++: midItems).sorted
+      end mkQueue
 
-      def obsBounds(j: Int) =
-        activeObs.map(obs(_).top).filter(_ < obs(j).bottom).maxOption.getOrElse(NegativeInfinity)
-          -> activeObs.map(obs(_).bottom).filter(_ > obs(j).top).minOption.getOrElse(PositiveInfinity)
+      def mkSegments(queue: Seq[QueueItem]) =
+        val activeObs = mutable.BitSet.empty
+        val buffer    = mutable.ArrayBuffer.empty[ProtoSeg]
 
-      def portBounds(dir: Direction, portId: Int) =
-        val here = ports.portCoordinate(portId).x2
-        dir match
-          case Direction.South =>
-            activeObs.map(obs(_).top).filter(_ < here).maxOption.getOrElse(NegativeInfinity) -> here
-          case Direction.North =>
-            here -> activeObs.map(obs(_).bottom).filter(_ > here).minOption.getOrElse(PositiveInfinity)
-          case _               => sys.error(s"vertical port cannot have direction $dir")
+        def obsBounds(j: Int) =
+          activeObs.map(i => high(obs(i))).filter(_ < low(obs(j))).maxOption.getOrElse(NegativeInfinity)
+            -> activeObs.map(i => low(obs(i))).filter(_ > high(obs(j))).minOption.getOrElse(PositiveInfinity)
 
-      def seekBack(until: Double, low: Double, high: Double) =
-        var i = buffer.length - 1
-        while i >= 0 && buffer(i).at > until do
-          if !buffer(i).isMid && buffer(i).isContainedIn(low, high) then buffer.remove(i)
-          i -= 1
+        def portBounds(dir: Direction, portId: Int) =
+          val here = pos(ports.portCoordinate(portId))
+          whenDir(dir)( // neg = low = south / west
+            activeObs.map(i => high(obs(i))).filter(_ < here).maxOption.getOrElse(NegativeInfinity) -> here,
+          )(            // pos = high = north / east
+            here -> activeObs.map(i => low(obs(i))).filter(_ > here).minOption.getOrElse(PositiveInfinity),
+          )
 
-      for item <- queue do
-        item match
-          case QueueItem.Init(pos)                         =>
-            buffer += ProtoSeg(pos, NegativeInfinity, PositiveInfinity, item)
-          case QueueItem.End(pos, obsId)                   =>
-            activeObs -= obsId
-            val (lb, ub) = obsBounds(obsId)
-            seekBack(obs(obsId).left, lb, ub)
-            buffer += ProtoSeg(pos, lb, ub, item)
-          case QueueItem.Mid(pos, beginOfObs, dir, portId) =>
-            val (lb, ub) = portBounds(dir, portId)
-            seekBack(beginOfObs, lb, ub)
-            buffer += ProtoSeg(pos, lb, ub, item)
-          case QueueItem.Begin(_, obsId)                   =>
-            activeObs += obsId
+        def seekBack(until: Double, low: Double, high: Double) =
+          var i = buffer.length - 1
+          while i >= 0 && buffer(i).at > until do
+            if !buffer(i).isMid && buffer(i).isContainedIn(low, high) then buffer.remove(i)
+            i -= 1
 
-      buffer.toIndexedSeq
-    end mkVSegments
+        for item <- queue do
+          item match
+            case QueueItem.Init(pos)                         =>
+              buffer += ProtoSeg(pos, NegativeInfinity, PositiveInfinity, item)
+            case QueueItem.End(pos, obsId)                   =>
+              activeObs -= obsId
+              val (lb, ub) = obsBounds(obsId)
+              seekBack(begin(obs(obsId)), lb, ub)
+              buffer += ProtoSeg(pos, lb, ub, item)
+            case QueueItem.Mid(pos, beginOfObs, dir, portId) =>
+              val (lb, ub) = portBounds(dir, portId)
+              seekBack(beginOfObs, lb, ub)
+              buffer += ProtoSeg(pos, lb, ub, item)
+            case QueueItem.Begin(_, obsId)                   =>
+              activeObs += obsId
 
-    def mkVQueue =
-      val start    = QueueItem.Init((obs.nodes.map(_.bottom) ++ ports.toVertexLayout.nodes.map(_.x2)).min)
-      val obsItems = for
-        (rect, i) <- obs.nodes.zipWithIndex
-        res       <- List(QueueItem.Begin(rect.bottom, i), QueueItem.End(rect.top, i))
-      yield res
-      val midItems = for
-        (edge, i)         <- edges.zipWithIndex
-        (obs, at, dir, j) <- List(
-                               (obs(edge.from.toInt), ports(i).uTerm, ports(i).uDir, i * 2),
-                               (obs(edge.to.toInt), ports(i).vTerm, ports(i).vDir, i * 2 + 1),
-                             )
-        if dir.isHorizontal
-      yield QueueItem.Mid(at.x2, obs.bottom, dir, j)
-      (start +: obsItems ++: midItems).sorted
-
-    def mkHSegments(queue: Seq[QueueItem]) =
-      val activeObs = mutable.BitSet.empty
-      val buffer    = mutable.ArrayBuffer.empty[ProtoSeg]
-
-      def obsBounds(j: Int) =
-        activeObs.map(obs(_).right).filter(_ < obs(j).left).maxOption.getOrElse(NegativeInfinity)
-          -> activeObs.map(obs(_).left).filter(_ > obs(j).right).minOption.getOrElse(PositiveInfinity)
-
-      def portBounds(dir: Direction, portId: Int) =
-        val here = ports.portCoordinate(portId).x1
-        dir match
-          case Direction.West =>
-            activeObs.map(obs(_).right).filter(_ < here).maxOption.getOrElse(NegativeInfinity) -> here
-          case Direction.East =>
-            here -> activeObs.map(obs(_).left).filter(_ > here).minOption.getOrElse(PositiveInfinity)
-          case _              => sys.error(s"horizontal port cannot have direction $dir")
-
-      def seekBack(until: Double, low: Double, high: Double) =
-        var i = buffer.length - 1
-        while i >= 0 && buffer(i).at > until do
-          if !buffer(i).isMid && buffer(i).isContainedIn(low, high) then buffer.remove(i)
-          i -= 1
-
-      for item <- queue do
-        item match
-          case QueueItem.Init(pos)                         =>
-            buffer += ProtoSeg(pos, NegativeInfinity, PositiveInfinity, item)
-          case QueueItem.End(pos, obsId)                   =>
-            activeObs -= obsId
-            val (lb, ub) = obsBounds(obsId)
-            seekBack(obs(obsId).bottom, lb, ub)
-            buffer += ProtoSeg(pos, lb, ub, item)
-          case QueueItem.Mid(pos, beginOfObs, dir, portId) =>
-            val (lb, ub) = portBounds(dir, portId)
-            seekBack(beginOfObs, lb, ub)
-            buffer += ProtoSeg(pos, lb, ub, item)
-          case QueueItem.Begin(_, obsId)                   =>
-            activeObs += obsId
-
-      buffer.toIndexedSeq
-    end mkHSegments
+        buffer.toIndexedSeq
+      end mkSegments
+    end Builder
 
     def intersect(h: ProtoSeg, v: ProtoSeg) =
       Option.unless(h.at < v.low || h.at > v.high || v.at < h.low || v.at > h.high)(Vec2D(v.at, h.at))
 
     // horizontal sweepline --- bottom to top
 
-    val vSegs  = mkVSegments(mkHQueue)
-    val hSegs  = mkHSegments(mkVQueue)
+    val hBuilder = new Builder:
+      override def isDir(dir: Direction): Boolean                      = dir.isHorizontal
+      override def high(obs: Rect2D): Double                           = obs.right
+      override def low(obs: Rect2D): Double                            = obs.left
+      override def pos(p: Vec2D): Double                               = p.x1
+      override def begin(obs: Rect2D): Double                          = obs.bottom
+      override def whenDir[R](dir: Direction)(neg: => R)(pos: => R): R = dir match
+        case West => neg
+        case East => pos
+        case _    => sys.error(s"horizontal port cannot have direction $dir")
+
+    val vBuilder = new Builder:
+      override def isDir(dir: Direction): Boolean                      = dir.isVertical
+      override def high(obs: Rect2D): Double                           = obs.top
+      override def low(obs: Rect2D): Double                            = obs.bottom
+      override def pos(p: Vec2D): Double                               = p.x2
+      override def begin(obs: Rect2D): Double                          = obs.left
+      override def whenDir[R](dir: Direction)(neg: => R)(pos: => R): R = dir match
+        case South => neg
+        case North => pos
+        case _     => sys.error(s"vertical port cannot have direction $dir")
+
+    val vSegs  = vBuilder.mkSegments(hBuilder.mkQueue)
+    val hSegs  = hBuilder.mkSegments(vBuilder.mkQueue)
     val offset = ports.numberOfPorts
 
     val nodes     = mutable.ArrayBuffer.fill(offset)(RGNode.empty)

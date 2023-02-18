@@ -6,9 +6,10 @@ import drawings.overlaps.Nachmanson
 import drawings.ports.PortHeuristic
 import drawings.routing.*
 import drawings.io.Svg
-import drawings.util.GraphConversions, GraphConversions.toWeighted.*
+import drawings.util.GraphConversions, GraphConversions.toWeighted.*, GraphConversions.simple.*
 import java.nio.file.Files
 import java.nio.file.Paths
+import drawings.util.Debugging, Debugging.debugOVG
 
 object GraphDrawing:
   val frConfig = ForceDirected.defaultConfig.copy(iterCap = 1000)
@@ -50,6 +51,10 @@ object GraphDrawing:
 
     val routingWithLargeObs         = RoutingGraph.create(largeObs, graph.edges.toIndexedSeq, ports)
     val (bareRoutes, paths, withPO) = Routing.edgeRoutes(routingWithLargeObs, ports)
+
+    debugOVG(obstacles, adj.unweighted, lay, ports, s"res_n${n}m${m}#${seed.toHexString}_ovg")
+    val (rgAdj, rgLay) = Debugging.rg2adj(routingWithLargeObs)
+    debugOVG(obstacles, rgAdj, rgLay, ports, s"res_n${n}m${m}#${seed.toHexString}_rg")
 
     assert(m == graph.edges.size, s"graph has $m edges but got ${graph.edges.size} edges (EWG)")
     assert(m == ports.byEdge.size, s"graph has $m edges but got ${ports.byEdge.size} pairs of terminals")
