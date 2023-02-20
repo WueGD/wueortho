@@ -124,6 +124,14 @@ object RoutingGraph:
             case QueueItem.Begin(_, obsId)                   =>
               activeObs += obsId
 
+        val byStart = obs.nodes.sortBy(begin)
+        for (seg, i) <- buffer.zipWithIndex do
+          seg.item match
+            case QueueItem.End(pos, obsId) =>
+              val next = byStart.find(r => begin(r) >= pos && seg.low <= low(r) && seg.high >= high(r)).fold(pos)(begin)
+              buffer(i) = seg.copy(at = (pos + next) / 2)
+            case _                         =>
+
         buffer.toIndexedSeq
       end mkSegments
     end Builder
