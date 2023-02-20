@@ -44,13 +44,13 @@ object Graph:
 
   private def fromEdgesUndirected[E](ex: E => (NodeIndex, NodeIndex, Double), edges: Seq[E], size: Int) =
     val $ = if size < 0 then builder() else Builder.reserve(size)
-    edges.map(ex).foldLeft($) { case ($, (from, to, w)) => $.addEdge(from, to, w) }
+    edges.map(ex).foldLeft($) { case (_, (from, to, w)) => $.addEdge(from, to, w) }
     if size >= 0 then assert($.size == size, s"node index was out of bounds [0, $size)")
     $
 
   private def fromEdgesDirected[E](ex: E => (NodeIndex, NodeIndex, Double), edges: Seq[E], size: Int) =
     val $ = if size < 0 then diBuilder() else DiBuilder.reserve(size)
-    edges.map(ex).foldLeft($) { case ($, (from, to, w)) => $.addEdge(from, to, w) }
+    edges.map(ex).foldLeft($) { case (_, (from, to, w)) => $.addEdge(from, to, w) }
     if size >= 0 then assert($.size == size, s"node index was out of bounds [0, $size)")
     $
 
@@ -137,9 +137,9 @@ object Graph:
 
 end Graph
 
-case class Path(nodes: IndexedSeq[NodeIndex])
+case class Path(nodes: IndexedSeq[NodeIndex]) derives CanEqual
 
-case class NodeData[T](id: NodeIndex, data: T)
+case class NodeData[T](id: NodeIndex, data: T) derives CanEqual
 
 object NodeData:
   given ord[T: Ordering]: Ordering[NodeData[T]] = Ordering.by(_.data)

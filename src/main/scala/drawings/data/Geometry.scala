@@ -2,7 +2,7 @@ package drawings.data
 
 import scala.annotation.targetName
 
-case class Vec2D(x1: Double, x2: Double):
+case class Vec2D(x1: Double, x2: Double) derives CanEqual:
   assert(!x1.isNaN, "x1 must not be NaN")
   assert(!x2.isNaN, "x2 must not be NaN")
   @targetName("plus") def +(o: Vec2D)  = Vec2D(x1 + o.x1, x2 + o.x2)
@@ -13,7 +13,7 @@ case class Vec2D(x1: Double, x2: Double):
 object Vec2D:
   def angle(a: Vec2D, b: Vec2D) = Math.atan2(b.x2 * a.x1 - b.x1 * a.x2, b.x1 * a.x1 + b.x2 * a.x2)
 
-case class Rect2D(center: Vec2D, span: Vec2D):
+case class Rect2D(center: Vec2D, span: Vec2D) derives CanEqual:
   assert(span.x1 >= 0 && span.x2 >= 0, s"span must be non-negative (but was: $span)")
   def left   = center.x1 - span.x1
   def right  = center.x1 + span.x1
@@ -45,7 +45,7 @@ object Rect2D:
   def boundingBoxOfRects(interior: Rect2D*) =
     Rect2D.boundingBox(interior.flatMap(r => Seq(r.center - r.span, r.center + r.span)))
 
-enum Direction:
+enum Direction derives CanEqual:
   case North, East, South, West
 
 object Direction:

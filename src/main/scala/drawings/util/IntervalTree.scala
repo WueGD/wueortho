@@ -22,7 +22,7 @@ object LinearIntervalTree:
     res ++= vals
     res
 
-  case class Interval(low: Double, high: Double, key: Int):
+  case class Interval(low: Double, high: Double, key: Int) derives CanEqual:
     def overlaps(lower: Double, upper: Double): Boolean = !(lower > high || upper < low)
     def cutout(from: Double, to: Double)                =
       Option.unless(high <= from || to <= low)(

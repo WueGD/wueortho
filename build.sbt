@@ -9,7 +9,7 @@ libraryDependencies ++= Seq(
 scalacOptions ++= Seq(
   "-source:future",
   "-Yexplicit-nulls",
-  "-language:strict-equality",
+  "-language:strictEquality",
   "-deprecation",
   "-feature",
   "-Wconf:any:verbose",

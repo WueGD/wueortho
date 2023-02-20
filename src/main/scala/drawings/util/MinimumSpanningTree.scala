@@ -4,7 +4,7 @@ import drawings.data.*
 import scala.collection.mutable
 
 object MinimumSpanningTree:
-  private enum VertexState:
+  private enum VertexState derives CanEqual:
     case Root
     case Undiscovered
     case Discovered(key: Double, pred: NodeIndex)

@@ -26,7 +26,7 @@ case class EdgeRoute(terminals: EdgeTerminals, route: Seq[EdgeRoute.OrthoSeg]):
   assert(route.nonEmpty, "route must not be empty")
 
 object EdgeRoute:
-  enum OrthoSeg:
+  enum OrthoSeg derives CanEqual:
     case HSeg(dx: Double)
     case VSeg(dy: Double)
 

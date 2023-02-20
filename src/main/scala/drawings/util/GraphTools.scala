@@ -50,7 +50,7 @@ object GraphConversions:
     .fromWeightedEdges(g.edges.zipWithIndex.map((e, i) => e.withWeight(s(e.from, e.to, i))), g.numberOfVertices)
     .mkWeightedDiGraph
 
-  enum UndirectStrategy:
+  enum UndirectStrategy derives CanEqual:
     case AllEdges, OnlyMatchingEdges
 
   private def extractEdges[V, E, E2](

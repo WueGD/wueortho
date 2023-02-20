@@ -16,7 +16,7 @@ object GeoNudging:
 
   private type S[A] = State[(Int, Int), A]
 
-  sealed trait CNode:
+  sealed trait CNode derives CanEqual:
     def at: Double
     def pos: CTerm = Constraint.builder.mkConst(at)
 
@@ -43,7 +43,7 @@ object GeoNudging:
     def info: SegmentInfo
 
   object Segment:
-    case class SegInRG(dir: Direction, min: Double, max: Double, norm: Double, nodes: List[NodeIndex])
+    case class SegInRG(dir: Direction, min: Double, max: Double, norm: Double, nodes: List[NodeIndex]) derives CanEqual
 
     def updateInfo(seg: Segment, newInfo: SegmentInfo) = seg match
       case FixedSegment(at, info)         => FixedSegment(at, newInfo)
@@ -118,7 +118,7 @@ object GeoNudging:
       @tailrec @nowarn("name=PatternMatchExhaustivity")
       def go(res: List[List[S[Segment]]], tail: Seq[(Path, Int)]): S[IndexedSeq[Seq[Segment]]] =
         tail match
-          case Nil               => res.reverse.map(_.sequence).sequence.map(_.toIndexedSeq)
+          case Seq()             => res.reverse.map(_.sequence).sequence.map(_.toIndexedSeq)
           case (path, i) +: tail =>
             val (u, v) = ports(i).uTerm -> ports(i).vTerm
             splitIntoSegments(path) match

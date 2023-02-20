@@ -93,3 +93,5 @@ object ORTools:
     def unsafeAddToSolver($ : MPSolver, vars: Array[MPVariable | Null]) =
       val c = $.makeConstraint(lb, ub).nn
       for (i, a) <- coefficients do c.setCoefficient(vars(i), a)
+
+  given CanEqual[MPSolver.ResultStatus | Null, MPSolver.ResultStatus | Null] = CanEqual.derived

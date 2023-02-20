@@ -7,8 +7,8 @@ import scala.annotation.{tailrec, nowarn}
 import drawings.deprecated.PathsOnGridNode
 
 object Nudging:
-  case class GroupedSeg(dir: Direction, nodes: List[NodeIndex])
-  case class VarSeg(id: Int, endsAt: CTerm, normal: CTerm, group: GroupedSeg)
+  case class GroupedSeg(dir: Direction, nodes: List[NodeIndex]) derives CanEqual
+  case class VarSeg(id: Int, endsAt: CTerm, normal: CTerm, group: GroupedSeg) derives CanEqual
 
   def calcEdgeRoutes(
       ovg: OVG,

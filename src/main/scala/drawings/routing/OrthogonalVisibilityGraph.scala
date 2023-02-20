@@ -46,7 +46,7 @@ case class OVGNode(
     else if isLinkToPort(bottom) then Some(Direction.South)
     else None
 
-enum NavigableLink:
+enum NavigableLink derives CanEqual:
   case EndOfWorld
   case Node(idx: NodeIndex)
   case Obstacle(idx: Int) // index of the rect array

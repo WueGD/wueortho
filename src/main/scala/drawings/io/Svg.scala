@@ -155,7 +155,7 @@ object Svg:
   object SvgFrag:
     def empty = SvgFrag(Rect2D(Vec2D(0, 0), Vec2D(0, 0)), Seq.empty)
 
-  enum EdgeBends:
+  enum EdgeBends derives CanEqual:
     case Straight
     case Smooth(radius: Double)
 
