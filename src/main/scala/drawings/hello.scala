@@ -8,6 +8,7 @@ import drawings.util.*
 import drawings.data.*
 import drawings.overlaps.*
 import drawings.routing.*
+import drawings.deprecated.*
 import drawings.io.Svg
 import drawings.layout.ForceDirected
 import drawings.util.GraphSearch.*

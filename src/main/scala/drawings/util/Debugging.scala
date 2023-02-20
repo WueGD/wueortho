@@ -1,7 +1,7 @@
 package drawings.util
 
 import drawings.data.*
-import drawings.routing.{OrthogonalVisibilityGraph, RoutingGraph}
+import drawings.routing.RoutingGraph
 import drawings.io.Svg
 import java.nio.file.Files
 import java.nio.file.Paths

@@ -1,6 +1,8 @@
-package drawings.routing
+package drawings.deprecated
 
 import drawings.data.*
+import drawings.routing.RoutingGraph
+
 import scala.util.Random
 import scala.Option.when
 import scala.collection.mutable

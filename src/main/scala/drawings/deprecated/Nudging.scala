@@ -1,4 +1,4 @@
-package drawings.routing
+package drawings.deprecated
 
 import drawings.data.*
 import drawings.util.{Constraint, ORTools}, Constraint.CTerm, ORTools.LPResult

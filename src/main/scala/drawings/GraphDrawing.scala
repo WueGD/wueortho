@@ -5,6 +5,7 @@ import drawings.layout.ForceDirected
 import drawings.overlaps.Nachmanson
 import drawings.ports.PortHeuristic
 import drawings.routing.*
+import drawings.deprecated.*
 import drawings.io.Svg
 import drawings.util.GraphConversions, GraphConversions.toWeighted.*, GraphConversions.simple.*
 import java.nio.file.Files
