@@ -271,7 +271,7 @@ object GeoNudging:
       var inv    = i * j
       while i > 0 do
         while j >= 0 && buf(i).data.at == buf(j).data.at do
-          assert(inv >= 0, "Too many inversions. The constraint graph probably has cycles.")
+          assert(inv >= 0, s"Too many inversions. Nodes ${buf(j).id} and ${buf(i).id} probably are on a cycle.")
           if CNode.lt(buf(i).data, buf(j).data) then
             val tmp = buf(i)
             buf(i) = buf(j)

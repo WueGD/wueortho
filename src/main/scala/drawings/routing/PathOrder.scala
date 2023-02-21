@@ -4,6 +4,7 @@ import drawings.data.*
 import scala.collection.mutable
 
 import Direction.*
+import drawings.util.Debugging
 
 trait PathOrder:
   def topPaths(n: NodeIndex): Seq[Int]
@@ -80,13 +81,32 @@ object PathOrder:
       if isH then right(u.toInt).sortInPlace()(using ord)
       else top(u.toInt).sortInPlace()(using ord)
 
-    // todo knock-knees
+    def checkNoSeparator[T](a: mutable.IndexedSeq[T], after: Int, b: mutable.IndexedSeq[T], until: Int) =
+      !a.view.slice(after + 1, a.size).exists(b.view.slice(0, until).contains)
 
-    /*  test for knock-knees:
-     * has 4 neigbors
-     * all non-empty
-     * no straight passages
-     */
+    for // knock-knees
+      nodeId          <- NodeIndex(0) until rg.size
+      fromLeft        <- rg.neighbor(nodeId, West).map(id => right(id.toInt))
+      fromBottom      <- rg.neighbor(nodeId, South).map(id => top(id.toInt))
+      (toTop, toRight) = top(nodeId.toInt)                            -> right(nodeId.toInt)
+      if toTop.nonEmpty && toRight.nonEmpty && fromLeft.nonEmpty && fromBottom.nonEmpty
+      (wsh, neh)       = fromBottom.lastIndexWhere(fromLeft.contains) -> toTop.indexWhere(toRight.contains)
+      (wsv, nev)       = fromLeft.lastIndexWhere(fromBottom.contains) -> toRight.indexWhere(toTop.contains)
+      (wnh, seh)       = toTop.lastIndexWhere(fromLeft.contains)      -> fromBottom.indexWhere(toRight.contains)
+      (wnv, sev)       = fromLeft.indexWhere(toTop.contains)          -> toRight.lastIndexWhere(fromBottom.contains)
+    do
+      if wsh >= 0 && neh >= 0 && checkNoSeparator(fromBottom, wsh, toTop, neh) then
+        fromBottom.insert(wsh + 1, toTop(neh))
+        toTop.insert(neh, fromBottom(wsh))
+      if wsv >= 0 && nev >= 0 && checkNoSeparator(fromLeft, wsv, toRight, nev) then
+        fromLeft.insert(wsv + 1, toRight(nev))
+        toRight.insert(nev, fromLeft(wsv))
+      if wnh >= 0 && seh >= 0 && checkNoSeparator(toTop, wnh, fromBottom, seh) then
+        toTop.insert(wnh + 1, fromBottom(seh))
+        fromBottom.insert(seh, toTop(wnh))
+      if wnv >= 0 && sev >= 0 && checkNoSeparator(toRight, sev, fromLeft, wnv) then
+        fromLeft.insert(wnv, toRight(sev))
+        toRight.insert(sev + 1, fromLeft(wnv))
 
     new RoutingGraph with PathOrder:
       val (t, r) = (top.map(_.toSeq), right.map(_.toSeq))
