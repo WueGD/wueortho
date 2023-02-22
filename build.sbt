@@ -1,12 +1,32 @@
-scalaVersion := "3.2.1"
+import Deps._
 
-libraryDependencies ++= Seq(
-  "com.lihaoyi"       %% "scalatags"    % "0.12.0",
-  "org.tinfour"        % "TinfourCore"  % "2.1.7",
-  "com.google.ortools" % "ortools-java" % "9.5.2237",
-)
+ThisBuild / scalaVersion := "3.2.2"
+ThisBuild / organization := "de.uniwue.info1"
+ThisBuild / version      := "0.1.0"
+ThisBuild / scalacOptions ++= compilerOptions
 
-scalacOptions ++= Seq(
+lazy val core = project
+  .settings(
+    name := "wueortho-core"
+  )
+
+lazy val io = project
+  .settings(
+    name := "wueortho-io",
+    libraryDependencies += scalatags
+  )
+  .dependsOn(core)
+
+lazy val layout = project
+  .settings(
+    name := "wueortho-layout",
+    libraryDependencies ++= Seq(tinfour, orTools),
+  )
+  .dependsOn(core)
+
+lazy val root = (project in file(".")).dependsOn(core, io, layout)
+
+lazy val compilerOptions = Seq(
   "-source:future",
   "-Yexplicit-nulls",
   "-language:strictEquality",

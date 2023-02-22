@@ -13,12 +13,12 @@ import drawings.io.Svg
 import drawings.layout.ForceDirected
 import drawings.util.GraphSearch.*
 import drawings.util.DifferenceConstraints.DifferenceConstraint
-import drawings.util.Debugging.*
+import drawings.util.Debugging
+import drawings.Debugging.*
 import drawings.util.GraphConversions.all.*
-import drawings.ports.PortHeuristic
+import drawings.ports.AngleHeuristic
 
 import drawings.util.DifferenceConstraints
-val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 
 @main def runRandomized = GraphDrawing.runRandomSample(n = 20, m = 60, seed = 0x99c0ffee)
 
@@ -74,7 +74,7 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 
 @main def runPorts =
   val neighbors = ForceDirected.initLayout(Random(0x99c0ffee), 12).nodes
-  val layout    = PortHeuristic.equidistantPorts(Rect2D(Vec2D(0, 0), Vec2D(2, 1)), neighbors)
+  val layout    = AngleHeuristic.equidistantPorts(Rect2D(Vec2D(0, 0), Vec2D(2, 1)), neighbors)
   println(layout)
 
 @main def runDijkstra =
@@ -100,7 +100,7 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 
   println("=============== ORTHOGONAL VISIBILITY GRAPH ^^^ | vvv SIMPLIFIED ROUTING GRAPH ===============")
   val routing        = RoutingGraph.create(OvgSample.obstacles, OvgSample.edges, OvgSample.ports)
-  val (rgAdj, rgLay) = rg2adj(routing)
+  val (rgAdj, rgLay) = Debugging.rg2adj(routing)
   RoutingGraph.debug(routing)
   debugOVG(OvgSample.obstacles, rgAdj, rgLay, OvgSample.ports, "debug-rg")
 
@@ -146,7 +146,7 @@ val config = ForceDirected.defaultConfig.copy(iterCap = 1000)
 @main def runFDLayout: Unit =
   val graph  = p12
   val init   = ForceDirected.initLayout(Random(0x99c0ffee), graph.numberOfVertices)
-  val layout = ForceDirected.layout(config)(graph, init)
+  val layout = ForceDirected.layout(ForceDirected.defaultConfig)(graph, init)
   println(layout)
   val svg    = debugSvg(graph.unweighted, layout)
   Files.writeString(Paths.get("fd.svg"), svg)

@@ -3,14 +3,15 @@ package drawings
 import drawings.data.*
 import drawings.layout.ForceDirected
 import drawings.overlaps.Nachmanson
-import drawings.ports.PortHeuristic
+import drawings.ports.AngleHeuristic
 import drawings.routing.*
 import drawings.deprecated.*
 import drawings.io.Svg
 import drawings.util.GraphConversions, GraphConversions.toWeighted.*, GraphConversions.simple.*
 import java.nio.file.Files
 import java.nio.file.Paths
-import drawings.util.Debugging, Debugging.debugOVG
+import drawings.util.Debugging
+import drawings.Debugging.*
 
 object GraphDrawing:
   val frConfig = ForceDirected.defaultConfig.copy(iterCap = 1000)
@@ -29,7 +30,7 @@ object GraphDrawing:
       val hull = for _ <- n to m; (u, v) = randomNodePair yield SimpleEdge(u, v)
       Graph.fromEdges(core.toSeq ++ hull).mkSimpleGraph
 
-    val layout = ForceDirected.layout(config)(
+    val layout = ForceDirected.layout(frConfig)(
       graph.withWeights(using GraphConversions.withUniformWeights(1)),
       ForceDirected.initLayout(rndm, graph.numberOfVertices),
     )
@@ -41,7 +42,7 @@ object GraphDrawing:
     ).forceGeneralPosition(rndm)
     val largeObs  = Obstacles(obstacles.nodes.map(_.copy(span = Vec2D(2.2, 1.2))))
 
-    val ports = PortHeuristic.makePorts(obstacles, graph)
+    val ports = AngleHeuristic.makePorts(obstacles, graph)
     // val largePorts = PortHeuristic.makePorts(largeObs, AdjacencyList.fromEdgeList(graph))
 
     val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)

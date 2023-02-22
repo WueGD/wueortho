@@ -1,9 +1,10 @@
 package drawings.ports
 
 import drawings.data.*
+import drawings.util.GraphProperties.hasLoops
 import Vec2D.angle
 
-object PortHeuristic:
+object AngleHeuristic:
   def equidistantPorts(vertex: Rect2D, neighbors: Seq[Vec2D]) =
     val tlAngle = angle(vertex.span, vertex.span.copy(x1 = -vertex.span.x1))
     val brAngle = angle(vertex.span, vertex.span.copy(x2 = -vertex.span.x2))
@@ -40,7 +41,7 @@ object PortHeuristic:
   def makePorts(obs: Obstacles, graph: SimpleGraph) =
     import scala.collection.mutable
     assert(obs.nodes.length == graph.numberOfVertices, "There must be as many obstacles as vertices in the graph!")
-    // todo: assert no loops or implement proper handling
+    assert(!graph.hasLoops, "Generating ports is unsupported for graphs with loops")
 
     val vertices = for (r, v) <- obs.nodes zip graph.vertices yield
       val centers = v.neighbors.map(l => obs(l.toNode.toInt).center)
@@ -54,4 +55,4 @@ object PortHeuristic:
       (posV, dirV)           = vertices(v.toInt)(j)
     yield EdgeTerminals(posU, dirU, posV, dirV))
 
-end PortHeuristic
+end AngleHeuristic

@@ -82,3 +82,20 @@ object GraphConversions:
     .mkSimpleGraph
 
 end GraphConversions
+
+object GraphProperties:
+  trait LinkAsInt[V]:
+    def asInt(v: V): Int
+
+  object LinkAsInt:
+    given LinkAsInt[SimpleLink]     = _.toNode.toInt
+    given LinkAsInt[WeightedLink]   = _.toNode.toInt
+    given LinkAsInt[NodeIndex]      = _.toInt
+    given LinkAsInt[WeightedDiLink] = _.toNode.toInt
+
+  extension [V](g: Graph[V, ?])
+    def hasLoops(using f: LinkAsInt[V]) =
+      g.vertices.zipWithIndex.exists((v, i) => v.neighbors.exists(f.asInt(_) == i))
+
+    def hasMultiEdges(using f: LinkAsInt[V]) =
+      g.vertices.exists(v => v.neighbors.size != v.neighbors.distinct.size)

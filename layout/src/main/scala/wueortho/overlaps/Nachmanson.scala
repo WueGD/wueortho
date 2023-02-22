@@ -1,13 +1,11 @@
 package drawings.overlaps
 
 import drawings.data.*
-import drawings.util.{triangulate, MinimumSpanningTree, GraphConversions}
-import GraphConversions.undirected.*
+import drawings.util.{triangulate, MinimumSpanningTree}
 import scala.annotation.tailrec
 
 object Nachmanson:
-  given GraphConversions.UndirectStrategy = GraphConversions.UndirectStrategy.AllEdges
-  private val EPS                         = 1e-8
+  private val EPS = 1e-8
 
   private def translationFactor(a: Rect2D, b: Rect2D) =
     val dx = (a.center.x1 - b.center.x1).abs
@@ -30,21 +28,17 @@ object Nachmanson:
       val xs = tree.vertices(i.toInt).neighbors flatMap { case WeightedDiLink(j, w) =>
         if w < EPS then
           val n = rects(j.toInt)
-          // println(s"t = ${translationFactor(r, n)}")
           val d = (n.center - r.center).scale(translationFactor(r, n) - 1)
           go(j, disp + d)
         else go(j, disp)
       }
       (i -> x) +: xs
 
-    // debugSvg(rects, tree)
     go(NodeIndex(0), Vec2D(0, 0)).sortBy(_._1).map(_._2).toIndexedSeq
 
   def step(rects: IndexedSeq[Rect2D]): Option[IndexedSeq[Rect2D]] =
     val triangulated = triangulate(rects.map(_.center))
     val edges        = triangulated.map(se => se.withWeight(overlapCost(rects(se.from.toInt), rects(se.to.toInt))))
-
-    // println(s"weights: ${edges.map(_.weight)}")
 
     val augmented = if edges.forall(_.weight > -EPS) then
       val augments = for
@@ -53,12 +47,9 @@ object Nachmanson:
         edge                  <- Option.when(weight < -EPS)(se.withWeight(weight))
       yield edge
 
-      // println(s"augments: $augments")
       if augments.isEmpty then None
       else Some(edges ++ augments)
     else Some(edges)
-
-    // println(s"number of edges to process: ${augmented.map(_.size)}")
 
     augmented.map(edges =>
       val adjacencies = Graph.fromWeightedEdges(edges).mkWeightedGraph
@@ -71,13 +62,13 @@ object Nachmanson:
     case Some(rs) => align(rs)
     case None     => rects
 
-  def debugSvg(rects: IndexedSeq[Rect2D], mst: WeightedDiGraph) =
-    java.nio.file.Files.writeString(
-      java.nio.file.Path.of(s"dbg${cnt}.svg"),
-      drawings.util.Debugging.debugSvg(mst.simple, Obstacles(rects)),
-    )
-    cnt += 1
+// def debugSvg(rects: IndexedSeq[Rect2D], mst: WeightedDiGraph) =
+//   java.nio.file.Files.writeString(
+//     java.nio.file.Path.of(s"dbg${cnt}.svg"),
+//     drawings.util.Debugging.debugSvg(mst.simple, Obstacles(rects)),
+//   )
+//   cnt += 1
 
-  private var cnt = 0
+// private var cnt = 0
 
 end Nachmanson

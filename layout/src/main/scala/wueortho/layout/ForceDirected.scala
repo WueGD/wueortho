@@ -1,6 +1,7 @@
 package drawings.layout
 
 import drawings.data.{WeightedGraph, Vec2D, VertexLayout}
+import drawings.util.GraphProperties.hasLoops
 
 import scala.annotation.tailrec
 import scala.util.Random
@@ -11,8 +12,7 @@ object ForceDirected:
   private val EPS = 1e-8
 
   def layout(cfg: Config)(graph: WeightedGraph, init: VertexLayout): VertexLayout =
-    // val g = WeightedEdgeList.fromEdgeList(graph.edges.filterNot(e => e.from == e.to))
-    // todo: assert no loops!
+    assert(!graph.hasLoops, "Layouting graphs with loops is unsupported")
 
     @tailrec
     def go(i: Int, temp: Double, pos: Vector[Vec2D]): Vector[Vec2D] =
@@ -55,7 +55,7 @@ object ForceDirected:
 
   val defaultConfig = Config(
     startingTemp = 10.0,
-    iterCap = 100,
+    iterCap = 1000,
     cooling = x => (x - 0.1) * 0.99 + 0.1,
     repulsive = 1.0 / _,
     attractive = x => x * x,
