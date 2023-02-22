@@ -1,6 +1,6 @@
-package drawings.util
+package wueortho.util
 
-import drawings.data.*
+import wueortho.data.*
 import scala.collection.mutable
 
 object MinimumSpanningTree:

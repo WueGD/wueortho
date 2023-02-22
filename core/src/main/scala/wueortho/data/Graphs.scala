@@ -1,4 +1,4 @@
-package drawings.data
+package wueortho.data
 
 import scala.reflect.ClassTag
 import scala.annotation.nowarn

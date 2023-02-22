@@ -1,16 +1,16 @@
 package drawings
 
-import drawings.data.*
-import drawings.layout.ForceDirected
-import drawings.overlaps.Nachmanson
-import drawings.ports.AngleHeuristic
-import drawings.routing.*
-import drawings.deprecated.*
-import drawings.io.Svg
-import drawings.util.GraphConversions, GraphConversions.toWeighted.*, GraphConversions.simple.*
+import wueortho.data.*
+import wueortho.layout.ForceDirected
+import wueortho.overlaps.Nachmanson
+import wueortho.ports.AngleHeuristic
+import wueortho.routing.*
+import wueortho.deprecated
+import wueortho.io.Svg
+import wueortho.util.GraphConversions, GraphConversions.toWeighted.*, GraphConversions.simple.*
 import java.nio.file.Files
 import java.nio.file.Paths
-import drawings.util.Debugging
+import wueortho.util.Debugging
 import drawings.Debugging.*
 
 object GraphDrawing:
@@ -45,11 +45,11 @@ object GraphDrawing:
     val ports = AngleHeuristic.makePorts(obstacles, graph)
     // val largePorts = PortHeuristic.makePorts(largeObs, AdjacencyList.fromEdgeList(graph))
 
-    val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
-    val ovgRG                  = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, ports)
+    val (adj, lay, edges, ovg) = deprecated.OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
+    val ovgRG                  = deprecated.OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, ports)
     val (_, oldPaths, _)       = Routing.edgeRoutes(ovgRG, ports)
-    val onGrid                 = drawings.deprecated.PathOrder(ovgRG, ports, oldPaths)
-    val oldRoutes              = Nudging.calcEdgeRoutes(ovg, onGrid, oldPaths, ports, obstacles)
+    val onGrid                 = deprecated.PathOrder(ovgRG, ports, oldPaths)
+    val oldRoutes              = deprecated.Nudging.calcEdgeRoutes(ovg, onGrid, oldPaths, ports, obstacles)
 
     val routingWithLargeObs         = RoutingGraph.create(largeObs, graph.edges.toIndexedSeq, ports)
     val (bareRoutes, paths, withPO) = Routing.edgeRoutes(routingWithLargeObs, ports)

@@ -1,6 +1,6 @@
-package drawings.overlaps
+package wueortho.overlaps
 
-import drawings.data.*
+import wueortho.data.*
 import scala.collection.mutable
 
 object Overlaps:

@@ -1,7 +1,7 @@
-package drawings.ports
+package wueortho.ports
 
-import drawings.data.*
-import drawings.util.GraphProperties.hasLoops
+import wueortho.data.*
+import wueortho.util.GraphProperties.hasLoops
 import Vec2D.angle
 
 object AngleHeuristic:

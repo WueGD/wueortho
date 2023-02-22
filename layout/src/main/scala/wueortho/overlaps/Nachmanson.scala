@@ -1,7 +1,7 @@
-package drawings.overlaps
+package wueortho.overlaps
 
-import drawings.data.*
-import drawings.util.{triangulate, MinimumSpanningTree}
+import wueortho.data.*
+import wueortho.util.{triangulate, MinimumSpanningTree}
 import scala.annotation.tailrec
 
 object Nachmanson:

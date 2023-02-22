@@ -1,7 +1,7 @@
-package drawings.util
+package wueortho.util
 
 import com.google.ortools.linearsolver.*
-import drawings.util.Constraint.CTerm
+import wueortho.util.Constraint.CTerm
 
 /// TODO:
 /// Needs confirmation but if the same variable ist referenced by a CTerm multiple times

@@ -1,7 +1,7 @@
-package drawings.deprecated
+package wueortho.deprecated
 
-import drawings.data.*
-import drawings.routing.RoutingGraph
+import wueortho.data.*
+import wueortho.routing.RoutingGraph
 
 import scala.util.Random
 import scala.Option.when

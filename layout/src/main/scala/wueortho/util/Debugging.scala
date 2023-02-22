@@ -1,7 +1,7 @@
-package drawings.util
+package wueortho.util
 
-import drawings.data.*
-import drawings.routing.RoutingGraph
+import wueortho.data.*
+import wueortho.routing.RoutingGraph
 
 object Debugging:
   def dbg[T](t: T, show: T => String = (_: T).toString): T = { println(s"DEBUG: ${show(t)}"); t }

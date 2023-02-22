@@ -1,8 +1,9 @@
-package drawings.deprecated
+package wueortho.deprecated
 
-import drawings.data.*
+import wueortho.data.*
+import wueortho.routing.RoutingGraph
+
 import scala.collection.mutable
-import drawings.routing.RoutingGraph
 
 type TopOrRight   = Direction.North.type | Direction.East.type
 type LeftOrBottom = Direction.West.type | Direction.South.type

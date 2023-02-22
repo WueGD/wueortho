@@ -1,10 +1,10 @@
-package drawings.io
+package wueortho.io
 
 import scala.annotation.{targetName, tailrec}
 import scalatags.Text.{Frag, svgAttrs as ^}
 import scalatags.Text.svgTags.*
 import scalatags.Text.implicits.*
-import drawings.data.*
+import wueortho.data.*
 import Svg.*
 
 /** all numbers a pixels */

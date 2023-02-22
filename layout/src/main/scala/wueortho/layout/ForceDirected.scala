@@ -1,7 +1,7 @@
-package drawings.layout
+package wueortho.layout
 
-import drawings.data.{WeightedGraph, Vec2D, VertexLayout}
-import drawings.util.GraphProperties.hasLoops
+import wueortho.data.{WeightedGraph, Vec2D, VertexLayout}
+import wueortho.util.GraphProperties.hasLoops
 
 import scala.annotation.tailrec
 import scala.util.Random

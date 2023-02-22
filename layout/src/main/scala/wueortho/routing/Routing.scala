@@ -1,8 +1,9 @@
-package drawings.routing
+package wueortho.routing
 
-import drawings.data.*
-import drawings.util.GraphSearch.*
-import drawings.data.EdgeRoute.OrthoSeg, OrthoSeg.*
+import wueortho.data.*
+import EdgeRoute.OrthoSeg, OrthoSeg.*
+import wueortho.util.GraphSearch.*
+
 import scala.annotation.nowarn
 
 object Routing:

@@ -1,8 +1,8 @@
-package drawings.io
+package wueortho.io
 
-import drawings.data.*
-import drawings.data.EdgeRoute.OrthoSeg
-import drawings.data.EdgeRoute.OrthoSeg.*
+import wueortho.data.*
+import wueortho.data.EdgeRoute.OrthoSeg
+import wueortho.data.EdgeRoute.OrthoSeg.*
 import scala.annotation.tailrec
 
 object EdgeRenderer:

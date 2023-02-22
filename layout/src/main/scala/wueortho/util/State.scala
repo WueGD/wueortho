@@ -1,4 +1,4 @@
-package drawings.util
+package wueortho.util
 
 class State[S, +A] private (f: S => (S, A)):
   def map[B](m: A => B) = State((s: S) =>

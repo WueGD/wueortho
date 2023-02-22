@@ -1,10 +1,11 @@
-package drawings.routing
+package wueortho.routing
 
-import drawings.data.*
+import wueortho.data.*
+import Direction.*
+
 import scala.collection.mutable
 
-import Direction.*
-import drawings.util.Debugging
+import wueortho.util.Debugging
 
 trait PathOrder:
   def topPaths(n: NodeIndex): Seq[Int]

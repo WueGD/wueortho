@@ -1,4 +1,4 @@
-package drawings.data
+package wueortho.data
 
 opaque type NodeIndex = Int
 

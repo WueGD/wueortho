@@ -1,7 +1,7 @@
-package drawings.util
+package wueortho.util
 
-import drawings.data.*
-import drawings.util.GraphSearch.*
+import wueortho.data.*
+import wueortho.util.GraphSearch.*
 
 object DifferenceConstraints:
   /** v_i - v_j <= b */

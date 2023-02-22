@@ -4,26 +4,24 @@ import scala.util.Random
 import java.nio.file.Files
 import java.nio.file.Paths
 
-import drawings.util.*
-import drawings.data.*
-import drawings.overlaps.*
-import drawings.routing.*
-import drawings.deprecated.*
-import drawings.io.Svg
-import drawings.layout.ForceDirected
-import drawings.util.GraphSearch.*
-import drawings.util.DifferenceConstraints.DifferenceConstraint
-import drawings.util.Debugging
-import drawings.Debugging.*
-import drawings.util.GraphConversions.all.*
-import drawings.ports.AngleHeuristic
+import wueortho.util.*
+import wueortho.data.*
+import wueortho.overlaps.*
+import wueortho.routing.*
+import wueortho.deprecated
+import wueortho.io.Svg
+import wueortho.layout.ForceDirected
+import wueortho.ports.AngleHeuristic
+import GraphSearch.*
+import DifferenceConstraints.DifferenceConstraint
+import GraphConversions.all.*
 
-import drawings.util.DifferenceConstraints
+import drawings.Debugging.*
 
 @main def runRandomized = GraphDrawing.runRandomSample(n = 20, m = 60, seed = 0x99c0ffee)
 
 @main def runIntervalTree =
-  import drawings.util.mutable
+  import wueortho.util.mutable
 
   // val uut = mutable.BreinIntervalTree(intervals: _*)
   // mutable.BreinIntervalTree.debugPrintAll(uut)
@@ -57,16 +55,16 @@ import drawings.util.DifferenceConstraints
   println(ORTools.solve(lp))
 
 @main def runRouting =
-  val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
-  val rga                    = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, OvgSample.ports)
+  val (adj, lay, edges, ovg) = deprecated.OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
+  val rga                    = deprecated.OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, OvgSample.ports)
   val (routes, paths, rgo)   = Routing.edgeRoutes(rga, OvgSample.ports)
-  val onGrid                 = drawings.deprecated.PathOrder(rga, OvgSample.ports, paths)
+  val onGrid                 = deprecated.PathOrder(rga, OvgSample.ports, paths)
   routes foreach { case EdgeRoute(terminals, route) =>
     println(s"From ${terminals.uTerm} to ${terminals.vTerm}: ${route.mkString("[", ", ", "]")}")
   }
   Files.writeString(Paths.get("routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, routes))
 
-  val edgeRoutes = Nudging.calcEdgeRoutes(ovg, onGrid, paths, OvgSample.ports, OvgSample.obstacles)
+  val edgeRoutes = deprecated.Nudging.calcEdgeRoutes(ovg, onGrid, paths, OvgSample.ports, OvgSample.obstacles)
   Files.writeString(Paths.get("constrained-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, edgeRoutes))
 
   val geoRoutes = GeoNudging.calcEdgeRoutes(rgo, paths, OvgSample.ports, OvgSample.obstacles)
@@ -94,7 +92,7 @@ import drawings.util.DifferenceConstraints
     """.stripMargin)
 
 @main def runOVG: Unit =
-  val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
+  val (adj, lay, edges, ovg) = deprecated.OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
   debugConnectivity(adj.unweighted, lay)
   debugOVG(OvgSample.obstacles, adj.unweighted, lay, OvgSample.ports)
 

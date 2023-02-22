@@ -1,10 +1,10 @@
-package drawings.deprecated
+package wueortho.deprecated
 
-import drawings.data.*
-import drawings.util.{Constraint, ORTools}, Constraint.CTerm, ORTools.LPResult
+import wueortho.data.*
+import wueortho.util.{Constraint, ORTools}, Constraint.CTerm, ORTools.LPResult
+import wueortho.deprecated.PathsOnGridNode
+
 import scala.annotation.{tailrec, nowarn}
-
-import drawings.deprecated.PathsOnGridNode
 
 object Nudging:
   case class GroupedSeg(dir: Direction, nodes: List[NodeIndex]) derives CanEqual

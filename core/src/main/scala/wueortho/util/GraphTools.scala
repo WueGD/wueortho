@@ -1,6 +1,6 @@
-package drawings.util
+package wueortho.util
 
-import drawings.data.*
+import wueortho.data.*
 
 object GraphConversions:
   object all        extends SimpleMixin, ToWeightedMixin, UndirectMixin

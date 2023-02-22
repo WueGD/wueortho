@@ -1,9 +1,7 @@
-package drawings.util.mutable
+package wueortho.util.mutable
 
-import scala.jdk.CollectionConverters.*
-import scala.jdk.StreamConverters.*
 import scala.annotation.targetName
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable
 
 trait IntervalTree:
   @targetName("append") def +=(low: Double, high: Double, ref: Int): Unit
@@ -50,7 +48,7 @@ object LinearIntervalTree:
             tmp ++= all
       buf ++= tmp
 
-  private def unorderedRemove[T](buf: ArrayBuffer[T], i: Int) =
+  private def unorderedRemove[T](buf: mutable.ArrayBuffer[T], i: Int) =
     if i < 0 || i >= buf.length then
       throw IndexOutOfBoundsException(s"index $i out of bounds for buffer of length ${buf.length}")
     else if i == buf.length - 1 then buf.remove(i)
