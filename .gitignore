@@ -9,6 +9,7 @@ out.*
 tmp.*
 test.*
 *.svg
+*.json
 target
 project/project
 project/target

@@ -1,7 +1,7 @@
 package wueortho.overlaps
 
 import wueortho.data.*
-import wueortho.util.{triangulate, MinimumSpanningTree}
+import wueortho.util.{Triangulation, MinimumSpanningTree}
 import scala.annotation.tailrec
 
 object Nachmanson:
@@ -37,7 +37,7 @@ object Nachmanson:
     go(NodeIndex(0), Vec2D(0, 0)).sortBy(_._1).map(_._2).toIndexedSeq
 
   def step(rects: IndexedSeq[Rect2D]): Option[IndexedSeq[Rect2D]] =
-    val triangulated = triangulate(rects.map(_.center))
+    val triangulated = Triangulation(rects.map(_.center))
     val edges        = triangulated.map(se => se.withWeight(overlapCost(rects(se.from.toInt), rects(se.to.toInt))))
 
     val augmented = if edges.forall(_.weight > -EPS) then

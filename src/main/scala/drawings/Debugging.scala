@@ -1,7 +1,7 @@
 package drawings
 
 import wueortho.data.*
-import wueortho.io.Svg
+import wueortho.io.svg.Svg
 import java.nio.file.Files
 import java.nio.file.Paths
 

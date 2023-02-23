@@ -9,7 +9,8 @@ import wueortho.data.*
 import wueortho.overlaps.*
 import wueortho.routing.*
 import wueortho.deprecated
-import wueortho.io.Svg
+import wueortho.io.svg.Svg
+import wueortho.io.praline.LoadGraph
 import wueortho.layout.ForceDirected
 import wueortho.ports.AngleHeuristic
 import GraphSearch.*
@@ -20,22 +21,23 @@ import drawings.Debugging.*
 
 @main def runRandomized = GraphDrawing.runRandomSample(n = 20, m = 60, seed = 0x99c0ffee)
 
+@main def runPraline =
+  given GraphConversions.WithWeightStrategy = GraphConversions.withUniformWeights(1.0)
+
+  val graph  = LoadGraph.unsafeFrom(Files.readString(Paths.get("input.json")).nn)
+  val init   = ForceDirected.initLayout(Random(0x99c0ffee), graph.numberOfVertices)
+  val layout = ForceDirected.layout(ForceDirected.defaultConfig)(graph.withWeights, init)
+  val svg    = debugSvg(graph, layout)
+  Files.writeString(Paths.get("debug-praline.svg"), svg)
+
 @main def runIntervalTree =
   import wueortho.util.mutable
 
-  // val uut = mutable.BreinIntervalTree(intervals: _*)
-  // mutable.BreinIntervalTree.debugPrintAll(uut)
-  // println(uut.overlaps(0.3, 0.8).mkString("overlaps: [", ", ", "]"))
-  // uut.cutout(0.3, 0.8)
-  // mutable.BreinIntervalTree.debugPrintAll(uut)
-
-  // println("=============== BREIN TREE ^^^ | vvv LINEAR TREE ===============")
-
-  val uut2 = mutable.LinearIntervalTree(intervals*)
-  mutable.LinearIntervalTree.debugPrintAll(uut2)
-  println(uut2.overlaps(0.3, 0.8).mkString("overlaps: [", ", ", "]"))
-  uut2.cutout(0.3, 0.8)
-  mutable.LinearIntervalTree.debugPrintAll(uut2)
+  val uut = mutable.LinearIntervalTree(intervals*)
+  mutable.LinearIntervalTree.debugPrintAll(uut)
+  println(uut.overlaps(0.3, 0.8).mkString("overlaps: [", ", ", "]"))
+  uut.cutout(0.3, 0.8)
+  mutable.LinearIntervalTree.debugPrintAll(uut)
 
 @main def runTransitiveReduction =
   println(TransitiveReduction(tRedExample))
@@ -110,7 +112,7 @@ import drawings.Debugging.*
   val withMargin = rects.map(r => r.copy(span = r.span + Vec2D(0.5, 0.5)))
   val alignedFat = Nachmanson.align(withMargin)
   val aligned    = alignedFat.map(r => r.copy(span = r.span - Vec2D(0.5, 0.5)))
-  val triag0     = triangulate(rects.map(_.center))
+  val triag0     = Triangulation(rects.map(_.center))
 
   val svg       = Svg.withDefaults.copy(edgeBends = Svg.EdgeBends.Straight, edgeColor = Svg.EdgeColor.Single("gray"))
   val vl        = VertexLayout(rects.map(_.center))
@@ -124,7 +126,7 @@ import drawings.Debugging.*
 
 @main def runMst: Unit =
   val vertices = ForceDirected.initLayout(Random(0x00c0ffee), 24)
-  val edges    = triangulate(vertices.nodes)
+  val edges    = Triangulation(vertices.nodes)
   val graph    = Graph
     .fromWeightedEdges(
       edges.map(e => e.withWeight((vertices.nodes(e.from.toInt) - vertices.nodes(e.to.toInt)).len)),
@@ -137,7 +139,7 @@ import drawings.Debugging.*
 
 @main def runTriangulate: Unit =
   val vertices = ForceDirected.initLayout(Random(0xffc0ffee), 24)
-  val graph    = Graph.fromEdges(triangulate(vertices.nodes)).mkSimpleGraph
+  val graph    = Graph.fromEdges(Triangulation(vertices.nodes)).mkSimpleGraph
   val svg      = debugSvg(graph, vertices)
   Files.writeString(Paths.get("delauny.svg"), svg)
 

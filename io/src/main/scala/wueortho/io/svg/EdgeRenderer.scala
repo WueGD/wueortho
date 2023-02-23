@@ -1,10 +1,11 @@
-package wueortho.io
+package wueortho.io.svg
 
 import wueortho.data.*
 import wueortho.data.EdgeRoute.OrthoSeg
 import wueortho.data.EdgeRoute.OrthoSeg.*
 import scala.annotation.tailrec
 
+import wueortho.io.svg.Svg
 object EdgeRenderer:
   def smoothSvgPathCmds(svg: Svg, route: EdgeRoute, bendRadius: Double) =
     val (tx, ty) = Svg.pixelTransformers(svg)

@@ -4,7 +4,7 @@ import wueortho.data.*
 import org.tinfour.{common as tinfour}
 import org.tinfour.standard.IncrementalTin
 
-object triangulate:
+object Triangulation:
   import scala.jdk.CollectionConverters.*
 
   def apply(vertices: IndexedSeq[Vec2D]) =
@@ -17,4 +17,4 @@ object triangulate:
   private def mkTinfourVertices(vs: IndexedSeq[Vec2D]) =
     vs.zipWithIndex map { case (Vec2D(x, y), i) => tinfour.Vertex(x, y, 1.0, i) }
 
-end triangulate
+end Triangulation

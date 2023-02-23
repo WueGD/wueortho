@@ -1,4 +1,4 @@
-package wueortho.io
+package wueortho.io.svg
 
 import scala.annotation.{targetName, tailrec}
 import scalatags.Text.{Frag, svgAttrs as ^}
@@ -6,6 +6,8 @@ import scalatags.Text.svgTags.*
 import scalatags.Text.implicits.*
 import wueortho.data.*
 import Svg.*
+
+import wueortho.io.svg.EdgeRenderer
 
 /** all numbers a pixels */
 case class Svg(

@@ -6,7 +6,7 @@ import wueortho.overlaps.Nachmanson
 import wueortho.ports.AngleHeuristic
 import wueortho.routing.*
 import wueortho.deprecated
-import wueortho.io.Svg
+import wueortho.io.svg.Svg
 import wueortho.util.GraphConversions, GraphConversions.toWeighted.*, GraphConversions.simple.*
 import java.nio.file.Files
 import java.nio.file.Paths
