@@ -188,7 +188,7 @@ object GeoNudging:
       val obsPseudoEdges =
         for i <- obsOffset until (obsOffset + obs.size) by 2
         yield SimpleEdge(NodeIndex(i + 1), NodeIndex(i))
-      mkSepEdges(queue, isHorizontal) ++ obsPseudoEdges ++ mkMonotonyEdges(allNodes.slice(0, segments.size))
+      mkSepEdges(queue, isHorizontal) ++ obsPseudoEdges // ++ mkMonotonyEdges(allNodes.slice(0, segments.size))
 
     lazy val graph: DiGraph =
       val digraph = Graph.fromEdges(mkEdges(mkQueue(allNodes)).toSeq, allNodes.size).mkDiGraph

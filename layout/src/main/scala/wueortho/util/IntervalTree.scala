@@ -21,7 +21,7 @@ object LinearIntervalTree:
     res
 
   case class Interval(low: Double, high: Double, key: Int) derives CanEqual:
-    def overlaps(lower: Double, upper: Double): Boolean = !(lower > high || upper < low)
+    def overlaps(lower: Double, upper: Double): Boolean = !(lower >= high || upper <= low)
     def cutout(from: Double, to: Double)                =
       Option.unless(high <= from || to <= low)(
         (if low < from then List(Interval(low, from, key)) else Nil)
