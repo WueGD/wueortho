@@ -7,13 +7,13 @@ ThisBuild / scalacOptions ++= compilerOptions
 
 lazy val core = project
   .settings(
-    name := "wueortho-core"
+    name := "wueortho-core",
   )
 
 lazy val io = project
   .settings(
     name := "wueortho-io",
-    libraryDependencies += scalatags
+    libraryDependencies ++= (scalatags +: circe),
   )
   .dependsOn(core)
 
@@ -28,6 +28,7 @@ lazy val root = (project in file(".")).dependsOn(core, io, layout)
 
 lazy val compilerOptions = Seq(
   "-source:future",
+  "-release:17",
   "-Yexplicit-nulls",
   "-language:strictEquality",
   "-deprecation",
