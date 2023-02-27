@@ -8,9 +8,8 @@ import wueortho.routing.*
 import wueortho.deprecated
 import wueortho.io.svg.Svg
 import wueortho.util.GraphConversions, GraphConversions.toWeighted.*, GraphConversions.simple.*
-import java.nio.file.Files
-import java.nio.file.Paths
 import wueortho.util.Debugging
+import java.nio.file.{Paths, Files}
 import drawings.Debugging.*
 
 object GraphDrawing:
@@ -45,14 +44,14 @@ object GraphDrawing:
     val ports = AngleHeuristic.makePorts(obstacles, graph)
     // val largePorts = PortHeuristic.makePorts(largeObs, AdjacencyList.fromEdgeList(graph))
 
-    val (adj, lay, edges, ovg) = deprecated.OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
-    val ovgRG                  = deprecated.OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, ports)
-    val (_, oldPaths, _)       = Routing.edgeRoutes(ovgRG, ports)
+    val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)
+    val ovgRG                  = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, ports)
+    val oldPaths               = Routing(ovgRG, ports).paths
     val onGrid                 = deprecated.PathOrder(ovgRG, ports, oldPaths)
     val oldRoutes              = deprecated.Nudging.calcEdgeRoutes(ovg, onGrid, oldPaths, ports, obstacles)
 
-    val routingWithLargeObs         = RoutingGraph.create(largeObs, graph.edges.toIndexedSeq, ports)
-    val (bareRoutes, paths, withPO) = Routing.edgeRoutes(routingWithLargeObs, ports)
+    val routingWithLargeObs = RoutingGraph.create(largeObs, graph.edges.toIndexedSeq, ports)
+    val routed              = Routing(routingWithLargeObs, ports)
 
     debugOVG(obstacles, adj.unweighted, lay, ports, s"res_n${n}m${m}#${seed.toHexString}_ovg")
     val (rgAdj, rgLay) = Debugging.rg2adj(routingWithLargeObs)
@@ -60,13 +59,13 @@ object GraphDrawing:
 
     assert(m == graph.edges.size, s"graph has $m edges but got ${graph.edges.size} edges (EWG)")
     assert(m == ports.byEdge.size, s"graph has $m edges but got ${ports.byEdge.size} pairs of terminals")
-    assert(m == bareRoutes.size, s"graph has $m edges but got ${bareRoutes.size} routes (bare)")
+    assert(m == routed.routes.size, s"graph has $m edges but got ${routed.routes.size} routes (bare)")
 
     val rectsSvg     = svg.drawObstacles(obstacles)
     val portsSvg     = svg.drawPorts(ports)
     val portLabelSvg = svg.drawPortLabels(ports)
     val oldEdgesSvg  = svg.drawEdgeRoutes(oldRoutes)
-    val bareEdgesSvg = svg.copy(edgeBends = Svg.EdgeBends.Straight).drawEdgeRoutes(bareRoutes)
+    val bareEdgesSvg = svg.copy(edgeBends = Svg.EdgeBends.Straight).drawEdgeRoutes(routed.routes)
     val nodeLabelSvg = svg.drawNodeLabels(VertexLayout(obstacles.nodes.map(_.center)))
 
     Files.writeString(
@@ -78,7 +77,7 @@ object GraphDrawing:
       svg.make(rectsSvg ++ bareEdgesSvg ++ portsSvg ++ nodeLabelSvg ++ portLabelSvg),
     )
 
-    val routesWithLargeObs = GeoNudging.calcEdgeRoutes(withPO, paths, ports, obstacles)
+    val routesWithLargeObs = GeoNudging.calcEdgeRoutes(routed, ports, obstacles)
 
     val loEdgesSvg = svg.drawEdgeRoutes(routesWithLargeObs)
 

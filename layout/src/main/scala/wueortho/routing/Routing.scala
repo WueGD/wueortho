@@ -6,6 +6,12 @@ import wueortho.util.GraphSearch.*
 
 import scala.annotation.nowarn
 
+trait Routing:
+  def paths: IndexedSeq[Path]
+  def routes: IndexedSeq[EdgeRoute]
+
+type Routed = RoutingGraph & PathOrder & Routing
+
 object Routing:
   import scala.collection.mutable
 
@@ -24,13 +30,13 @@ object Routing:
 
   case class DijTrans(dir: Direction, dist: Double)
 
-  def edgeRoutes(routing: RoutingGraph, ports: PortLayout) =
+  def apply(routing: RoutingGraph, ports: PortLayout): Routed =
     def transactions(u: NodeIndex) =
       routing.neighbors(u).map((dir, v) => v -> DijTrans(dir, (routing.locate(v) - routing.locate(u)).len))
 
     given dc: DijkstraCost[DijState, DijTrans] = (t, s0) => s0.transitionCost(t)
 
-    val paths = removeEyes(
+    val routedPaths = removeEyes(
       for (EdgeTerminals(uPos, dir, vPos, _), i) <- ports.byEdge.zipWithIndex
       yield
         val (u, v) = routing.resolveEdge(i)
@@ -39,13 +45,14 @@ object Routing:
           .fold(err => sys.error(s"cannot find shortest path between $u and $v: $err"), identity),
     )
 
-    val orderedRG = PathOrder(routing, paths)
+    val orderedRG = PathOrder(routing, routedPaths)
     // println(order.zipWithIndex.map((n, i) => s"$i: $n").mkString("\n"))
 
-    val edgeRoutes =
-      for (path, terminals) <- paths zip ports.byEdge yield refineRoute(pathToOrthoSegs(terminals, path, routing))
-
-    (edgeRoutes, paths, orderedRG)
+    new RoutingGraph with PathOrder with Routing:
+      export orderedRG.*
+      override def paths       = routedPaths
+      override lazy val routes =
+        for (path, terminals) <- paths zip ports.byEdge yield refineRoute(pathToOrthoSegs(terminals, path, routing))
 
   private def pathToOrthoSegs(terminals: EdgeTerminals, path: Path, routing: RoutingGraph) =
     assert(

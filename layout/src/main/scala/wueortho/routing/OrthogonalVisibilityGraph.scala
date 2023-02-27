@@ -1,4 +1,4 @@
-package wueortho.deprecated
+package wueortho.routing
 
 import wueortho.data.*
 import wueortho.routing.RoutingGraph

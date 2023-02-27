@@ -24,7 +24,14 @@ lazy val layout = project
   )
   .dependsOn(core)
 
-lazy val root = (project in file(".")).dependsOn(core, io, layout)
+lazy val pipeline = project
+  .settings(
+    name := "wueortho-pipeline",
+    libraryDependencies ++= circe,
+  )
+  .dependsOn(core, io, layout)
+
+lazy val root = (project in file(".")).dependsOn(core, io, layout, pipeline)
 
 lazy val compilerOptions = Seq(
   "-source:future",

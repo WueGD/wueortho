@@ -1,13 +1,16 @@
 package wueortho.io.svg
 
+import wueortho.data.*
+import wueortho.io.svg.EdgeRenderer
+import wueortho.util.Codecs.given
+
 import scala.annotation.{targetName, tailrec}
 import scalatags.Text.{Frag, svgAttrs as ^}
 import scalatags.Text.svgTags.*
 import scalatags.Text.implicits.*
-import wueortho.data.*
-import Svg.*
+import io.circe.derivation.ConfiguredCodec
 
-import wueortho.io.svg.EdgeRenderer
+import Svg.*
 
 /** all numbers a pixels */
 case class Svg(
@@ -26,7 +29,7 @@ case class Svg(
     portSize: Double = 10,
     portLabelOffset: Double = 15,
     portLabelColor: String = "gray",
-):
+) derives ConfiguredCodec:
   def make(ctnt: SvgFrag) = root(ctnt.bbox, viewPortPadding)(ctnt.frags)
 
   private val (tx, ty)               = pixelTransformers(this)

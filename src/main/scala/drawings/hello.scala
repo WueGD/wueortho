@@ -18,8 +18,9 @@ import DifferenceConstraints.DifferenceConstraint
 import GraphConversions.all.*
 
 import drawings.Debugging.*
+import wueortho.pipeline.Pipeline
 
-@main def runRandomized = GraphDrawing.runRandomSample(n = 20, m = 60, seed = 0x99c0ffee)
+@main def runPipeline = Pipeline.run(Pipeline.load(Paths.get("config.json").nn).fold(throw _, identity))
 
 @main def runPraline =
   given GraphConversions.WithWeightStrategy = GraphConversions.withUniformWeights(1.0)
@@ -57,19 +58,19 @@ import drawings.Debugging.*
   println(ORTools.solve(lp))
 
 @main def runRouting =
-  val (adj, lay, edges, ovg) = deprecated.OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
-  val rga                    = deprecated.OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, OvgSample.ports)
-  val (routes, paths, rgo)   = Routing.edgeRoutes(rga, OvgSample.ports)
-  val onGrid                 = deprecated.PathOrder(rga, OvgSample.ports, paths)
-  routes foreach { case EdgeRoute(terminals, route) =>
+  val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
+  val rga                    = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, OvgSample.ports)
+  val rgo                    = Routing(rga, OvgSample.ports)
+  val onGrid                 = deprecated.PathOrder(rga, OvgSample.ports, rgo.paths)
+  rgo.routes foreach { case EdgeRoute(terminals, route) =>
     println(s"From ${terminals.uTerm} to ${terminals.vTerm}: ${route.mkString("[", ", ", "]")}")
   }
-  Files.writeString(Paths.get("routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, routes))
+  Files.writeString(Paths.get("routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, rgo.routes))
 
-  val edgeRoutes = deprecated.Nudging.calcEdgeRoutes(ovg, onGrid, paths, OvgSample.ports, OvgSample.obstacles)
+  val edgeRoutes = deprecated.Nudging.calcEdgeRoutes(ovg, onGrid, rgo.paths, OvgSample.ports, OvgSample.obstacles)
   Files.writeString(Paths.get("constrained-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, edgeRoutes))
 
-  val geoRoutes = GeoNudging.calcEdgeRoutes(rgo, paths, OvgSample.ports, OvgSample.obstacles)
+  val geoRoutes = GeoNudging.calcEdgeRoutes(rgo, OvgSample.ports, OvgSample.obstacles)
   Files.writeString(Paths.get("geo-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, geoRoutes))
 
 @main def runPorts =
@@ -94,7 +95,7 @@ import drawings.Debugging.*
     """.stripMargin)
 
 @main def runOVG: Unit =
-  val (adj, lay, edges, ovg) = deprecated.OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
+  val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
   debugConnectivity(adj.unweighted, lay)
   debugOVG(OvgSample.obstacles, adj.unweighted, lay, OvgSample.ports)
 

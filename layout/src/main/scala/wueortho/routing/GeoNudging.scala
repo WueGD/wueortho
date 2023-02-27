@@ -362,15 +362,10 @@ object GeoNudging:
       res
   end mkRoutes
 
-  def calcEdgeRoutes(
-      routing: RoutingGraph & PathOrder,
-      paths: IndexedSeq[Path],
-      ports: PortLayout,
-      obstacles: Obstacles,
-  ): IndexedSeq[EdgeRoute] =
+  def calcEdgeRoutes(routing: Routed, ports: PortLayout, obstacles: Obstacles): IndexedSeq[EdgeRoute] =
     import Constraint.builder.*, Direction.*, Debugging.dbg
 
-    for (p, i) <- paths.zipWithIndex do dbg(s"path #$i: " + p.nodes.mkString("[", ", ", "]"))
+    for (p, i) <- routing.paths.zipWithIndex do dbg(s"path #$i: " + p.nodes.mkString("[", ", ", "]"))
 
     val mkEowH: S[IndexedSeq[EndOfWorld]] =
       State((xv, yv) => (xv + 2, yv) -> Vector(EndOfWorld(West, mkVar(xv)), EndOfWorld(East, mkVar(xv + 1))))
@@ -378,7 +373,7 @@ object GeoNudging:
       State((xv, yv) => (xv, yv + 2) -> Vector(EndOfWorld(South, mkVar(yv)), EndOfWorld(North, mkVar(yv + 1))))
 
     (for
-      allSegs     <- Segment.mkAll(paths, routing, ports)
+      allSegs     <- Segment.mkAll(routing.paths, routing, ports)
       _ = allSegs.flatten.zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_)) // DEBUG
       eowH        <- mkEowH
       hGraph       = HGraph(allSegs, eowH, obstacles)

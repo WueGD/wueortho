@@ -21,6 +21,7 @@ case class Obstacles(nodes: IndexedSeq[Rect2D]):
 
 object Obstacles:
   def fromVertexLayout(f: (Vec2D, Int) => Rect2D)(vl: VertexLayout) = Obstacles(vl.nodes.zipWithIndex.map(f.tupled))
+  def lift(f: IndexedSeq[Rect2D] => IndexedSeq[Rect2D])             = (in: Obstacles) => Obstacles(f(in.nodes))
 
 case class EdgeRoute(terminals: EdgeTerminals, route: Seq[EdgeRoute.OrthoSeg]):
   assert(route.nonEmpty, "route must not be empty")

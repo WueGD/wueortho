@@ -6,6 +6,7 @@ import wueortho.deprecated.PathsOnGridNode
 
 import scala.annotation.{tailrec, nowarn}
 
+import wueortho.routing.{OVG, NavigableLink}
 object Nudging:
   case class GroupedSeg(dir: Direction, nodes: List[NodeIndex]) derives CanEqual
   case class VarSeg(id: Int, endsAt: CTerm, normal: CTerm, group: GroupedSeg) derives CanEqual

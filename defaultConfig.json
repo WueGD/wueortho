@@ -1,0 +1,120 @@
+{
+  "steps" : [
+    {
+      "config" : {
+        "n" : 20,
+        "m" : 60,
+        "seed" : "99c0ffee",
+        "core" : "Tree",
+        "allowLoops" : false
+      },
+      "tag" : null,
+      "type" : "RandomGraph"
+    },
+    {
+      "iterations" : 1000,
+      "seed" : "99c0ffee",
+      "graph" : null,
+      "tag" : null,
+      "type" : "ForceDirectedLayout"
+    },
+    {
+      "width" : 4.0,
+      "height" : 2.0,
+      "vertexLayout" : null,
+      "tag" : "raw",
+      "type" : "UniformObstacles"
+    },
+    {
+      "enlarge" : {
+        "l" : [
+          1.5,
+          2.0
+        ],
+        "type" : "Scale"
+      },
+      "forceGeneralPosition" : "99c0ffee",
+      "obstacles" : "raw",
+      "tag" : null,
+      "type" : "GTreeOverlaps"
+    },
+    {
+      "obstacles" : null,
+      "graph" : null,
+      "tag" : null,
+      "type" : "PortsByAngle"
+    },
+    {
+      "enlarge" : {
+        "l" : [
+          1.1,
+          1.2
+        ],
+        "type" : "Scale"
+      },
+      "obstacles" : null,
+      "graph" : null,
+      "ports" : null,
+      "tag" : null,
+      "type" : "SimplifiedRoutingGraph"
+    },
+    {
+      "routingGraph" : null,
+      "ports" : null,
+      "tag" : null,
+      "type" : "EdgeRouting"
+    },
+    {
+      "routing" : null,
+      "ports" : null,
+      "obstacles" : null,
+      "tag" : null,
+      "type" : "GeoNudging"
+    },
+    {
+      "config" : {
+        "pixelsPerUnit" : 50.0,
+        "viewPortPadding" : 25.0,
+        "edgeColor" : {
+          "colors" : [
+            "#293462",
+            "#c74b79",
+            "#ee5e67",
+            "#5e3d77",
+            "#ffaa2e",
+            "#95437f",
+            "#f7d716",
+            "#ff7f4d"
+          ],
+          "type" : "Cycle"
+        },
+        "edgeStrokeWidth" : 4.0,
+        "edgeBends" : {
+          "radius" : 10.0,
+          "type" : "Smooth"
+        },
+        "obstacleColor" : "blue",
+        "obstacleStrokeWidth" : 2.0,
+        "obstacleFill" : "none",
+        "nodeColor" : "blue",
+        "nodeSize" : 10.0,
+        "nodeLabelColor" : "black",
+        "portColor" : "black",
+        "portSize" : 10.0,
+        "portLabelOffset" : 15.0,
+        "portLabelColor" : "gray"
+      },
+      "obstacles" : null,
+      "ports" : null,
+      "routes" : null,
+      "tag" : null,
+      "type" : "SvgDrawing"
+    },
+    {
+      "path" : "pipeline-out.svg",
+      "svg" : null,
+      "tag" : null,
+      "type" : "SvgToFile"
+    }
+  ]
+}

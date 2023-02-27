@@ -16,7 +16,7 @@ object ForceDirected:
 
     @tailrec
     def go(i: Int, temp: Double, pos: Vector[Vec2D]): Vector[Vec2D] =
-      if i >= cfg.iterCap then pos
+      if i < 0 then pos
       else
         val n        = graph.numberOfVertices
         // repulsive forces:
@@ -39,10 +39,10 @@ object ForceDirected:
           p + (if d.len < temp then d else d.scale(temp / d.len))
         }
 
-        go(i + 1, cfg.cooling(temp), newPos)
+        go(i - 1, cfg.cooling(temp), newPos)
     end go
 
-    VertexLayout(go(0, cfg.startingTemp, init.nodes.toVector))
+    VertexLayout(go(cfg.iterCap, cfg.startingTemp, init.nodes.toVector))
   end layout
 
   case class Config(
