@@ -23,6 +23,7 @@ enum Step derives ConfiguredCodec:
   case EdgeRouting(routingGraph: Tag, ports: Tag, tag: Tag)
   case GeoNudging(routing: Tag, ports: Tag, obstacles: Tag, tag: Tag)
   case OldNudging(routing: Tag, ports: Tag, obstacles: Tag, tag: Tag)
+  case NoNudging(routing: Tag, tag: Tag)
   case SvgDrawing(config: Svg, obstacles: Tag, ports: Tag, routes: Tag, tag: Tag)
   case SvgToFile(path: Path, svg: Tag, tag: Tag)
 
@@ -50,5 +51,6 @@ object Step:
     case s: EdgeRouting            => runStep(s, cache)
     case s: GeoNudging             => runStep(s, cache)
     case s: OldNudging             => runStep(s, cache)
+    case s: NoNudging              => runStep(s, cache)
     case s: SvgDrawing             => runStep(s, cache)
     case s: SvgToFile              => runStep(s, cache)

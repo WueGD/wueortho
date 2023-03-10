@@ -4,7 +4,7 @@ import wueortho.data.*
 import wueortho.layout.{ForceDirected as FDLayout}
 import wueortho.overlaps.Nachmanson
 import wueortho.ports.AngleHeuristic
-import wueortho.routing.{RoutingGraph, OrthogonalVisibilityGraph, Routing, Routed, GeoNudging}
+import wueortho.routing.*
 import wueortho.deprecated
 import wueortho.pipeline.Step.Tag
 import wueortho.util.GraphConversions, GraphConversions.toWeighted.*
@@ -100,6 +100,13 @@ object AlgorithmicSteps:
       val (_, _, _, ovg) = OrthogonalVisibilityGraph.create(obs.nodes, pl)
       val onGrid         = deprecated.PathOrder(r, pl, r.paths)
       deprecated.Nudging.calcEdgeRoutes(ovg, onGrid, r.paths, pl, obs)
+
+  given Provider[Step.NoNudging] with
+    override type R = IndexedSeq[EdgeRoute]
+    override def stage = Stage.Routes
+
+    override def run(s: Step.NoNudging, cache: StageCache) =
+      cache.getStageResult(Stage.EdgeRouting, Step.resolve(s.routing)).map(_.routes)
 
 enum Enlarge derives CanEqual, ConfiguredCodec:
   case Original
