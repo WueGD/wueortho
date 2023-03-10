@@ -10,23 +10,16 @@ import io.circe.derivation.*
 import java.nio.file.{Path, Files}
 
 object InputSteps:
-  given Provider[Step.RandomGraph] with
-    override type R = SimpleGraph
-    override def stage = Stage.Graph
+  given Provider[Step.RandomGraph] = (s: Step.RandomGraph, cache: StageCache) =>
+    cache.updateStage(Stage.Graph, Step.resolve(s.tag), _ => random.RandomGraphs.mkSimpleGraph(s.config))
 
-    override def run(s: Step.RandomGraph, cache: StageCache) = random.RandomGraphs.mkSimpleGraph(s.config)
+  given Provider[Step.GraphFromPraline] = (s: Step.GraphFromPraline, cache: StageCache) =>
+    val res = Try(Files.readString(s.path).nn).toEither.flatMap(praline.LoadGraph.from).left.map(_.toString)
+    cache.updateStage(Stage.Graph, Step.resolve(s.tag), _ => res)
 
-  given Provider[Step.GraphFromPraline] with
-    override type R = SimpleGraph
-    override def stage = Stage.Graph
-
-    override def run(s: Step.GraphFromPraline, cache: StageCache) =
-      Try(Files.readString(s.path).nn).toEither.flatMap(praline.LoadGraph.from).left.map(_.toString)
-
-  given Provider[Step.UniformObstacles] with
-    override type R = Obstacles
-    override def stage = Stage.Obstacles
-
-    override def run(s: Step.UniformObstacles, cache: StageCache) = for
+  given Provider[Step.UniformObstacles] = (s: Step.UniformObstacles, cache: StageCache) =>
+    for
       vl <- cache.getStageResult(Stage.Layout, Step.resolve(s.vertexLayout))
-    yield Obstacles.fromVertexLayout((c, _) => Rect2D(c, Vec2D(s.width / 2, s.height / 2)))(vl)
+      obs = Obstacles.fromVertexLayout((c, _) => Rect2D(c, Vec2D(s.width / 2, s.height / 2)))(vl)
+      _  <- cache.setStage(Stage.Obstacles, Step.resolve(s.tag), obs)
+    yield ()

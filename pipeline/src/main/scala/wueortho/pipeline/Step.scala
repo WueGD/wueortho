@@ -34,8 +34,8 @@ object Step:
 
   def resolve(t: Tag) = t.getOrElse("default")
 
-  private def runStep[S <: Step](step: S, cache: StageCache)(using p: Provider[S]): Either[String, p.R] =
-    cache.addStage(step, resolve(step.tag))
+  private def runStep[S <: Step](step: S, cache: StageCache)(using p: Provider[S]): Either[String, Unit] =
+    p.run(step, cache)
 
   import InputSteps.given, AlgorithmicSteps.given, OutputSteps.given
 

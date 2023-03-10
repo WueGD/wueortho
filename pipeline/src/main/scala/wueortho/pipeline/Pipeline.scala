@@ -21,8 +21,7 @@ object Pipeline:
 
   def run(p: Pipeline) =
     val cache = StageCache()
-    val res   =
-      p.steps.foldLeft(Some(()).toRight(""))((eth, st) => eth.flatMap(_ => Step.nextStep(st, cache).map(_ => ())))
+    val res   = p.steps.foldLeft(Some(()).toRight(""))((eth, st) => eth.flatMap(_ => Step.nextStep(st, cache)))
     res.fold(sys.error, identity)
 
   import wueortho.io.random.RandomGraphs.{RandomGraphConfig, GraphCore}

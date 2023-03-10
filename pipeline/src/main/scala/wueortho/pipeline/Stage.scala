@@ -15,9 +15,7 @@ enum Stage[T]:
   case Terminal extends Stage[Unit]
 
 trait Provider[S]:
-  type R
-  def stage: Stage[R]
-  def run(s: S, cache: StageCache): Either[String, R]
+  def run(s: S, cache: StageCache): Either[String, Unit]
 
 class StageCache:
   private val cache = scala.collection.mutable.Map.empty[(Stage[?], String), Any]
@@ -25,10 +23,11 @@ class StageCache:
   def getStageResult[T](s: Stage[T], tag: String): Either[String, T] =
     cache.get(s -> tag).map(_.asInstanceOf[T]).toRight(StageCache.errMsg(s, tag))
 
-  def addStage[S](step: S, tag: String)(using p: Provider[S]): Either[String, p.R] =
-    val res = p.run(step, this)
-    res.foreach(r => cache(p.stage -> tag) = r)
-    res
+  def updateStage[T](stage: Stage[T], tag: String, f: Option[T] => Either[String, T]): Either[String, Unit] = for
+    r <- f(getStageResult(stage, tag).toOption)
+  yield cache(stage -> tag) = r
+
+  def setStage[T](stage: Stage[T], tag: String, t: T): Either[String, Unit] = updateStage(stage, tag, _ => Right(t))
 
 object StageCache:
   def errMsg(s: Stage[?], t: String) = s"could not find stage $s with tag $t"
