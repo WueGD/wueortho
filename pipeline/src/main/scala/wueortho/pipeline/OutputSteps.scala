@@ -13,7 +13,7 @@ object OutputSteps:
       obs <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
       pl  <- cache.getStageResult(Stage.Ports, mk(s.ports))
       r   <- cache.getStageResult(Stage.Routes, mk(s.routes))
-      _   <- cache.setStage(Stage.Svg, mk(s.tag), drawAll(s.config, obs, pl, r))
+      _   <- cache.setStage(Stage.Svg, mk(s.tag), drawAll(s.config.svg, obs, pl, r))
     yield ()
 
   private def drawAll(svg: Svg, obs: Obstacles, pl: PortLayout, r: IndexedSeq[EdgeRoute]) =
@@ -29,3 +29,8 @@ object OutputSteps:
       svg <- cache.getStageResult(Stage.Svg, Step.resolve(s.svg))
       _   <- Try(Files.writeString(s.path, svg)).toEither.left.map(_.toString)
     yield ()
+
+enum SvgConfig(val svg: Svg):
+  case SmoothEdges extends SvgConfig(Svg.withDefaults)
+  case StraightEdges extends SvgConfig(Svg.withDefaults.copy(edgeBends = Svg.EdgeBends.Straight))
+  case Custom(override val svg: Svg) extends SvgConfig(svg)

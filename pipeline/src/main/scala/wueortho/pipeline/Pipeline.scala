@@ -40,7 +40,7 @@ object Pipeline:
         Step.SimplifiedRoutingGraph(Enlarge.Scale(Vec2D(1.1, 1.2)), None, None, None, None),
         Step.EdgeRouting(None, None, None),
         Step.GeoNudging(None, None, None, None),
-        Step.SvgDrawing(Svg.withDefaults, None, None, None, None),
+        Step.SvgDrawing(SvgConfig.SmoothEdges, None, None, None, None),
         Step.SvgToFile(Paths.get("pipeline-out.svg").nn, None, None),
       ),
     )
