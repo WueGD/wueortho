@@ -1,11 +1,12 @@
 package wueortho.util
 
 import wueortho.data.*
+import wueortho.util.GraphConversions.simple.*
 import scala.collection.mutable
 
 object TransitiveReduction:
   // based on https://cs.stackexchange.com/a/83704
-  def apply(g: DiGraph): DiGraph =
+  private def reduced(g: DiGraph) =
     val edges   = mutable.HashSet.from(g.edges)
     val visited = mutable.ArrayBuffer.fill(g.vertices.length)(mutable.BitSet.empty)
 
@@ -25,6 +26,15 @@ object TransitiveReduction:
 
     for v <- NodeIndex(0) to (g.vertices.length - 1) do visit(v)
 
+    edges
+  end reduced
+
+  def apply(g: DiGraph): DiGraph =
+    val edges = reduced(g)
     Graph.fromEdges(edges.toSeq, g.numberOfVertices).mkDiGraph
-  end apply
+
+  def apply(g: WeightedDiGraph): WeightedDiGraph =
+    val edges  = g.edges.map(e => e.unweighted -> e).toMap
+    val sparse = reduced(g.unweighted)
+    Graph.fromWeightedEdges(sparse.map(edges).toSeq, g.numberOfVertices).mkWeightedDiGraph
 end TransitiveReduction
