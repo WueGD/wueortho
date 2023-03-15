@@ -99,3 +99,22 @@ object GraphProperties:
 
     def hasMultiEdges(using f: LinkAsInt[V]) =
       g.vertices.exists(v => v.neighbors.size != v.neighbors.distinct.size)
+
+object GraphStructure:
+  import scala.collection.mutable
+
+  extension (g: DiGraph)
+    def allSinks   = allSinks_(g)
+    def allSources = allSources_(g)
+
+  extension (g: WeightedDiGraph)
+    def allSinks   = allSinks_(g)
+    def allSources = allSources_(g)
+
+  private def allSinks_(g: Graph[?, ?]) =
+    g.vertices.zipWithIndex.filter(_._1.neighbors.isEmpty).map((_, i) => NodeIndex(i))
+
+  private def allSources_[V](g: Graph[V, ?])(using f: GraphProperties.LinkAsInt[V]) =
+    val lut = mutable.BitSet.empty
+    g.vertices.flatMap(_.neighbors.map(f.asInt)).foreach(lut += _)
+    (NodeIndex(0) until g.numberOfVertices).filter(i => !lut(i.toInt))
