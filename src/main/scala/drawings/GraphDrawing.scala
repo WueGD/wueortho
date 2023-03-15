@@ -77,7 +77,7 @@ object GraphDrawing:
       svg.make(rectsSvg ++ bareEdgesSvg ++ portsSvg ++ nodeLabelSvg ++ portLabelSvg),
     )
 
-    val routesWithLargeObs = GeoNudging.calcEdgeRoutes(routed, ports, obstacles)
+    val routesWithLargeObs = EdgeNudging.calcEdgeRoutes(routed, ports, obstacles)
 
     val loEdgesSvg = svg.drawEdgeRoutes(routesWithLargeObs)
 

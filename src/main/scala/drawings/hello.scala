@@ -70,7 +70,7 @@ import wueortho.pipeline.Pipeline
   val edgeRoutes = deprecated.Nudging.calcEdgeRoutes(ovg, onGrid, rgo.paths, OvgSample.ports, OvgSample.obstacles)
   Files.writeString(Paths.get("constrained-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, edgeRoutes))
 
-  val geoRoutes = GeoNudging.calcEdgeRoutes(rgo, OvgSample.ports, OvgSample.obstacles)
+  val geoRoutes = EdgeNudging.calcEdgeRoutes(rgo, OvgSample.ports, OvgSample.obstacles)
   Files.writeString(Paths.get("geo-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, geoRoutes))
 
 @main def runPorts =

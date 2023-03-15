@@ -100,7 +100,7 @@ object GraphProperties:
     def hasMultiEdges(using f: LinkAsInt[V]) =
       g.vertices.exists(v => v.neighbors.size != v.neighbors.distinct.size)
 
-object GraphStructure:
+object DiGraphProperties:
   import scala.collection.mutable
 
   extension (g: DiGraph)

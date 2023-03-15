@@ -69,7 +69,7 @@ object AlgorithmicSteps:
       r   <- cache.getStageResult(Stage.EdgeRouting, mk(s.routing))
       pl  <- cache.getStageResult(Stage.Ports, mk(s.ports))
       obs <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
-      _   <- cache.setStage(Stage.Routes, mk(s.tag), GeoNudging.calcEdgeRoutes(r, pl, obs))
+      _   <- cache.setStage(Stage.Routes, mk(s.tag), EdgeNudging.calcEdgeRoutes(r, pl, obs))
     yield ()
 
   given Provider[Step.OldNudging] = (s: Step.OldNudging, cache: StageCache) =>
