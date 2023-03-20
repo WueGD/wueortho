@@ -48,6 +48,8 @@ trait NudgingCommons:
 
   case class PathNodes(u: CNode[Segment.TermSeg], mid: Seq[CNode[Segment.MidSeg]], v: CNode[Segment.TermSeg]):
     def toList = (u +: mid :+ v).toList
+    def startX = if u.kind.isHorizontal then u.kind.terminal else u.pos
+    def startY = if u.kind.isHorizontal then u.pos else u.kind.terminal
 
   object PathNodes:
     def inS(uS: S[CNode[Segment.TermSeg]], midS: S[Seq[CNode[Segment.MidSeg]]], vS: S[CNode[Segment.TermSeg]]) =
@@ -147,8 +149,8 @@ trait NudgingCommons:
       case (_: EndOfWorld, _) | (_, _: EndOfWorld)         => sys.error(s"EoW comparison: ${a -> b}")
       case (ObsBorder.Begin(ia), ObsBorder.Begin(ib))      => ia < ib
       case (ObsBorder.End(ia), ObsBorder.End(ib))          => ia < ib
-      case (ObsBorder.End(_), _) | (_, ObsBorder.Begin(_)) => true
-      case (_, ObsBorder.End(_)) | (ObsBorder.Begin(_), _) => false
+      case (_: ObsBorder.End, _) | (_, _: ObsBorder.Begin) => true
+      case (_, _: ObsBorder.End) | (_: ObsBorder.Begin, _) => false
       case (a: Segment, b: Segment)                        => b.info.pathsBefore(a.info.pathId)
 
   protected trait CGraphCommons:
@@ -212,12 +214,6 @@ trait NudgingCommons:
       buf.toIndexedSeq
   end mkQueue
 
-  // protected trait HGraph extends CGraphCommons:
-  //   override val isHorizontal = true
-
-  // protected trait VGraph extends CGraphCommons:
-  //   override val isHorizontal = false
-
   protected def isBorderNode(node: NodeData[CNodeAny]): Boolean = node.data.kind match
     case _: Segment.MidSeg => false
     case _                 => true
@@ -247,6 +243,14 @@ trait NudgingCommons:
   protected def maximize(cs: Seq[Constraint], obj: CTerm) =
     ORTools.solve(LPInstance(cs, obj, maximize = true)).fold(sys.error, identity)
 
+  protected def setX(node: CNode[Segment], start: Double, xSols: LPResult) =
+    import Segment.*
+    val end       = xSols(node.kind.info.endsAt)
+    val fixedKind = node.kind match
+      case MidSeg(info)            => MidSeg(info.copy(endsAt = mkConst(end)))
+      case TermSeg(terminal, info) => TermSeg(mkConst(xSols(terminal)), info.copy(endsAt = mkConst(end)))
+    end -> CNode(node.pos, node.dim.copy(low = start min end, high = start max end), kind = fixedKind)
+
   protected def mkRoutes(xSols: LPResult, ySols: LPResult, segments: IndexedSeq[PathNodes]) =
     import EdgeRoute.OrthoSeg
 
@@ -265,6 +269,7 @@ trait NudgingCommons:
       val terms = EdgeTerminals(at(path.u), path.u.kind.info.dir, at(path.v), path.v.kind.info.dir)
       Routing.removeInnerZeroSegs(EdgeRoute(terms, go(Nil, terms.uTerm, path.toList)))
   end mkRoutes
+end NudgingCommons
 
 class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
   override def segBuilder(pathId: Int, rg: RoutingGraph & PathOrder): SegmentBuilder = new SegmentBuilder(pathId, rg):
