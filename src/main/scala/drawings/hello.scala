@@ -1,8 +1,7 @@
 package drawings
 
 import scala.util.Random
-import java.nio.file.Files
-import java.nio.file.Paths
+import java.nio.file.{Paths, Files}
 
 import wueortho.util.*
 import wueortho.data.*
@@ -13,12 +12,12 @@ import wueortho.io.svg.Svg
 import wueortho.io.praline.LoadGraph
 import wueortho.layout.ForceDirected
 import wueortho.ports.AngleHeuristic
+import wueortho.pipeline.Pipeline
 import GraphSearch.*
 import DifferenceConstraints.DifferenceConstraint
 import GraphConversions.all.*
 
 import drawings.Debugging.*
-import wueortho.pipeline.Pipeline
 
 @main def runPipeline = Pipeline.run(Pipeline.load(Paths.get("config.json").nn).fold(throw _, identity))
 
@@ -73,6 +72,10 @@ import wueortho.pipeline.Pipeline
   val geoRoutes = EdgeNudging.calcEdgeRoutes(rgo, OvgSample.ports, OvgSample.obstacles)
   Files.writeString(Paths.get("geo-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, geoRoutes))
 
+  val (fnRoutes, fnPorts, fnObs) =
+    FullNudging(Nudging.Config(0.25, 0.5), rgo, OvgSample.ports, OvgSample.graph, OvgSample.obstacles)
+  Files.writeString(Paths.get("fully-nudged-routing.svg"), debugSvg(fnObs, fnPorts, fnRoutes))
+
 @main def runPorts =
   val neighbors = ForceDirected.initLayout(Random(0x99c0ffee), 12).nodes
   val layout    = AngleHeuristic.equidistantPorts(Rect2D(Vec2D(0, 0), Vec2D(2, 1)), neighbors)
@@ -98,10 +101,9 @@ import wueortho.pipeline.Pipeline
   val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
   debugConnectivity(adj.unweighted, lay)
   debugOVG(OvgSample.obstacles, adj.unweighted, lay, OvgSample.ports)
-
   println("=============== ORTHOGONAL VISIBILITY GRAPH ^^^ | vvv SIMPLIFIED ROUTING GRAPH ===============")
-  val routing        = RoutingGraph.create(OvgSample.obstacles, OvgSample.edges, OvgSample.ports)
-  val (rgAdj, rgLay) = Debugging.rg2adj(routing)
+  val routing                = RoutingGraph.create(OvgSample.obstacles, OvgSample.edges, OvgSample.ports)
+  val (rgAdj, rgLay)         = Debugging.rg2adj(routing)
   RoutingGraph.debug(routing)
   debugOVG(OvgSample.obstacles, rgAdj, rgLay, OvgSample.ports, "debug-rg")
 
@@ -246,25 +248,26 @@ val tRedExample = Graph
   .mkDiGraph
 
 object OvgSample:
-  val obstacles = Obstacles(
+  val obstacles  = Obstacles(
     Vector(
       Rect2D(Vec2D(5.5, 1), Vec2D(3.5, 1)),
       Rect2D(Vec2D(9, 5.5), Vec2D(2, 1.5)),
       Rect2D(Vec2D(1.5, 7.5), Vec2D(1.5, 1.5)),
     ),
   )
-  val ports     = PortLayout(
+  val ports      = PortLayout(
     Vector(
       EdgeTerminals(Vec2D(5, 2), Direction.North, Vec2D(8, 4), Direction.South),
       EdgeTerminals(Vec2D(7, 5), Direction.West, Vec2D(3, 7), Direction.East),
       EdgeTerminals(Vec2D(1, 6), Direction.South, Vec2D(9, 7), Direction.North),
     ),
   )
-  val edges     = Vector(
+  val edges      = Vector(
     SimpleEdge(NodeIndex(0), NodeIndex(1)),
     SimpleEdge(NodeIndex(1), NodeIndex(2)),
     SimpleEdge(NodeIndex(2), NodeIndex(1)),
   )
+  lazy val graph = Graph.fromEdges(edges).mkSimpleGraph
 
 // see Corman et al. Intro to Algorithms, 3rd ed. p. 664--667
 val constraints = Seq(

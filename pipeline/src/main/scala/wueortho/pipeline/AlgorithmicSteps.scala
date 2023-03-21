@@ -82,6 +82,18 @@ object AlgorithmicSteps:
       _     <- cache.setStage(Stage.Routes, mk(s.tag), deprecated.Nudging.calcEdgeRoutes(ovg, onGrid, r.paths, pl, obs))
     yield ()
 
+  given Provider[Step.FullNudging] = (s: Step.FullNudging, cache: StageCache) =>
+    for
+      rIn         <- cache.getStageResult(Stage.EdgeRouting, mk(s.routing))
+      plIn        <- cache.getStageResult(Stage.Ports, mk(s.ports))
+      obsIn       <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
+      g           <- cache.getStageResult(Stage.Graph, mk(s.graph))
+      (r, pl, obs) = FullNudging(s.config, rIn, plIn, g, obsIn)
+      _           <- cache.setStage(Stage.Routes, mk(s.tag), r)
+      _           <- cache.setStage(Stage.Ports, mk(s.tag), pl)
+      _           <- cache.setStage(Stage.Obstacles, mk(s.tag), obs)
+    yield ()
+
   given Provider[Step.NoNudging] = (s: Step.NoNudging, cache: StageCache) =>
     cache
       .getStageResult(Stage.EdgeRouting, mk(s.routing))

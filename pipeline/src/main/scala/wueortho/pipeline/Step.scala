@@ -4,6 +4,7 @@ import wueortho.data.Seed
 import wueortho.io.random.RandomGraphs.RandomGraphConfig
 import wueortho.io.svg.Svg
 import wueortho.util.Codecs.given
+import wueortho.routing.Nudging
 
 import io.circe.derivation.ConfiguredCodec
 
@@ -24,6 +25,7 @@ enum Step derives ConfiguredCodec:
   case GeoNudging(routing: Tag, ports: Tag, obstacles: Tag, tag: Tag)
   case OldNudging(routing: Tag, ports: Tag, obstacles: Tag, tag: Tag)
   case NoNudging(routing: Tag, tag: Tag)
+  case FullNudging(config: Nudging.Config, routing: Tag, ports: Tag, obstacles: Tag, graph: Tag, tag: Tag)
   case SvgDrawing(config: SvgConfig, obstacles: Tag, ports: Tag, routes: Tag, tag: Tag)
   case SvgToFile(path: Path, svg: Tag, tag: Tag)
 
@@ -50,6 +52,7 @@ object Step:
     case s: OVGRoutingGraph        => runStep(s, cache)
     case s: EdgeRouting            => runStep(s, cache)
     case s: GeoNudging             => runStep(s, cache)
+    case s: FullNudging            => runStep(s, cache)
     case s: OldNudging             => runStep(s, cache)
     case s: NoNudging              => runStep(s, cache)
     case s: SvgDrawing             => runStep(s, cache)

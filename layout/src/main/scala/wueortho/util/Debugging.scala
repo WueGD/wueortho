@@ -15,12 +15,17 @@ object Debugging:
       .mkSimpleGraph
     adjacencies -> layout
 
-  def showCTerm(t: Constraint.CTerm): String = t match
-    case Constraint.CTerm.Constant(c)  => c.toString
-    case Constraint.CTerm.Variable(id) => s"var#$id"
-    case Constraint.CTerm.Sum(a, b)    => s"(${showCTerm(a)} + ${showCTerm(b)})"
-    case Constraint.CTerm.Negate(a)    => s"-${showCTerm(a)}"
-    case Constraint.CTerm.Scale(l, a)  => s"$l * ${showCTerm(a)}"
+  def showCTerm(t: Constraint.CTerm): String =
+    import Constraint.CTerm.*
+    t match
+      case Constant(c)           => c.toString
+      case Variable(id)          => s"var#$id"
+      case Sum(a, Negate(b))     => s"${showCTerm(a)} - ${showCTerm(b)}"
+      case Sum(a, b)             => s"${showCTerm(a)} + ${showCTerm(b)}"
+      case Negate(a)             => s"-(${showCTerm(a)})"
+      case Scale(l, a: Constant) => s"$l * ${showCTerm(a)}"
+      case Scale(l, a: Variable) => s"$l * ${showCTerm(a)}"
+      case Scale(l, a)           => s"$l * (${showCTerm(a)})"
 
   def showConstraint(c: Constraint) = c match
     case Constraint.SmallerOrEqual(a, b) => s"${showCTerm(a)} <= ${showCTerm(b)}"

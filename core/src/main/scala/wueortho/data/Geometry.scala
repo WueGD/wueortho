@@ -55,6 +55,7 @@ object Direction:
   extension (d: Direction)
     def isHorizontal = d == Direction.West || d == Direction.East
     def isVertical   = d == Direction.North || d == Direction.South
+    def reverse      = Direction.fromOrdinal((d.ordinal + 2) % 4)
     def show         = s"[${d.toString.head}]"
 
 trait Positioned1D:

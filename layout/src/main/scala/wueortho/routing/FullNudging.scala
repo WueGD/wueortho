@@ -1,7 +1,7 @@
 package wueortho.routing
 
 import wueortho.data.*, Direction.*
-import wueortho.util.*
+import wueortho.util.*, GraphConversions.undirected.*
 import Constraint.CTerm, Constraint.builder.*, ORTools.{LPInstance, LPResult}
 
 import scala.collection.BitSet
@@ -14,7 +14,7 @@ object Nudging:
 trait NudgingCommons:
   given GraphConversions.UndirectStrategy = GraphConversions.UndirectStrategy.AllEdges
 
-  type S[A] = State[(Int, Int), A]
+  type S[+A] = State[(Int, Int), A]
 
   def conf: Nudging.Config
 
@@ -28,9 +28,9 @@ trait NudgingCommons:
   case class EndOfWorld(dir: Direction) extends NodeType
 
   object EndOfWorld:
-    def mkNode(vid: Int, dir: Direction) = dir match
-      case South | West => CNode(mkVar(vid), Estimated(NegInf, NegInf, NegInf), EndOfWorld(dir))
-      case North | East => CNode(mkVar(vid), Estimated(PosInf, NegInf, PosInf), EndOfWorld(dir))
+    def mkNode(pos: CTerm, dir: Direction) = dir match
+      case South | West => CNode(pos, Estimated(NegInf, NegInf, PosInf), EndOfWorld(dir))
+      case North | East => CNode(pos, Estimated(PosInf, NegInf, PosInf), EndOfWorld(dir))
 
   enum ObsBorder extends NodeType:
     case Begin(obsId: Int)
@@ -55,11 +55,25 @@ trait NudgingCommons:
     def inS(uS: S[CNode[Segment.TermSeg]], midS: S[Seq[CNode[Segment.MidSeg]]], vS: S[CNode[Segment.TermSeg]]) =
       for u <- uS; mid <- midS; v <- vS yield PathNodes(u, mid, v)
 
+  case class ObsNodes(
+      left: CNode[ObsBorder.Begin],
+      right: CNode[ObsBorder.End],
+      bottom: CNode[ObsBorder.Begin],
+      top: CNode[ObsBorder.End],
+  )
+
+  case class Terminal(pos: Vec2D, dir: Direction, obsId: Int)
+
   object Segment:
     case class SegInRG(dir: Direction, min: Double, max: Double, norm: Double, nodes: List[NodeIndex]) derives CanEqual:
       def isH = dir.isHorizontal
 
-    def mkAll(paths: IndexedSeq[Path], rg: RoutingGraph & PathOrder, ports: PortLayout) =
+    def mkAll(
+        paths: IndexedSeq[Path],
+        rg: RoutingGraph & PathOrder,
+        ts: IndexedSeq[Terminal],
+        mkSB: (pathId: Int) => SegmentBuilder,
+    ) =
       def mkGroup(dir: Direction, nodes: List[NodeIndex]): SegInRG =
         val (first, last)   = rg.locate(nodes.head) -> rg.locate(nodes.last)
         val (from, to, pos) = if dir.isHorizontal then (first.x1, last.x1, first.x2) else (first.x2, last.x2, first.x1)
@@ -76,7 +90,7 @@ trait NudgingCommons:
               if dir == nextDir then go(res, tail, v :: tmp, dir)
               else go(mkGroup(dir, tmp.reverse) :: res, tail, List(v, u), nextDir)
 
-        go(Nil, path.nodes.sliding(2).toList, List(path.nodes.head), ports.portDir(rg.portId(path.nodes.head).get))
+        go(Nil, path.nodes.sliding(2).toList, List(path.nodes.head), ts(rg.portId(path.nodes.head).get).dir)
       end splitIntoSegments
 
       @tailrec @nowarn("name=PatternMatchExhaustivity")
@@ -84,18 +98,17 @@ trait NudgingCommons:
         tail match
           case Seq()             => res.reverse.sequence.map(_.toIndexedSeq)
           case (path, i) +: tail =>
-            val (u, v)  = ports(i).uTerm -> ports(i).vTerm
-            val builder = segBuilder(i, rg)
+            val (u, v)  = ts(2 * i) -> ts(2 * i + 1)
+            val builder = mkSB(i)
             import builder.*
             splitIntoSegments(path) match
               case Nil                         => sys.error("empty paths are unsupported")
               case one :: Nil                  => sys.error(s"this path has only one segment ($one)")
-              // go(List(mkOne(one, u, v)) :: res, tail)
               case first :: last :: Nil        =>
-                go(PathNodes.inS(mkT1(first, u, v), State.pure(Nil), mkTN(last, v, v)) :: res, tail)
+                go(PathNodes.inS(mkTT(first, u, v), State.pure(Nil), mkTN(last, v)) :: res, tail)
               case first +: mid :+ stl :+ last =>
                 val mids = mid.foldRight(List.empty[S[CNode[Segment.MidSeg]]])((gs, ss) => mkMM(gs) :: ss)
-                go(PathNodes.inS(mkTM(first, u), (mids :+ mkMT(stl, v)).sequence, mkTN(last, v, v)) :: res, tail)
+                go(PathNodes.inS(mkTM(first, u), (mids :+ mkMT(stl, v)).sequence, mkTN(last, v)) :: res, tail)
       end go
 
       go(Nil, paths.zipWithIndex)
@@ -108,12 +121,12 @@ trait NudgingCommons:
   end Segment
 
   protected trait SegmentBuilder(pathId: Int, rg: RoutingGraph & PathOrder):
-    def mkT1(gs: Segment.SegInRG, at: Vec2D, to: Vec2D): S[CNode[Segment.TermSeg]]  // >terminal< -> terminal
-    def mkTN(gs: Segment.SegInRG, at: Vec2D, to: Vec2D): S[CNode[Segment.TermSeg]]  // ? -> >terminal<
-    def mkTM(gs: Segment.SegInRG, at: Vec2D): S[CNode[Segment.TermSeg]]             // >terminal< -> mid
-    def mkMM(gs: Segment.SegInRG): S[CNode[Segment.MidSeg]]                         // >mid< -> mid
-    def mkMT(gs: Segment.SegInRG, to: Vec2D): S[CNode[Segment.MidSeg]]              // >mid< -> terminal
-    def mkOne(gs: Segment.SegInRG, at: Vec2D, to: Vec2D): S[CNode[Segment.TermSeg]] // path has only one segment
+    def mkTT(gs: Segment.SegInRG, t1: Terminal, t2: Terminal): S[CNode[Segment.TermSeg]]  // >terminal< -> terminal
+    def mkTN(gs: Segment.SegInRG, t: Terminal): S[CNode[Segment.TermSeg]]                 // ? -> >terminal<
+    def mkTM(gs: Segment.SegInRG, t: Terminal): S[CNode[Segment.TermSeg]]                 // >terminal< -> mid
+    def mkMM(gs: Segment.SegInRG): S[CNode[Segment.MidSeg]]                               // >mid< -> mid
+    def mkMT(gs: Segment.SegInRG, t: Terminal): S[CNode[Segment.MidSeg]]                  // >mid< -> terminal
+    def mkOne(gs: Segment.SegInRG, t1: Terminal, t2: Terminal): S[CNode[Segment.TermSeg]] // path has only one segment
 
     def mkInfo(gs: Segment.SegInRG, endsAt: CTerm) =
       val lut = scala.collection.mutable.BitSet.empty
@@ -128,8 +141,6 @@ trait NudgingCommons:
       SegmentInfo(gs.dir, pathId, endsAt, lut)
 
     def mkEst(gs: Segment.SegInRG) = Estimated(gs.norm, gs.min, gs.max)
-
-  protected def segBuilder(pathId: Int, rg: RoutingGraph & PathOrder): SegmentBuilder
 
   private def traceRGSegments(rg: RoutingGraph & PathOrder, pathId: Int, gs: Segment.SegInRG, isAfter: BitSet) =
     Debugging.dbg(s"path #$pathId ${gs.dir} (@${gs.norm}) is after ${isAfter.mkString("[", ", ", "]")}")
@@ -183,11 +194,15 @@ trait NudgingCommons:
 
     lazy val graph: DiGraph =
       val digraph = Graph.fromEdges(mkEdges(mkQueue(allNodes)).toSeq, allNodes.size).mkDiGraph
-      TransitiveReduction(digraph)
+      val res     = TransitiveReduction(digraph)
+      println(s"======DEBUG ${if isHorizontal then "HORIZONTAL" else "VERTICAL"} CONSTRAINT GRAPH======")
+      allNodes.foreach(println)
+      res.vertices.zipWithIndex.foreach((v, i) => println(s"$i: ${v.neighbors.mkString("[", ", ", "]")}"))
+      res
 
     def borderConstraints =
       val (min, max) = (obs.minBy(_.dim.at), obs.maxBy(_.dim.at))
-      List(eow._1.pos <= min.pos, eow._2.pos >= max.pos)
+      List(eow._1.pos <= min.pos, eow._2.pos >= max.pos) -> (eow._1.pos - eow._2.pos)
   end CGraphCommons
 
   protected def mkQueue(nodes: Seq[NodeData[CNodeAny]]) =
@@ -240,8 +255,39 @@ trait NudgingCommons:
       .filter(_.nonEmpty)
   end split
 
+  protected def mkConstraint(low: NodeData[CNodeAny], high: NodeData[CNodeAny], m: CTerm) =
+    low.data.kind -> high.data.kind match
+      case (ak: Segment, bk: Segment) if ak.info.pathId == bk.info.pathId => (low.data.pos <= high.data.pos)     -> false
+      case _                                                              => (low.data.pos + m <= high.data.pos) -> true
+
+  protected def mkConstraintsForComponent(
+      g: DiGraph,
+      cmp: BitSet,
+      allNodes: IndexedSeq[NodeData[CNodeAny]],
+      isH: Boolean,
+  ): S[(Seq[Constraint], CTerm)] =
+    import Constraint.builder.*
+
+    def mkConstraints(margin: CTerm) = for
+      highNodeId <- cmp.map(NodeIndex(_)).toSeq
+      lowNodeId  <- g(highNodeId).neighbors
+      highNode    = allNodes(highNodeId.toInt)
+      lowNode     = allNodes(lowNodeId.toInt)
+      if cmp(lowNodeId.toInt) && !(isBorderNode(lowNode) && isBorderNode(highNode))
+    yield mkConstraint(lowNode, highNode, margin)
+
+    for
+      (xv, yv)  <- State.get[(Int, Int)]
+      margin     = if isH then mkVar(xv) else mkVar(yv)
+      (cs, m)    = mkConstraints(margin).unzip
+      usedMargin = m.reduce(_ || _)
+      _         <- if usedMargin then State.set(if isH then (xv + 1, yv) else (xv, yv + 1)) else State.pure(())
+    yield cs -> (if usedMargin then margin else mkConst(0))
+
   protected def maximize(cs: Seq[Constraint], obj: CTerm) =
-    ORTools.solve(LPInstance(cs, obj, maximize = true)).fold(sys.error, identity)
+    val lp = LPInstance(cs, obj, maximize = true)
+    Debugging.dbg(lp)
+    ORTools.solve(lp).fold(sys.error, identity)
 
   protected def setX(node: CNode[Segment], start: Double, xSols: LPResult) =
     import Segment.*
@@ -266,29 +312,157 @@ trait NudgingCommons:
       else Vec2D(xSols(n.pos), ySols(n.kind.terminal))
 
     for (path, i) <- segments.zipWithIndex yield
-      val terms = EdgeTerminals(at(path.u), path.u.kind.info.dir, at(path.v), path.v.kind.info.dir)
+      val terms = EdgeTerminals(at(path.u), path.u.kind.info.dir, at(path.v), path.v.kind.info.dir.reverse)
       Routing.removeInnerZeroSegs(EdgeRoute(terms, go(Nil, terms.uTerm, path.toList)))
   end mkRoutes
 end NudgingCommons
 
 class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
-  override def segBuilder(pathId: Int, rg: RoutingGraph & PathOrder): SegmentBuilder = new SegmentBuilder(pathId, rg):
-    import Segment.*
-    override def mkMM(gs: Segment.SegInRG): S[CNode[Segment.MidSeg]]                         = State((xv, yv) =>
-      if gs.isH then (xv, yv + 1) -> CNode(mkVar(yv), mkEst(gs), MidSeg(mkInfo(gs, mkVar(xv))))
-      else (xv + 1, yv)           -> CNode(mkVar(xv), mkEst(gs), MidSeg(mkInfo(gs, mkVar(yv)))),
+
+  private def segBuilder(pathId: Int, rg: RoutingGraph & PathOrder, obstacles: IndexedSeq[ObsNodes]): SegmentBuilder =
+    def termBorder(t: Terminal) = t.dir match
+      case North => obstacles(t.obsId).top.pos
+      case East  => obstacles(t.obsId).right.pos
+      case South => obstacles(t.obsId).bottom.pos
+      case West  => obstacles(t.obsId).left.pos
+
+    new SegmentBuilder(pathId, rg):
+      import Segment.*
+      override def mkOne(gs: Segment.SegInRG, t1: Terminal, t2: Terminal) = ???
+      override def mkTT(gs: Segment.SegInRG, t1: Terminal, t2: Terminal)  = State((xv, yv) =>
+        if gs.isH then (xv, yv + 1) -> CNode(mkVar(yv), mkEst(gs), TermSeg(termBorder(t1), mkInfo(gs, mkVar(xv))))
+        else (xv + 1, yv)           -> CNode(mkVar(xv), mkEst(gs), TermSeg(termBorder(t1), mkInfo(gs, mkVar(yv)))),
+      )
+      override def mkTN(gs: Segment.SegInRG, t: Terminal)                 = State((xv, yv) =>
+        if gs.isH then (xv, yv + 1) -> CNode(mkVar(yv), mkEst(gs), TermSeg(termBorder(t), mkInfo(gs, termBorder(t))))
+        else (xv + 1, yv)           -> CNode(mkVar(xv), mkEst(gs), TermSeg(termBorder(t), mkInfo(gs, termBorder(t)))),
+      )
+      override def mkTM(gs: Segment.SegInRG, t: Terminal)                 = mkTT(gs, t, t)
+      override def mkMT(gs: Segment.SegInRG, t: Terminal)                 = mkMM(gs)
+      override def mkMM(gs: Segment.SegInRG)                              = State((xv, yv) =>
+        if gs.isH then (xv, yv + 1) -> CNode(mkVar(yv), mkEst(gs), MidSeg(mkInfo(gs, mkVar(xv))))
+        else (xv + 1, yv)           -> CNode(mkVar(xv), mkEst(gs), MidSeg(mkInfo(gs, mkVar(yv)))),
+      )
+
+  private trait CGraph extends CGraphCommons:
+    def obstacles: IndexedSeq[ObsNodes]
+
+    def paddingConstraints: Seq[Constraint] =
+      graph.edges.map(e => mkConstraint(allNodes(e.to.toInt), allNodes(e.from.toInt), mkConst(conf.padding))._1)
+
+    def homogeneityConstraints: S[(Seq[Constraint], CTerm, Int)] =
+      val perComp = split(graph.undirected, allNodes).map(mkConstraintsForComponent(graph, _, allNodes, isHorizontal))
+      perComp.toList.sequence.map(tmp =>
+        val (cs, obj) = tmp.unzip
+        (cs.flatten, obj.reduce(_ + _), obj.size),
+      )
+
+    def obstacleConstraints: (Seq[Constraint], CTerm) =
+      val (cs, obj) = obstacles
+        .map(o =>
+          if isHorizontal then
+            (o.left.pos + mkConst(o.right.dim.at - o.left.dim.at) <= o.right.pos)    -> (o.left.pos - o.right.pos)
+          else (o.bottom.pos + mkConst(o.top.dim.at - o.bottom.dim.at) <= o.top.pos) -> (o.bottom.pos - o.top.pos),
+        )
+        .unzip
+      cs -> obj.reduce(_ + _)
+
+    def mkConstraints: S[(Seq[Constraint], CTerm)] =
+      val (bCs, bObj) = borderConstraints
+      val pCs         = paddingConstraints
+      val (oCs, oObj) = obstacleConstraints
+      for (sCs, sObj, w) <- homogeneityConstraints
+      yield (bCs ++ pCs ++ oCs ++ sCs) -> ((w + 1.0) * (bObj + oObj) + sObj)
+
+  end CGraph
+
+  private def mkObsNodes(r: Rect2D, i: Int): S[ObsNodes] = State((xv, yv) =>
+    (xv + 2, yv + 2) -> ObsNodes(
+      CNode(mkVar(xv), Estimated(r.left, r.bottom, r.top), ObsBorder.Begin(i)),
+      CNode(mkVar(xv + 1), Estimated(r.right, r.bottom, r.top), ObsBorder.End(i)),
+      CNode(mkVar(yv), Estimated(r.bottom, r.left, r.right), ObsBorder.Begin(i)),
+      CNode(mkVar(yv + 1), Estimated(r.top, r.left, r.right), ObsBorder.End(i)),
+    ),
+  )
+
+  private class HGraph(
+      override val eow: (CNode[EndOfWorld], CNode[EndOfWorld]),
+      paths: IndexedSeq[PathNodes],
+      override val obstacles: IndexedSeq[ObsNodes],
+  ) extends CGraph:
+    override val isHorizontal  = true
+    override lazy val segments = paths.flatMap(_.toList.filter(_.kind.isVertical))
+    override lazy val obs      = obstacles.flatMap(o => Vector(o.left, o.right))
+
+  private def mkHGraph(paths: IndexedSeq[PathNodes], obstacles: IndexedSeq[ObsNodes]): S[HGraph] = for
+    (xv, yv) <- State.get[(Int, Int)]
+    _        <- State.set((xv + 1, yv))
+  yield HGraph((EndOfWorld.mkNode(mkConst(0), West), EndOfWorld.mkNode(mkVar(xv), East)), paths, obstacles)
+
+  private class VGraph(
+      override val eow: (CNode[EndOfWorld], CNode[EndOfWorld]),
+      paths: IndexedSeq[PathNodes],
+      override val obstacles: IndexedSeq[ObsNodes],
+      xSols: LPResult, // solved horizontal constraints
+  ) extends CGraph:
+    override val isHorizontal = false
+
+    override lazy val obs = obstacles.flatMap(o =>
+      Vector(
+        o.bottom.copy(dim = o.bottom.dim.copy(low = xSols(o.left.pos), high = xSols(o.right.pos))),
+        o.top.copy(dim = o.top.dim.copy(low = xSols(o.left.pos), high = xSols(o.right.pos))),
+      ),
     )
-    override def mkMT(gs: Segment.SegInRG, to: Vec2D): S[CNode[Segment.MidSeg]]              = mkMM(gs)
-    override def mkTM(gs: Segment.SegInRG, at: Vec2D): S[CNode[Segment.TermSeg]]             = State((xv, yv) =>
-      if gs.isH then (xv + 1, yv) -> CNode(mkVar(yv), mkEst(gs), TermSeg(mkVar(xv), mkInfo(gs, mkVar(xv + 1))))
-      else (xv, yv + 1)           -> CNode(mkVar(xv), mkEst(gs), TermSeg(mkVar(yv), mkInfo(gs, mkVar(yv + 1)))),
+
+    override lazy val segments =
+      @tailrec
+      def fromPath(queue: List[CNode[Segment]], start: Double, res: List[CNode[Segment]]): Seq[CNode[Segment]] =
+        queue match
+          case Nil          => res.reverse
+          case head :: next =>
+            if head.kind.isVertical then fromPath(next, start, res)
+            else
+              val (end, s) = setX(head, start, xSols)
+              fromPath(next, end, s :: res)
+      paths.flatMap(p => fromPath(p.toList, xSols(p.startX), Nil))
+
+  end VGraph
+
+  private def mkVGraph(paths: IndexedSeq[PathNodes], obstacles: IndexedSeq[ObsNodes], xSols: LPResult): S[VGraph] = for
+    (xv, yv) <- State.get[(Int, Int)]
+    _        <- State.set((xv, yv + 1))
+  yield VGraph((EndOfWorld.mkNode(mkConst(0), South), EndOfWorld.mkNode(mkVar(yv), North)), paths, obstacles, xSols)
+
+  private def mkTerminals(pl: PortLayout, g: SimpleGraph) =
+    (pl.byEdge zip g.edges).flatMap((et, se) =>
+      List(Terminal(et.uTerm, et.uDir, se.from.toInt), Terminal(et.vTerm, et.vDir, se.to.toInt)),
     )
-    override def mkT1(gs: Segment.SegInRG, at: Vec2D, to: Vec2D): S[CNode[Segment.TermSeg]]  = mkTM(gs, at)
-    override def mkTN(gs: Segment.SegInRG, at: Vec2D, to: Vec2D): S[CNode[Segment.TermSeg]]  = State((xv, yv) =>
-      if gs.isH then (xv + 1, yv + 1) -> CNode(mkVar(yv), mkEst(gs), TermSeg(mkVar(xv), mkInfo(gs, mkVar(xv))))
-      else (xv + 1, yv + 1)           -> CNode(mkVar(xv), mkEst(gs), TermSeg(mkVar(yv), mkInfo(gs, mkVar(yv)))),
+
+  private def mkPorts(routes: IndexedSeq[EdgeRoute]) = PortLayout(routes.map(_.terminals))
+
+  private def mkObstacles(obsNodes: IndexedSeq[ObsNodes], xSols: LPResult, ySols: LPResult) =
+    def nodes2rect(o: ObsNodes) = Rect2D.boundingBox(
+      List(Vec2D(xSols(o.left.pos), ySols(o.bottom.pos)), Vec2D(xSols(o.right.pos), ySols(o.top.pos))),
     )
-    override def mkOne(gs: Segment.SegInRG, at: Vec2D, to: Vec2D): S[CNode[Segment.TermSeg]] = State((xv, yv) =>
-      if gs.isH then (xv + 2, yv + 1) -> CNode(mkVar(yv), mkEst(gs), TermSeg(mkVar(xv), mkInfo(gs, mkVar(xv + 1))))
-      else (xv + 1, yv + 2)           -> CNode(mkVar(xv), mkEst(gs), TermSeg(mkVar(yv), mkInfo(gs, mkVar(yv + 1)))),
-    )
+    Obstacles(obsNodes.map(nodes2rect))
+
+  import Debugging.dbg
+
+  def calcAll(routing: Routed, ports: PortLayout, graph: SimpleGraph, obstacles: Obstacles) = (for
+    obsNodes    <- obstacles.nodes.zipWithIndex.map(mkObsNodes.tupled).toVector.sequence
+    paths       <- Segment.mkAll(routing.paths, routing, mkTerminals(ports, graph), i => segBuilder(i, routing, obsNodes))
+    _ = paths.flatMap(_.toList).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_)) // DEBUG
+    (hCs, hObj) <- mkHGraph(paths, obsNodes).flatMap(_.mkConstraints)
+    xSols        = maximize(hCs, hObj)
+    (vCs, vObj) <- mkVGraph(paths, obsNodes, xSols).flatMap(_.mkConstraints)
+    ySols        = maximize(vCs, vObj)
+  yield
+    val routes = mkRoutes(xSols, ySols, paths)
+    (routes, mkPorts(routes), mkObstacles(obsNodes, xSols, ySols))
+  ).runA(0 -> 0)
+
+end FullNudging
+
+object FullNudging:
+  def apply(config: Nudging.Config, routing: Routed, ports: PortLayout, graph: SimpleGraph, obstacles: Obstacles) =
+    new FullNudging(config).calcAll(routing, ports, graph, obstacles)

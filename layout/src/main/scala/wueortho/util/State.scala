@@ -25,3 +25,5 @@ object State:
 
   extension [S, A](ss: List[State[S, A]])
     def sequence = ss.foldLeft(State.pure[S, List[A]](Nil))((s, i) => s.flatMap(l => i.map(a => a :: l))).map(_.reverse)
+  extension [S, A](ss: Vector[State[S, A]])
+    def sequence = ss.foldLeft(State.pure[S, Vector[A]](Vector.empty))((s, i) => s.flatMap(l => i.map(a => l :+ a)))
