@@ -41,6 +41,7 @@ lazy val compilerOptions = Seq(
   "-deprecation",
   "-feature",
   "-Wconf:any:verbose",
+  "-Werror",
 )
 
 enablePlugins(JavaAppPackaging)
