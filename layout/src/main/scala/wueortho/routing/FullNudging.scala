@@ -344,9 +344,7 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
         else (xv + 1, yv)           -> CNode(mkVar(xv), mkEst(gs), MidSeg(mkInfo(gs, mkVar(yv)))),
       )
 
-  private trait CGraph extends CGraphCommons:
-    def obstacles: IndexedSeq[ObsNodes]
-
+  private trait CGraph(obstacles: IndexedSeq[ObsNodes], paths: IndexedSeq[PathNodes]) extends CGraphCommons:
     def paddingConstraints: Seq[Constraint] =
       graph.edges.map(e => mkConstraint(allNodes(e.to.toInt), allNodes(e.from.toInt), mkConst(conf.padding))._1)
 
@@ -367,12 +365,39 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
         .unzip
       cs -> obj.reduce(_ + _)
 
+    def pathLength: (CTerm, Int) =
+      def mkLen(start: CTerm, end: CTerm, dir: Direction) = dir match
+        case North | East => end - start
+        case South | West => start - end
+
+      @tailrec
+      def go(res: CTerm, rem: CTerm, start: CTerm, count: Int, dir: Direction, q: List[CNode[Segment]]): (CTerm, Int) =
+        q match
+          case Nil          => res + mkLen(start, rem, dir) -> (count + 1)
+          case head :: next =>
+            if head.kind.isHorizontal != isHorizontal then go(res, rem, start, count, dir, next)
+            else if head.kind.info.dir == dir then go(res, head.kind.info.endsAt, start, count, dir, next)
+            else go(res + mkLen(start, rem, dir), head.kind.info.endsAt, rem, count + 1, head.kind.info.dir, next)
+
+      paths
+        .map(p =>
+          val s   = if isHorizontal == p.u.kind.isHorizontal then p.u.kind.terminal else p.u.pos
+          val dir =
+            if isHorizontal == p.u.kind.isHorizontal then p.u.kind.info.dir
+            else if p.mid.nonEmpty then p.mid.head.kind.info.dir
+            else p.v.kind.info.dir
+          go(mkConst(0), s, s, 0, dir, p.toList),
+        )
+        .reduce((a, b) => (a._1 + b._1, a._2 + b._2))
+    end pathLength
+
     def mkConstraints: S[(Seq[Constraint], CTerm)] =
       val (bCs, bObj) = borderConstraints
       val pCs         = paddingConstraints
       val (oCs, oObj) = obstacleConstraints
-      for (sCs, sObj, w) <- homogeneityConstraints
-      yield (bCs ++ pCs ++ oCs ++ sCs) -> ((w + 1.0) * (bObj + oObj) + sObj)
+      val (lObj, w1)  = pathLength
+      for (sCs, sObj, w2) <- homogeneityConstraints
+      yield (bCs ++ pCs ++ oCs ++ sCs) -> ((w1 + w2 + 1.0) * (bObj + oObj) + sObj - lObj)
 
   end CGraph
 
@@ -388,8 +413,8 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
   private class HGraph(
       override val eow: (CNode[EndOfWorld], CNode[EndOfWorld]),
       paths: IndexedSeq[PathNodes],
-      override val obstacles: IndexedSeq[ObsNodes],
-  ) extends CGraph:
+      obstacles: IndexedSeq[ObsNodes],
+  ) extends CGraph(obstacles, paths):
     override val isHorizontal  = true
     override lazy val segments = paths.flatMap(_.toList.filter(_.kind.isVertical))
     override lazy val obs      = obstacles.flatMap(o => Vector(o.left, o.right))
@@ -402,9 +427,9 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
   private class VGraph(
       override val eow: (CNode[EndOfWorld], CNode[EndOfWorld]),
       paths: IndexedSeq[PathNodes],
-      override val obstacles: IndexedSeq[ObsNodes],
+      obstacles: IndexedSeq[ObsNodes],
       xSols: LPResult, // solved horizontal constraints
-  ) extends CGraph:
+  ) extends CGraph(obstacles, paths):
     override val isHorizontal = false
 
     override lazy val obs = obstacles.flatMap(o =>

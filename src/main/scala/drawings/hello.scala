@@ -55,6 +55,15 @@ import drawings.Debugging.*
     maximize = true,
   )
   println(ORTools.solve(lp))
+  val lp2    = ORTools.LPInstance(
+    List(
+      x <= mkConst(1),
+      y <= mkConst(1),
+    ),
+    obj = 2 * x + 3 * y + 2 * x,
+    maximize = true,
+  )
+  println(ORTools.solve(lp2))
 
 @main def runRouting =
   val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
