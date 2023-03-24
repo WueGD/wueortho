@@ -40,7 +40,7 @@ object EdgeNudging extends NudgingCommons:
       .map(in =>
         val (sepCs, sepObj) = in.unzip
         val (bCs, bObj)     = borderConstraints
-        (sepCs.flatten ++ bCs, sepObj.size.toDouble * bObj + sepObj.reduce(_ + _)),
+        (sepCs.flatten ++ bCs, sepObj.size.toDouble * bObj + sepObj.foldLeft(mkConst(0))(_ + _)),
       )
 
   private class HGraph(

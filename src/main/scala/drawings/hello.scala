@@ -82,7 +82,7 @@ import drawings.Debugging.*
   Files.writeString(Paths.get("geo-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, geoRoutes))
 
   val (fnRoutes, fnPorts, fnObs) =
-    FullNudging(Nudging.Config(0.25, 0.5), rgo, OvgSample.ports, OvgSample.graph, OvgSample.obstacles)
+    FullNudging(Nudging.Config(0.1, 1), rgo, OvgSample.ports, OvgSample.graph, OvgSample.obstacles)
   Files.writeString(Paths.get("fully-nudged-routing.svg"), debugSvg(fnObs, fnPorts, fnRoutes))
 
 @main def runPorts =
@@ -267,14 +267,16 @@ object OvgSample:
   val ports      = PortLayout(
     Vector(
       EdgeTerminals(Vec2D(5, 2), Direction.North, Vec2D(8, 4), Direction.South),
+      EdgeTerminals(Vec2D(9, 1), Direction.East, Vec2D(10, 4), Direction.South),
       EdgeTerminals(Vec2D(7, 5), Direction.West, Vec2D(3, 7), Direction.East),
-      EdgeTerminals(Vec2D(1, 6), Direction.South, Vec2D(9, 7), Direction.North),
+      EdgeTerminals(Vec2D(9, 7), Direction.North, Vec2D(1, 6), Direction.South),
     ),
   )
   val edges      = Vector(
     SimpleEdge(NodeIndex(0), NodeIndex(1)),
     SimpleEdge(NodeIndex(1), NodeIndex(2)),
     SimpleEdge(NodeIndex(2), NodeIndex(1)),
+    SimpleEdge(NodeIndex(0), NodeIndex(1)),
   )
   lazy val graph = Graph.fromEdges(edges).mkSimpleGraph
 

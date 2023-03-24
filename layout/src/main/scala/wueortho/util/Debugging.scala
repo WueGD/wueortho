@@ -20,7 +20,7 @@ object Debugging:
     t match
       case Constant(c)           => c.toString
       case Variable(id)          => s"var#$id"
-      case Sum(a, Negate(b))     => s"${showCTerm(a)} - ${showCTerm(b)}"
+      case Sum(a, Negate(b))     => s"${showCTerm(a)} - (${showCTerm(b)})"
       case Sum(a, b)             => s"${showCTerm(a)} + ${showCTerm(b)}"
       case Negate(a)             => s"-(${showCTerm(a)})"
       case Scale(l, a: Constant) => s"$l * ${showCTerm(a)}"

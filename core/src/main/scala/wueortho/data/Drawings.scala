@@ -33,3 +33,9 @@ object EdgeRoute:
 
     lazy val len = Math.abs(this match { case HSeg(dx) => dx; case VSeg(dy) => dy })
     lazy val sgn = Math.signum(this match { case HSeg(dx) => dx; case VSeg(dy) => dy })
+
+  object OrthoSeg:
+    extension (p: Vec2D)
+      def moveBy(s: OrthoSeg) = s match
+        case HSeg(dx) => p.copy(x1 = p.x1 + dx)
+        case VSeg(dy) => p.copy(x2 = p.x2 + dy)

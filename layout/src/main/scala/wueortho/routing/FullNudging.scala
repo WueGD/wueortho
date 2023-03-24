@@ -41,7 +41,7 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
       val perComp = split(graph.undirected, allNodes).map(mkConstraintsForComponent(graph, _, allNodes, isHorizontal))
       perComp.toList.sequence.map(tmp =>
         val (cs, obj) = tmp.unzip
-        (cs.flatten, obj.reduce(_ + _), obj.size),
+        (cs.flatten, obj.foldLeft(mkConst(0))(_ + _), obj.size),
       )
 
     def obstacleConstraints: (Seq[Constraint], CTerm) =
