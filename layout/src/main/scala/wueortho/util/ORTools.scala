@@ -3,10 +3,6 @@ package wueortho.util
 import com.google.ortools.linearsolver.*
 import wueortho.util.Constraint.CTerm
 
-/// TODO:
-/// Needs confirmation but if the same variable ist referenced by a CTerm multiple times
-/// this may not adequately be represented by the generated MPConstraint
-
 object ORTools:
   com.google.ortools.Loader.loadNativeLibraries()
 
@@ -43,7 +39,7 @@ object ORTools:
     val vars = $.makeNumVarArray(vIdMax(lp.cstr) + 1, NInf, PInf).nn
 
     for c <- lp.cstr do prepareConstraint(c).unsafeAddToSolver($, vars)
-    val (objCs, _) = prepareCTerm(1, lp.obj)
+    val (objCs, _) = prepareCTerm(lp.obj)
     unsafeMkObjective(objCs, lp.maximize, $, vars)
 
     $.solve() match
@@ -51,45 +47,45 @@ object ORTools:
       case MPSolver.ResultStatus.OPTIMAL => Right(unsafeGetResult($))
       case err                           => Left(s"instance $lp failed as $err")
 
-  private def prepareCTerm(scale: Double, next: CTerm): (List[(Int, Double)], Double) = next match
-    case CTerm.Constant(c)  => Nil               -> c
-    case CTerm.Variable(id) => List(id -> scale) -> 0
-    case CTerm.Sum(a, b)    =>
-      val (va, ca) = prepareCTerm(scale, a)
-      val (vb, cb) = prepareCTerm(scale, b)
-      (va ::: vb) -> (ca + cb)
-    case CTerm.Negate(a)    => prepareCTerm(-scale, a)
-    case CTerm.Scale(l, a)  => prepareCTerm(l * scale, a)
+  private def prepareCTerm(term: CTerm) =
+    def go(scale: Double, next: CTerm): (List[(Int, Double)], Double) = next match
+      case CTerm.Constant(c)  => Nil               -> c
+      case CTerm.Variable(id) => List(id -> scale) -> 0
+      case CTerm.Sum(a, b)    =>
+        val (va, ca) = go(scale, a)
+        val (vb, cb) = go(scale, b)
+        (va ::: vb) -> (ca + cb)
+      case CTerm.Negate(a)    => go(-scale, a)
+      case CTerm.Scale(l, a)  => go(l * scale, a)
+
+    val (cos, const) = go(1, term)
+    cos.groupMapReduce(_._1)(_._2)(_ + _) -> const
 
   private def prepareConstraint(c: Constraint) =
     val (body, head)           = c.b.constValue match
       case Some(x) => c.a         -> x
       case None    => (c.a - c.b) -> 0.0
-    val (coefficients, consts) = prepareCTerm(1, body)
+    val (coefficients, consts) = prepareCTerm(body)
     c match
       case _: Constraint.SmallerOrEqual => MPC(coefficients, NInf, head - consts)
       case _: Constraint.Equal          => MPC(coefficients, head - consts - Eps, head - consts + Eps)
 
   private def unsafeMkObjective(
-      coefficients: List[(Int, Double)],
+      coefficients: Map[Int, Double],
       maximize: Boolean,
       $ : MPSolver,
       vars: Array[MPVariable | Null],
   ) =
-    // println(s"$coefficients -> ${if maximize then "max" else "min"}")
     val obj = $.objective().nn
     for (i, a) <- coefficients do obj.setCoefficient(vars(i), a)
     if maximize then obj.setMaximization() else obj.setMinimization()
 
   private def unsafeGetResult($ : MPSolver) =
-    println(s"DEBUG: LP solved in ${$.wallTime()}ms after ${$.iterations()} iterations")
     val objv = $.objective().nn.value()
     val sols = for v <- $.variables().nn yield v.nn.solutionValue()
-    println(s"DEBUG: obj: $objv")
-    // println(s"DEBUG: sols: ${sols.mkString("[", ", ", "]")}")
     LPResult(scala.collection.immutable.ArraySeq.unsafeWrapArray(sols), objv)
 
-  private case class MPC(coefficients: List[(Int, Double)], lb: Double, ub: Double):
+  private case class MPC(coefficients: Map[Int, Double], lb: Double, ub: Double):
     def unsafeAddToSolver($ : MPSolver, vars: Array[MPVariable | Null]) =
       val c = $.makeConstraint(lb, ub).nn
       for (i, a) <- coefficients do c.setCoefficient(vars(i), a)

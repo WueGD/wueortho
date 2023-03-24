@@ -2,7 +2,6 @@ KNOWN ISSUES
 ============
 
 * [BUG] some terminal combinations don't work with full nudging (see OVGSample)
-* [BUG] full nudging with path length constraints has an unsound optimization function
 * [BUG] multiple monotony constraints might replace a separation constraint but do not induce a margin (we may be able to show that this cannot happen)
 * [BUG] one separate run of the geo-nudging might put two segments in the same position that do not have each other in their `nodesBefore` sets. This can mean that we introduce unnecessary eyes (fixed for: knock-knee situations)
 * [BUG] segments get pressed into obstacles by EndOfWorld nodes

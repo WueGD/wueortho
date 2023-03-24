@@ -16,3 +16,4 @@ project/target
 project/metals.sbt
 *.swp
 notes
+data
