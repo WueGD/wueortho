@@ -24,7 +24,9 @@ object Obstacles:
   def lift(f: IndexedSeq[Rect2D] => IndexedSeq[Rect2D])             = (in: Obstacles) => Obstacles(f(in.nodes))
 
 case class EdgeRoute(terminals: EdgeTerminals, route: Seq[EdgeRoute.OrthoSeg]):
+  import wueortho.data.EdgeRoute.OrthoSeg.*
   assert(route.nonEmpty, "route must not be empty")
+  def points = route.scanLeft(terminals.uTerm)(_.moveBy(_))
 
 object EdgeRoute:
   enum OrthoSeg derives CanEqual:

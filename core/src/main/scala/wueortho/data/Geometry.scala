@@ -35,6 +35,9 @@ case class Rect2D(center: Vec2D, span: Vec2D) derives CanEqual:
       val ih = 0.0 max (oh - 2 * span.x2 - 2 * other.span.x2)
       Math.sqrt(iw * iw + ih * ih)
 
+  def corners: (Vec2D, Vec2D, Vec2D, Vec2D) =
+    (Vec2D(left, top), Vec2D(right, top), Vec2D(right, bottom), Vec2D(left, bottom))
+
 object Rect2D:
   def boundingBox(interior: Seq[Vec2D]) =
     val (xs, ys)     = (interior.map(_.x1), interior.map(_.x2))

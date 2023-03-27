@@ -28,6 +28,7 @@ enum Step derives ConfiguredCodec:
   case FullNudging(config: Nudging.Config, routing: Tag, ports: Tag, obstacles: Tag, graph: Tag, tag: Tag)
   case SvgDrawing(config: SvgConfig, obstacles: Tag, ports: Tag, routes: Tag, tag: Tag)
   case SvgToFile(path: Path, svg: Tag, tag: Tag)
+  case Metrics(metrics: List[String], obstacles: Tag, routes: Tag, tag: Tag)
 
   def tag: Tag
 
@@ -57,3 +58,4 @@ object Step:
     case s: NoNudging              => runStep(s, cache)
     case s: SvgDrawing             => runStep(s, cache)
     case s: SvgToFile              => runStep(s, cache)
+    case s: Metrics                => runStep(s, cache)

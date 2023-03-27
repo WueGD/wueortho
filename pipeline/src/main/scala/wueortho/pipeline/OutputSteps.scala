@@ -2,6 +2,7 @@ package wueortho.pipeline
 
 import wueortho.data.*
 import wueortho.io.svg.Svg
+import wueortho.metrics.*
 import scala.util.Try
 import java.nio.file.Files
 
@@ -29,6 +30,21 @@ object OutputSteps:
       svg <- cache.getStageResult(Stage.Svg, Step.resolve(s.svg))
       _   <- Try(Files.writeString(s.path, svg)).toEither.left.map(_.toString)
     yield ()
+
+  given Provider[Step.Metrics] = (s: Step.Metrics, cache: StageCache) =>
+    for
+      obs <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
+      r   <- cache.getStageResult(Stage.Routes, mk(s.routes))
+    yield printMetrics(obs, r, s.metrics*)
+
+  private val allMetrics = List("Crossings", "BoundingBoxArea", "ConvexHullArea")
+
+  private def printMetrics(obs: Obstacles, r: IndexedSeq[EdgeRoute], ms: String*): Unit = ms foreach {
+    case "all"             => printMetrics(obs, r, allMetrics*)
+    case "Crossings"       => println(s"crossings: ${Crossings.numberOfCrossings(r)}")
+    case "BoundingBoxArea" => println(s"bounding box area: ${Area.boundingBoxArea(obs, r)}")
+    case "ConvexHullArea"  => println(s"convex hull area: ${Area.convexHullArea(obs, r)}")
+  }
 
 enum SvgConfig(val svg: Svg):
   case SmoothEdges extends SvgConfig(Svg.withDefaults)

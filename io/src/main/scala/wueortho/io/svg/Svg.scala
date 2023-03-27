@@ -12,7 +12,7 @@ import io.circe.derivation.ConfiguredCodec
 
 import Svg.*
 
-/** all numbers a pixels */
+/** all numbers are pixels */
 case class Svg(
     pixelsPerUnit: Double = 50,
     viewPortPadding: Double = 25,
@@ -69,16 +69,11 @@ case class Svg(
   private def drawEdgeRoute(route: EdgeRoute, color: String) =
     import EdgeRoute.OrthoSeg.*
 
-    val points = route.route.scanLeft(route.terminals.uTerm)((s, seg) =>
-      seg match
-        case HSeg(dx) => s.copy(x1 = s.x1 + dx)
-        case VSeg(dy) => s.copy(x2 = s.x2 + dy),
-    )
-    val cmds   = edgeBends match
+    val cmds = edgeBends match
       case EdgeBends.Smooth(radius) => EdgeRenderer.smoothSvgPathCmds(this, route, radius)
       case EdgeBends.Straight       => EdgeRenderer.straightSvgPathCmds(this, route)
 
-    SvgFrag(bbox(points), Seq(pathFrag(cmds, color, edgeStrokeWidth, "none")))
+    SvgFrag(bbox(route.points), Seq(pathFrag(cmds, color, edgeStrokeWidth, "none")))
 
   private def rectFrag(r: Rect2D, stroke: String, strokeWidth: Double, fill: String) = rect(
     ^.x           := tx(r.center.x1 - r.span.x1),
