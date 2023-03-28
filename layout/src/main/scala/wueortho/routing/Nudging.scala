@@ -44,7 +44,7 @@ trait NudgingCommons:
     def isHorizontal = info.dir.isHorizontal
     def isVertical   = !isHorizontal
 
-  case class SegmentInfo(dir: Direction, pathId: Int, endsAt: CTerm, pathsBefore: BitSet)
+  case class SegmentInfo(dir: Direction, pathId: Int, idx: Int, nextDir: Direction, endsAt: CTerm, pathsBefore: BitSet)
 
   case class PathNodes(u: CNode[Segment.TermSeg], mid: Seq[CNode[Segment.MidSeg]], v: CNode[Segment.TermSeg]):
     def toList = (u +: mid :+ v).toList
@@ -65,7 +65,15 @@ trait NudgingCommons:
   case class Terminal(pos: Vec2D, dir: Direction, obsId: Int)
 
   object Segment:
-    case class SegInRG(dir: Direction, min: Double, max: Double, norm: Double, nodes: List[NodeIndex]) derives CanEqual:
+    case class SegInRG(
+        dir: Direction,
+        idx: Int,
+        nextDir: Direction,
+        min: Double,
+        max: Double,
+        norm: Double,
+        nodes: List[NodeIndex],
+    ) derives CanEqual:
       def isH = dir.isHorizontal
 
     def mkAll(
@@ -74,21 +82,20 @@ trait NudgingCommons:
         ts: IndexedSeq[Terminal],
         mkSB: (pathId: Int) => SegmentBuilder,
     ) =
-      def mkGroup(dir: Direction, nodes: List[NodeIndex]): SegInRG =
+      def mkGroup(dir: Direction, idx: Int, nextDir: Direction, nodes: List[NodeIndex]): SegInRG =
         val (first, last)   = rg.locate(nodes.head) -> rg.locate(nodes.last)
         val (from, to, pos) = if dir.isHorizontal then (first.x1, last.x1, first.x2) else (first.x2, last.x2, first.x1)
-        if from < to then SegInRG(dir, from, to, pos, nodes)
-        else SegInRG(dir, to, from, pos, nodes)
+        SegInRG(dir, idx, nextDir, from min to, from max to, pos, nodes)
 
       def splitIntoSegments(path: Path) =
         @tailrec
         def go(res: List[SegInRG], tail: Seq[Seq[NodeIndex]], tmp: List[NodeIndex], dir: Direction): List[SegInRG] =
           tail match
-            case Nil               => (mkGroup(dir, tmp.reverse) :: res).reverse
+            case Nil               => (mkGroup(dir, res.size, dir, tmp.reverse) :: res).reverse
             case Seq(u, v) +: tail =>
               val nextDir = rg.connection(u, v) getOrElse sys.error(s"path disconnected at $u -- $v")
               if dir == nextDir then go(res, tail, v :: tmp, dir)
-              else go(mkGroup(dir, tmp.reverse) :: res, tail, List(v, u), nextDir)
+              else go(mkGroup(dir, res.size, nextDir, tmp.reverse) :: res, tail, List(v, u), nextDir)
 
         go(Nil, path.nodes.sliding(2).toList, List(path.nodes.head), ts(rg.portId(path.nodes.head).get).dir)
       end splitIntoSegments
@@ -138,21 +145,17 @@ trait NudgingCommons:
         case North => gs.nodes.init.flatMap(i => rg.topPaths(i).takeWhile(_ != pathId))
       )
       if lut.nonEmpty then traceRGSegments(rg, pathId, gs, lut)
-      SegmentInfo(gs.dir, pathId, endsAt, lut)
+      SegmentInfo(gs.dir, pathId, gs.idx, gs.nextDir, endsAt, lut)
 
     def mkEst(gs: Segment.SegInRG) = Estimated(gs.norm, gs.min, gs.max)
 
   private def traceRGSegments(rg: RoutingGraph & PathOrder, pathId: Int, gs: Segment.SegInRG, isAfter: BitSet) =
     Debugging.dbg(s"path #$pathId ${gs.dir} (@${gs.norm}) is after ${isAfter.mkString("[", ", ", "]")}")
     println(gs.dir match
-      case Direction.North =>
-        gs.nodes.init.map(i => s"TRACE: $i to top: ${rg.topPaths(i).mkString(", ")}").mkString("\n")
-      case Direction.East  =>
-        gs.nodes.init.map(i => s"TRACE: $i to right: ${rg.rightPaths(i).mkString(", ")}").mkString("\n")
-      case Direction.South =>
-        gs.nodes.tail.map(i => s"TRACE: $i to top: ${rg.topPaths(i).mkString(", ")}").mkString("\n")
-      case Direction.West  =>
-        gs.nodes.tail.map(i => s"TRACE: $i to right: ${rg.rightPaths(i).mkString(", ")}").mkString("\n"),
+      case North => gs.nodes.init.map(i => s"TRACE: $i to top: ${rg.topPaths(i).mkString(", ")}").mkString("\n")
+      case East  => gs.nodes.init.map(i => s"TRACE: $i to right: ${rg.rightPaths(i).mkString(", ")}").mkString("\n")
+      case South => gs.nodes.tail.map(i => s"TRACE: $i to top: ${rg.topPaths(i).mkString(", ")}").mkString("\n")
+      case West  => gs.nodes.tail.map(i => s"TRACE: $i to right: ${rg.rightPaths(i).mkString(", ")}").mkString("\n"),
     )
 
   object CNode:
@@ -162,8 +165,12 @@ trait NudgingCommons:
       case (ObsBorder.End(ia), ObsBorder.End(ib))          => ia < ib
       case (_: ObsBorder.End, _) | (_, _: ObsBorder.Begin) => true
       case (_, _: ObsBorder.End) | (_: ObsBorder.Begin, _) => false
-      case (a: Segment, b: Segment)                        => b.info.pathsBefore(a.info.pathId)
-  // fixme this sometimes swaps segments from the same path with zero lengh segments between them
+      case (a: Segment, b: Segment)                        =>
+        if a.info.pathId == b.info.pathId then
+          println(s"WARN: equal paths $a vs. $b")
+          if a.info.idx < b.info.idx then a.info.nextDir == East || a.info.nextDir == North
+          else b.info.nextDir == West || b.info.nextDir == South
+        else b.info.pathsBefore(a.info.pathId)
 
   protected trait CGraphCommons:
     def segments: IndexedSeq[CNode[Segment]]
