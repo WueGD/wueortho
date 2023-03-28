@@ -10,7 +10,7 @@ object RandomGraphs:
   case class RandomGraphConfig(n: Int, m: Int, seed: Seed, core: GraphCore, allowLoops: Boolean)
 
   enum GraphCore derives CanEqual, ConfiguredEnumCodec:
-    case Empty, Path, Tree
+    case Empty, Path, Tree, Star
 
   def mkSimpleGraph($ : RandomGraphConfig): Either[String, SimpleGraph] =
     def nodePair(rndm: Random): (NodeIndex, NodeIndex) =
@@ -26,6 +26,9 @@ object RandomGraphs:
       case GraphCore.Tree  =>
         if $.n < 1 then Nil
         else for i <- 1 until $.n yield SimpleEdge(NodeIndex(rndm.nextInt(i)), NodeIndex(i))
+      case GraphCore.Star  =>
+        if $.n < 1 then Nil
+        else for i <- 1 until $.n yield SimpleEdge(NodeIndex(0), NodeIndex(i))
 
     def mkHull(rndm: Random, coreSize: Int): Either[String, Seq[SimpleEdge]] = Either.cond(
       coreSize <= $.m,
