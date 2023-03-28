@@ -9,7 +9,7 @@ import scala.annotation.{tailrec, nowarn}
 import Double.{PositiveInfinity as PosInf, NegativeInfinity as NegInf}
 
 object Nudging:
-  case class Config(overscan: Double, padding: Double)
+  case class Config(padding: Double, use2ndHPass: Boolean)
 
 trait NudgingCommons:
   given GraphConversions.UndirectStrategy = GraphConversions.UndirectStrategy.AllEdges
@@ -163,12 +163,14 @@ trait NudgingCommons:
       case (_: ObsBorder.End, _) | (_, _: ObsBorder.Begin) => true
       case (_, _: ObsBorder.End) | (_: ObsBorder.Begin, _) => false
       case (a: Segment, b: Segment)                        => b.info.pathsBefore(a.info.pathId)
+  // fixme this sometimes swaps segments from the same path with zero lengh segments between them
 
   protected trait CGraphCommons:
     def segments: IndexedSeq[CNode[Segment]]
     def eow: (CNode[EndOfWorld], CNode[EndOfWorld])
     def obs: IndexedSeq[CNode[ObsBorder]]
     def isHorizontal: Boolean
+    protected def overscan = 0.0
 
     lazy val obsOffset = segments.size + eow.size
 
@@ -179,7 +181,7 @@ trait NudgingCommons:
       (queue flatMap { next =>
         val (low, high) = next.data.dim.low -> next.data.dim.high
         val edges       = iTree
-          .overlaps(low - conf.overscan, high + conf.overscan)
+          .overlaps(low - overscan, high + overscan)
           .map(ol => SimpleEdge(next.id, NodeIndex(ol)))
         iTree.cutout(low, high)
         iTree += (low, high, next.id.toInt)
@@ -315,4 +317,12 @@ trait NudgingCommons:
       val terms = EdgeTerminals(at(path.u), path.u.kind.info.dir, at(path.v), path.v.kind.info.dir.reverse)
       Routing.removeInnerZeroSegs(EdgeRoute(terms, go(Nil, terms.uTerm, path.toList)))
   end mkRoutes
+
+  protected def setY(node: CNode[Segment], start: Double, at: Double, ySols: LPResult) =
+    import Segment.*
+    val end       = ySols(node.kind.info.endsAt)
+    val fixedKind = node.kind match
+      case MidSeg(info)            => MidSeg(info.copy(endsAt = mkConst(end)))
+      case TermSeg(terminal, info) => TermSeg(mkConst(ySols(terminal)), info.copy(endsAt = mkConst(end)))
+    end -> CNode(node.pos, Estimated(at, start min end, start max end), fixedKind)
 end NudgingCommons

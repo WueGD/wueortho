@@ -147,6 +147,38 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
     _        <- State.set((xv, yv + 1))
   yield VGraph((EndOfWorld.mkNode(mkConst(0), South), EndOfWorld.mkNode(mkVar(yv), North)), paths, obstacles, xSols)
 
+  private class HGraph2ndPass(
+      override val eow: (CNode[EndOfWorld], CNode[EndOfWorld]),
+      paths: IndexedSeq[PathNodes],
+      obstacles: IndexedSeq[ObsNodes],
+      xSols: LPResult, // solved horizontal constraints
+      ySols: LPResult, // solved vertical constraints
+  ) extends CGraph(obstacles, paths):
+    val eps = 1e-8
+
+    override def isHorizontal = true
+    override def overscan     = conf.padding - eps
+
+    override lazy val obs = obstacles.flatMap(o =>
+      Vector(
+        o.left.copy(dim = Estimated(xSols(o.left.pos), ySols(o.bottom.pos), ySols(o.top.pos))),
+        o.right.copy(dim = Estimated(xSols(o.right.pos), ySols(o.bottom.pos), ySols(o.top.pos))),
+      ),
+    )
+
+    override lazy val segments =
+      @tailrec
+      def fromPath(queue: List[CNode[Segment]], start: Double, res: List[CNode[Segment]]): Seq[CNode[Segment]] =
+        queue match
+          case Nil          => res.reverse
+          case head :: next =>
+            if head.kind.isHorizontal then fromPath(next, start, res)
+            else
+              val (end, s) = setY(head, start, xSols(head.pos), ySols)
+              fromPath(next, end, s :: res)
+      paths.flatMap(p => fromPath(p.toList, ySols(p.startY), Nil))
+  end HGraph2ndPass
+
   private def mkTerminals(pl: PortLayout, g: SimpleGraph) =
     (pl.byEdge zip g.edges).flatMap((et, se) =>
       List(Terminal(et.uTerm, et.uDir, se.from.toInt), Terminal(et.vTerm, et.vDir, se.to.toInt)),
@@ -163,13 +195,15 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
   import Debugging.dbg
 
   def calcAll(routing: Routed, ports: PortLayout, graph: SimpleGraph, obstacles: Obstacles) = (for
-    obsNodes    <- obstacles.nodes.zipWithIndex.map(mkObsNodes.tupled).toVector.sequence
-    paths       <- Segment.mkAll(routing.paths, routing, mkTerminals(ports, graph), i => segBuilder(i, routing, obsNodes))
+    obsNodes <- obstacles.nodes.zipWithIndex.map(mkObsNodes.tupled).toVector.sequence
+    paths    <- Segment.mkAll(routing.paths, routing, mkTerminals(ports, graph), i => segBuilder(i, routing, obsNodes))
     _ = paths.flatMap(_.toList).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_)) // DEBUG
-    (hCs, hObj) <- mkHGraph(paths, obsNodes).flatMap(_.mkConstraints)
-    xSols        = maximize(hCs, hObj)
-    (vCs, vObj) <- mkVGraph(paths, obsNodes, xSols).flatMap(_.mkConstraints)
-    ySols        = maximize(vCs, vObj)
+    hGraph   <- mkHGraph(paths, obsNodes)
+    xSols1   <- hGraph.mkConstraints.map(maximize)
+    ySols    <- mkVGraph(paths, obsNodes, xSols1).flatMap(_.mkConstraints).map(maximize)
+    xSols    <-
+      if conf.use2ndHPass then HGraph2ndPass(hGraph.eow, paths, obsNodes, xSols1, ySols).mkConstraints.map(maximize)
+      else State.pure(xSols1)
   yield
     val routes = mkRoutes(xSols, ySols, paths)
     (routes, mkPorts(routes), mkObstacles(obsNodes, xSols, ySols))

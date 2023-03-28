@@ -82,7 +82,7 @@ import drawings.Debugging.*
   Files.writeString(Paths.get("geo-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, geoRoutes))
 
   val (fnRoutes, fnPorts, fnObs) =
-    FullNudging(Nudging.Config(0.1, 1), rgo, OvgSample.ports, OvgSample.graph, OvgSample.obstacles)
+    FullNudging(Nudging.Config(1, false), rgo, OvgSample.ports, OvgSample.graph, OvgSample.obstacles)
   Files.writeString(Paths.get("fully-nudged-routing.svg"), debugSvg(fnObs, fnPorts, fnRoutes))
 
 @main def runPorts =

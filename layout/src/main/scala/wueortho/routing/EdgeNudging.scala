@@ -10,7 +10,7 @@ import scala.collection.BitSet
 import java.util.Comparator
 
 object EdgeNudging extends NudgingCommons:
-  override def conf: Nudging.Config = Nudging.Config(0.0, 0.0)
+  override def conf: Nudging.Config = Nudging.Config(0, false)
 
   private def segBuilder(pathId: Int, rg: RoutingGraph & PathOrder) = new SegmentBuilder(pathId, rg):
     import Segment.*

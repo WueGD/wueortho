@@ -31,7 +31,9 @@ lazy val pipeline = project
   )
   .dependsOn(core, io, layout)
 
-lazy val root = (project in file(".")).dependsOn(core, io, layout, pipeline)
+lazy val root = (project in file("."))
+  .aggregate(core, io, layout, pipeline)
+  .dependsOn(core, io, layout, pipeline)
 
 lazy val compilerOptions = Seq(
   "-source:future",
