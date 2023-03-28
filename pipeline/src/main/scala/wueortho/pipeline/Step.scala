@@ -18,7 +18,7 @@ enum Step derives ConfiguredCodec:
   case UniformObstacles(width: Double, height: Double, vertexLayout: Tag, tag: Tag)
   case ForceDirectedLayout(iterations: Int, seed: Seed, graph: Tag, tag: Tag)
   case GTreeOverlaps(enlarge: Enlarge, forceGeneralPosition: Option[Seed], obstacles: Tag, tag: Tag)
-  case PortsByAngle(obstacles: Tag, graph: Tag, tag: Tag)
+  case PortsByAngle(mode: PortMode, obstacles: Tag, graph: Tag, tag: Tag)
   case SimplifiedRoutingGraph(enlarge: Enlarge, obstacles: Tag, graph: Tag, ports: Tag, tag: Tag)
   case OVGRoutingGraph(obstacles: Tag, ports: Tag, tag: Tag)
   case EdgeRouting(routingGraph: Tag, ports: Tag, tag: Tag)

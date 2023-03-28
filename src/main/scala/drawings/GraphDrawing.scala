@@ -41,7 +41,7 @@ object GraphDrawing:
     ).forceGeneralPosition(rndm)
     val largeObs  = Obstacles(obstacles.nodes.map(_.copy(span = Vec2D(2.2, 1.2))))
 
-    val ports = AngleHeuristic.makePorts(obstacles, graph)
+    val ports = AngleHeuristic.makePorts(obstacles, graph, AngleHeuristic.quadrantHeuristic)
     // val largePorts = PortHeuristic.makePorts(largeObs, AdjacencyList.fromEdgeList(graph))
 
     val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(obstacles.nodes, ports)

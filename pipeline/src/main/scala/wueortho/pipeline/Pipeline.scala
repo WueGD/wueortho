@@ -36,7 +36,7 @@ object Pipeline:
         Step.ForceDirectedLayout(1000, seed, None, None),
         Step.UniformObstacles(4.0, 2.0, None, Some("raw")),
         Step.GTreeOverlaps(Enlarge.Scale(Vec2D(1.5, 2.0)), Some(seed), Some("raw"), None),
-        Step.PortsByAngle(None, None, None),
+        Step.PortsByAngle(PortMode.Octants, None, None, None),
         Step.SimplifiedRoutingGraph(Enlarge.Scale(Vec2D(1.1, 1.2)), None, None, None, None),
         Step.EdgeRouting(None, None, None),
         Step.GeoNudging(None, None, None, None),

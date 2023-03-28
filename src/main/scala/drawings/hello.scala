@@ -87,7 +87,7 @@ import drawings.Debugging.*
 
 @main def runPorts =
   val neighbors = ForceDirected.initLayout(Random(0x99c0ffee), 12).nodes
-  val layout    = AngleHeuristic.equidistantPorts(Rect2D(Vec2D(0, 0), Vec2D(2, 1)), neighbors)
+  val layout    = AngleHeuristic.quadrantHeuristic(Rect2D(Vec2D(0, 0), Vec2D(2, 1)), neighbors)
   println(layout)
 
 @main def runDijkstra =

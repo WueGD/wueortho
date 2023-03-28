@@ -12,30 +12,32 @@ object RandomGraphs:
   enum GraphCore derives CanEqual, ConfiguredEnumCodec:
     case Empty, Path, Tree, Star
 
-  def mkSimpleGraph($ : RandomGraphConfig): Either[String, SimpleGraph] =
+  def mkSimpleGraph(config: RandomGraphConfig): Either[String, SimpleGraph] =
+    import config.*
+
     def nodePair(rndm: Random): (NodeIndex, NodeIndex) =
-      val (u, v) = rndm.nextInt($.n) -> rndm.nextInt($.n)
-      if ! $.allowLoops && u == v then nodePair(rndm)
+      val (u, v) = rndm.nextInt(n) -> rndm.nextInt(n)
+      if !allowLoops && u == v then nodePair(rndm)
       else NodeIndex(u) -> NodeIndex(v)
 
-    def mkCore(rndm: Random): Seq[SimpleEdge] = $.core match
+    def mkCore(rndm: Random): Seq[SimpleEdge] = core match
       case GraphCore.Empty => Nil
       case GraphCore.Path  =>
-        if $.n < 2 then Nil
-        else (for Seq(u, v) <- (NodeIndex(0) until $.n).sliding(2) yield SimpleEdge(u, v)).toSeq
+        if n < 2 then Nil
+        else (for Seq(u, v) <- (NodeIndex(0) until n).sliding(2) yield SimpleEdge(u, v)).toSeq
       case GraphCore.Tree  =>
-        if $.n < 1 then Nil
-        else for i <- 1 until $.n yield SimpleEdge(NodeIndex(rndm.nextInt(i)), NodeIndex(i))
+        if n < 1 then Nil
+        else for i <- 1 until n yield SimpleEdge(NodeIndex(rndm.nextInt(i)), NodeIndex(i))
       case GraphCore.Star  =>
-        if $.n < 1 then Nil
-        else for i <- 1 until $.n yield SimpleEdge(NodeIndex(0), NodeIndex(i))
+        if n < 1 then Nil
+        else for i <- 1 until n yield SimpleEdge(NodeIndex(0), NodeIndex(i))
 
     def mkHull(rndm: Random, coreSize: Int): Either[String, Seq[SimpleEdge]] = Either.cond(
-      coreSize <= $.m,
-      for _ <- coreSize until $.m yield SimpleEdge.apply.tupled(nodePair(rndm)),
-      s"Core size was ${coreSize} but only ${$.m} edges expected",
+      coreSize <= m,
+      for _ <- coreSize until m yield SimpleEdge.apply.tupled(nodePair(rndm)),
+      s"Core size was ${coreSize} but only ${m} edges expected",
     )
 
-    val rndm = $.seed.newRandom
-    val core = mkCore(rndm)
-    mkHull(rndm, core.size).map(hull => Graph.fromEdges(core ++ hull).mkSimpleGraph)
+    val rndm      = seed.newRandom
+    val coreEdges = mkCore(rndm)
+    mkHull(rndm, coreEdges.size).map(hullEdges => Graph.fromEdges(coreEdges ++ hullEdges).mkSimpleGraph)

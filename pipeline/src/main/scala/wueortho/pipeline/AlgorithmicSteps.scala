@@ -8,6 +8,8 @@ import wueortho.routing.*
 import wueortho.deprecated
 import wueortho.pipeline.Step.Tag
 import wueortho.util.GraphConversions, GraphConversions.toWeighted.*
+import wueortho.util.Codecs.given
+import io.circe.derivation.ConfiguredEnumCodec
 
 object AlgorithmicSteps:
   import Step.{resolve as mk}
@@ -36,8 +38,21 @@ object AlgorithmicSteps:
     for
       g   <- cache.getStageResult(Stage.Graph, mk(s.graph))
       obs <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
-      _   <- cache.setStage(Stage.Ports, mk(s.tag), AngleHeuristic.makePorts(obs, g))
+      _   <- cache.setStage(Stage.Ports, mk(s.tag), mkPorts(s.mode, obs, g))
     yield ()
+
+  private def mkPorts(mode: PortMode, obs: Obstacles, graph: SimpleGraph) =
+    import AngleHeuristic.*
+
+    lazy val barycenter =
+      val sum = obs.nodes.map(_.center).reduce(_ + _)
+      Vec2D(sum.x1 / graph.numberOfVertices, sum.x2 / graph.numberOfVertices)
+
+    mode match
+      case PortMode.OnlyVertical   => makePorts(obs, graph, onlyVertical)
+      case PortMode.OnlyHorizontal => makePorts(obs, graph, onlyHorizontal)
+      case PortMode.Quadrants      => makePorts(obs, graph, quadrantHeuristic)
+      case PortMode.Octants        => makePorts(obs, graph, octantHeuristic(_, _, barycenter))
 
   given Provider[Step.SimplifiedRoutingGraph] = (s: Step.SimplifiedRoutingGraph, cache: StageCache) =>
     for
@@ -111,3 +126,6 @@ object Enlarge:
     case Uniform(l)             => rs.map(r => r.copy(span = r.span.scale(l)))
     case Scale(l)               => rs.map(r => Rect2D(r.center, Vec2D(r.span.x1 * l.x1, r.span.x2 * l.x2)))
     case Replace(width, height) => rs.map(_.copy(span = Vec2D(width / 2, height / 2)))
+
+enum PortMode derives CanEqual, ConfiguredEnumCodec:
+  case OnlyVertical, OnlyHorizontal, Quadrants, Octants
