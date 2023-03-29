@@ -2,7 +2,7 @@ package wueortho.routing
 
 import wueortho.data.*, Direction.*
 import wueortho.util.*, GraphConversions.undirected.*
-import Constraint.CTerm, Constraint.builder.*, ORTools.{LPInstance, LPResult}
+import Constraint.CTerm, Constraint.builder.*, ORTools.LPResult
 
 import scala.annotation.tailrec
 
@@ -45,13 +45,11 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
       )
 
     def obstacleConstraints: (Seq[Constraint], CTerm) =
-      val (cs, obj) = obstacles
-        .map(o =>
-          if isHorizontal then
-            (o.left.pos + mkConst(o.right.dim.at - o.left.dim.at) <= o.right.pos)    -> (o.left.pos - o.right.pos)
-          else (o.bottom.pos + mkConst(o.top.dim.at - o.bottom.dim.at) <= o.top.pos) -> (o.bottom.pos - o.top.pos),
-        )
-        .unzip
+      val (cs, obj) = obstacles.map(o =>
+        if isHorizontal then
+          (o.left.pos + mkConst(o.right.dim.at - o.left.dim.at) <= o.right.pos)    -> (o.left.pos - o.right.pos)
+        else (o.bottom.pos + mkConst(o.top.dim.at - o.bottom.dim.at) <= o.top.pos) -> (o.bottom.pos - o.top.pos),
+      ).unzip
       cs -> obj.reduce(_ + _)
 
     def pathLength: (CTerm, Int) =
@@ -68,16 +66,14 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
             else if head.kind.info.dir == dir then go(res, head.kind.info.endsAt, start, count, dir, next)
             else go(res + mkLen(start, rem, dir), head.kind.info.endsAt, rem, count + 1, head.kind.info.dir, next)
 
-      paths
-        .map(p =>
-          val s   = if isHorizontal == p.u.kind.isHorizontal then p.u.kind.terminal else p.u.pos
-          val dir =
-            if isHorizontal == p.u.kind.isHorizontal then p.u.kind.info.dir
-            else if p.mid.nonEmpty then p.mid.head.kind.info.dir
-            else p.v.kind.info.dir
-          go(mkConst(0), s, s, 0, dir, p.toList),
-        )
-        .reduce((a, b) => (a._1 + b._1, a._2 + b._2))
+      paths.map(p =>
+        val s   = if isHorizontal == p.u.kind.isHorizontal then p.u.kind.terminal else p.u.pos
+        val dir =
+          if isHorizontal == p.u.kind.isHorizontal then p.u.kind.info.dir
+          else if p.mid.nonEmpty then p.mid.head.kind.info.dir
+          else p.v.kind.info.dir
+        go(mkConst(0), s, s, 0, dir, p.toList),
+      ).reduce((a, b) => (a._1 + b._1, a._2 + b._2))
     end pathLength
 
     def mkConstraints: S[(Seq[Constraint], CTerm)] =
@@ -179,10 +175,8 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
       paths.flatMap(p => fromPath(p.toList, ySols(p.startY), Nil))
   end HGraph2ndPass
 
-  private def mkTerminals(pl: PortLayout, g: SimpleGraph) =
-    (pl.byEdge zip g.edges).flatMap((et, se) =>
-      List(Terminal(et.uTerm, et.uDir, se.from.toInt), Terminal(et.vTerm, et.vDir, se.to.toInt)),
-    )
+  private def mkTerminals(pl: PortLayout, g: SimpleGraph) = (pl.byEdge zip g.edges)
+    .flatMap((et, se) => List(Terminal(et.uTerm, et.uDir, se.from.toInt), Terminal(et.vTerm, et.vDir, se.to.toInt)))
 
   private def mkPorts(routes: IndexedSeq[EdgeRoute]) = PortLayout(routes.map(_.terminals))
 
@@ -197,7 +191,7 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
   def calcAll(routing: Routed, ports: PortLayout, graph: SimpleGraph, obstacles: Obstacles) = (for
     obsNodes <- obstacles.nodes.zipWithIndex.map(mkObsNodes.tupled).toVector.sequence
     paths    <- Segment.mkAll(routing.paths, routing, mkTerminals(ports, graph), i => segBuilder(i, routing, obsNodes))
-    _ = paths.flatMap(_.toList).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_)) // DEBUG
+    _         = paths.flatMap(_.toList).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_)) // DEBUG
     hGraph   <- mkHGraph(paths, obsNodes)
     xSols1   <- hGraph.mkConstraints.map(maximize)
     ySols    <- mkVGraph(paths, obsNodes, xSols1).flatMap(_.mkConstraints).map(maximize)

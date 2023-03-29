@@ -30,24 +30,23 @@ object MinimumSpanningTree:
     val queue = mutable.PriorityQueue(0.0 -> NodeIndex(0))
 
     while queue.nonEmpty do
-      val (key, u) = queue.dequeue()
+      val (_, u) = queue.dequeue()
       if state(u.toInt).isStillUnbound then
-        g.vertices(u.toInt).neighbors foreach { case WeightedLink(v, weight, _) =>
-          if state(v.toInt).isCandidate(-weight) then
-            state(v.toInt) = VertexState.Discovered(-weight, u)
-            queue.enqueue(-weight -> v)
-        }
+        g.vertices(u.toInt).neighbors.foreach:
+          case WeightedLink(v, weight, _) =>
+            if state(v.toInt).isCandidate(-weight) then
+              state(v.toInt) = VertexState.Discovered(-weight, u)
+              queue.enqueue(-weight -> v)
         state(u.toInt) = state(u.toInt).bind
 
     mkTree(state.toSeq)
 
   private def mkTree(s: Seq[VertexState]) =
-    val $ = Graph.DiBuilder.reserve(s.size)
-    s.zipWithIndex foreach {
-      case (VertexState.Bound(w, u), v) => $.addEdge(u, NodeIndex(v), -w)
+    val builder = Graph.DiBuilder.reserve(s.size)
+    s.zipWithIndex.foreach:
+      case (VertexState.Bound(w, u), v) => builder.addEdge(u, NodeIndex(v), -w)
       case (VertexState.Root, i)        => println(s"DEBUG: MST root is $i")
       case x                            => sys.error(s"unbound vertex $x in MST")
-    }
-    $.mkWeightedDiGraph
+    builder.mkWeightedDiGraph
 
 end MinimumSpanningTree

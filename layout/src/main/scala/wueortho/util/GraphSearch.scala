@@ -9,7 +9,7 @@ import scala.collection.mutable
 object GraphSearch:
   type DijNeighbors[T] = NodeIndex => Seq[(NodeIndex, T)]
 
-  trait Dijkstra[C: Ordering, T](using DijkstraCost[C, T]):
+  trait Dijkstra[C, T]:
     def shortestPath(neighbors: DijNeighbors[T], s: NodeIndex, t: NodeIndex, c0: C): Either[DijkstraError, Path]
 
   def dijkstra[C: Ordering, T](using DijkstraCost[C, T]) = new Dijkstra[C, T]:

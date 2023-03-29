@@ -1,13 +1,12 @@
 package wueortho.io.svg
 
 import wueortho.data.*
-import wueortho.data.EdgeRoute.OrthoSeg
-import wueortho.data.EdgeRoute.OrthoSeg.*
+import wueortho.data.EdgeRoute.OrthoSeg, OrthoSeg.*
+
 import scala.annotation.tailrec
 
-import wueortho.io.svg.Svg
 object EdgeRenderer:
-  def smoothSvgPathCmds(svg: Svg, route: EdgeRoute, bendRadius: Double) =
+  def smoothSvgPathCommands(svg: Svg, route: EdgeRoute, bendRadius: Double) =
     val (tx, ty) = Svg.pixelTransformers(svg)
     val radius   = bendRadius / svg.pixelsPerUnit
 
@@ -46,17 +45,16 @@ object EdgeRenderer:
         else go(seg(h, h.len - radius) :: Nil, h, g :: t.toList)
 
     pre +: mid :+ post
-  end smoothSvgPathCmds
+  end smoothSvgPathCommands
 
-  def straightSvgPathCmds(svg: Svg, route: EdgeRoute) =
+  def straightSvgPathCommands(svg: Svg, route: EdgeRoute) =
     val (tx, ty) = Svg.pixelTransformers(svg)
 
     val s = route.terminals.uTerm
     val d = s"M ${tx(s.x1)} ${ty(s.x2)}"
-    val m = route.route.map {
+    val m = route.route.map:
       case HSeg(dx) => s"h ${tx(dx)}"
       case VSeg(dy) => s"v ${ty(dy)}"
-    }
     d +: m
-  end straightSvgPathCmds
+  end straightSvgPathCommands
 end EdgeRenderer

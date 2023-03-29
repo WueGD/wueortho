@@ -1,7 +1,6 @@
 package wueortho.overlaps
 
 import wueortho.data.*
-import scala.collection.mutable
 
 object Overlaps:
   private enum QueueItem:

@@ -98,14 +98,14 @@ object RoutingGraph:
           val here = pos(ports.portCoordinate(portId))
           whenDir(dir)( // neg = low = south / west
             activeObs.map(i => high(obs(i))).filter(_ < here).maxOption.getOrElse(NegativeInfinity) -> here,
-          )(            // pos = high = north / east
+          )( // pos = high = north / east
             here -> activeObs.map(i => low(obs(i))).filter(_ > here).minOption.getOrElse(PositiveInfinity),
           )
 
         def seekBack(until: Double, low: Double, high: Double) =
           var i = buffer.length - 1
           while i >= 0 && buffer(i).at > until do
-            if !buffer(i).isMid && buffer(i).isContainedIn(low, high) then buffer.remove(i)
+            if !buffer(i).isMid && buffer(i).isContainedIn(low, high) then buffer.remove(i).asInstanceOf[Unit]
             i -= 1
 
         for item <- queue do

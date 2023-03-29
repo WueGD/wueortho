@@ -3,10 +3,7 @@ package wueortho.io.praline
 import wueortho.data.*
 
 import io.circe.*
-import io.circe.syntax.*
 import cats.syntax.show.*
-
-import scala.collection.mutable
 
 object LoadGraph:
   case class PralineGraph(vertices: List[PralineVertex], edges: List[PralineEdge]) derives Decoder

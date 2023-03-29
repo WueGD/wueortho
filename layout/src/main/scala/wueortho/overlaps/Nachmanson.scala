@@ -25,13 +25,13 @@ object Nachmanson:
     def go(i: NodeIndex, disp: Vec2D): Seq[(NodeIndex, Rect2D)] =
       val r  = rects(i.toInt)
       val x  = r.copy(center = r.center + disp)
-      val xs = tree.vertices(i.toInt).neighbors flatMap { case WeightedDiLink(j, w) =>
-        if w < EPS then
-          val n = rects(j.toInt)
-          val d = (n.center - r.center).scale(translationFactor(r, n) - 1)
-          go(j, disp + d)
-        else go(j, disp)
-      }
+      val xs = tree.vertices(i.toInt).neighbors.flatMap:
+        case WeightedDiLink(j, w) =>
+          if w < EPS then
+            val n = rects(j.toInt)
+            val d = (n.center - r.center).scale(translationFactor(r, n) - 1)
+            go(j, disp + d)
+          else go(j, disp)
       (i -> x) +: xs
 
     go(NodeIndex(0), Vec2D(0, 0)).sortBy(_._1).map(_._2).toIndexedSeq

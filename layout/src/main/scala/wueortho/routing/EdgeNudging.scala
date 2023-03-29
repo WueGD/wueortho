@@ -2,12 +2,9 @@ package wueortho.routing
 
 import wueortho.data.*
 import wueortho.util.*
-import Constraint.CTerm, Constraint.builder.*, GraphConversions.undirected.*, ORTools.{LPResult, LPInstance}
+import Constraint.CTerm, Constraint.builder.*, GraphConversions.undirected.*, ORTools.LPResult
 
-import scala.annotation.{tailrec, nowarn}
-import scala.collection.BitSet
-
-import java.util.Comparator
+import scala.annotation.tailrec
 
 object EdgeNudging extends NudgingCommons:
   override def conf: Nudging.Config = Nudging.Config(0, false)
@@ -35,9 +32,7 @@ object EdgeNudging extends NudgingCommons:
 
   private trait CGraph extends CGraphCommons:
     def mkConstraints: S[(Seq[Constraint], CTerm)] = split(graph.undirected, allNodes).toList
-      .map(cmp => mkConstraintsForComponent(graph, cmp, allNodes, isHorizontal))
-      .sequence
-      .map(in =>
+      .map(cmp => mkConstraintsForComponent(graph, cmp, allNodes, isHorizontal)).sequence.map(in =>
         val (sepCs, sepObj) = in.unzip
         val (bCs, bObj)     = borderConstraints
         (sepCs.flatten ++ bCs, sepObj.size.toDouble * bObj + sepObj.foldLeft(mkConst(0))(_ + _)),
@@ -93,11 +88,11 @@ object EdgeNudging extends NudgingCommons:
 
     (for
       allSegs     <- Segment.mkAll(routing.paths, routing, mkPseudoTerminals(ports), i => segBuilder(i, routing))
-      _ = allSegs.flatMap(_.toList).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_)) // DEBUG
+      _            = allSegs.flatMap(_.toList).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_)) // DEBUG
       obsNodes     = obstacles.nodes.zipWithIndex.map(mkObsNodes.tupled)
       (hcs, hObj) <- mkEowH.flatMap(HGraph(_, allSegs, obsNodes).mkConstraints)
       hSol         = maximize(hcs, hObj)
-      dbghsol = hSol.solutions.map("%+10.6f".format(_)).mkString("[", ", ", "]")                          // DEBUG
+      dbghsol      = hSol.solutions.map("%+10.6f".format(_)).mkString("[", ", ", "]")                                // DEBUG
       (vcs, vObj) <- mkEowV.flatMap(VGraph(_, allSegs, obsNodes, hSol).mkConstraints)
       vSol         = maximize(vcs, vObj)
       _            = {

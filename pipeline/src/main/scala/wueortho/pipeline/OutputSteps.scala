@@ -39,16 +39,15 @@ object OutputSteps:
 
   private val allMetrics = List("Crossings", "BoundingBoxArea", "ConvexHullArea", "TotalEdgeLength", "EdgeBends")
 
-  private def printMetrics(obs: Obstacles, r: IndexedSeq[EdgeRoute], ms: String*): Unit = ms foreach {
+  private def printMetrics(obs: Obstacles, r: IndexedSeq[EdgeRoute], ms: String*): Unit = ms.foreach:
     case "all"             => printMetrics(obs, r, allMetrics*)
     case "Crossings"       => println(s"crossings: ${Crossings.numberOfCrossings(r)}")
     case "BoundingBoxArea" => println(s"bounding box area: ${Area.boundingBoxArea(obs, r)}")
     case "ConvexHullArea"  => println(s"convex hull area: ${Area.convexHullArea(obs, r)}")
     case "TotalEdgeLength" => println(s"total edge length: ${EdgeLength.totalEdgeLength(r)}")
     case "EdgeBends"       => println(s"edge bends: ${EdgeLength.numberOfBends(r)}")
-  }
 
 enum SvgConfig(val svg: Svg):
-  case SmoothEdges extends SvgConfig(Svg.withDefaults)
-  case StraightEdges extends SvgConfig(Svg.withDefaults.copy(edgeBends = Svg.EdgeBends.Straight))
+  case SmoothEdges                   extends SvgConfig(Svg.withDefaults)
+  case StraightEdges                 extends SvgConfig(Svg.withDefaults.copy(edgeBends = Svg.EdgeBends.Straight))
   case Custom(override val svg: Svg) extends SvgConfig(svg)

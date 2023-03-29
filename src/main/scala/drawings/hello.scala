@@ -29,6 +29,7 @@ import drawings.Debugging.*
   val layout = ForceDirected.layout(ForceDirected.defaultConfig)(graph.withWeights, init)
   val svg    = debugSvg(graph, layout)
   Files.writeString(Paths.get("debug-praline.svg"), svg)
+  ()
 
 @main def runIntervalTree =
   import wueortho.util.mutable
@@ -66,10 +67,10 @@ import drawings.Debugging.*
   println(ORTools.solve(lp2))
 
 @main def runRouting =
-  val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
-  val rga                    = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, OvgSample.ports)
-  val rgo                    = Routing(rga, OvgSample.ports)
-  val onGrid                 = deprecated.PathOrder(rga, OvgSample.ports, rgo.paths)
+  val (adj, lay, _, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
+  val rga                = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, OvgSample.ports)
+  val rgo                = Routing(rga, OvgSample.ports)
+  val onGrid             = deprecated.PathOrder(rga, OvgSample.ports, rgo.paths)
   rgo.routes foreach { case EdgeRoute(terminals, route) =>
     println(s"From ${terminals.uTerm} to ${terminals.vTerm}: ${route.mkString("[", ", ", "]")}")
   }
@@ -84,6 +85,7 @@ import drawings.Debugging.*
   val (fnRoutes, fnPorts, fnObs) =
     FullNudging(Nudging.Config(1, false), rgo, OvgSample.ports, OvgSample.graph, OvgSample.obstacles)
   Files.writeString(Paths.get("fully-nudged-routing.svg"), debugSvg(fnObs, fnPorts, fnRoutes))
+  ()
 
 @main def runPorts =
   val neighbors = ForceDirected.initLayout(Random(0x99c0ffee), 12).nodes
@@ -107,14 +109,15 @@ import drawings.Debugging.*
     """.stripMargin)
 
 @main def runOVG: Unit =
-  val (adj, lay, edges, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
+  val (adj, lay, _, _) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
   debugConnectivity(adj.unweighted, lay)
   debugOVG(OvgSample.obstacles, adj.unweighted, lay, OvgSample.ports)
   println("=============== ORTHOGONAL VISIBILITY GRAPH ^^^ | vvv SIMPLIFIED ROUTING GRAPH ===============")
-  val routing                = RoutingGraph.create(OvgSample.obstacles, OvgSample.edges, OvgSample.ports)
-  val (rgAdj, rgLay)         = Debugging.rg2adj(routing)
+  val routing          = RoutingGraph.create(OvgSample.obstacles, OvgSample.edges, OvgSample.ports)
+  val (rgAdj, rgLay)   = Debugging.rg2adj(routing)
   RoutingGraph.debug(routing)
   debugOVG(OvgSample.obstacles, rgAdj, rgLay, OvgSample.ports, "debug-rg")
+  ()
 
 @main def runOverlaps: Unit =
   val points     = ForceDirected.initLayout(Random(0x92c0ffee), 12 * 2).nodes
@@ -139,21 +142,21 @@ import drawings.Debugging.*
 @main def runMst: Unit =
   val vertices = ForceDirected.initLayout(Random(0x00c0ffee), 24)
   val edges    = Triangulation(vertices.nodes)
-  val graph    = Graph
-    .fromWeightedEdges(
-      edges.map(e => e.withWeight((vertices.nodes(e.from.toInt) - vertices.nodes(e.to.toInt)).len)),
-    )
-    .mkWeightedGraph
+  val graph    = Graph.fromWeightedEdges(
+    edges.map(e => e.withWeight((vertices.nodes(e.from.toInt) - vertices.nodes(e.to.toInt)).len)),
+  ).mkWeightedGraph
   val mst      = MinimumSpanningTree.create(graph)
   mst.vertices.foreach(l => println(l.neighbors.mkString("[", ", ", "]")))
   val svg      = debugSvg(mst.simple(using GraphConversions.UndirectStrategy.AllEdges), vertices)
   Files.writeString(Paths.get("mst.svg"), svg)
+  ()
 
 @main def runTriangulate: Unit =
   val vertices = ForceDirected.initLayout(Random(0xffc0ffee), 24)
   val graph    = Graph.fromEdges(Triangulation(vertices.nodes)).mkSimpleGraph
   val svg      = debugSvg(graph, vertices)
   Files.writeString(Paths.get("delauny.svg"), svg)
+  ()
 
 @main def runFDLayout: Unit =
   val graph  = p12
@@ -162,99 +165,90 @@ import drawings.Debugging.*
   println(layout)
   val svg    = debugSvg(graph.unweighted, layout)
   Files.writeString(Paths.get("fd.svg"), svg)
+  ()
 
-val k4  = Graph
-  .fromWeightedEdges(
-    List(
-      rawE(0, 1, 1),
-      rawE(0, 2, 1),
-      rawE(0, 3, 1),
-      rawE(1, 2, 1),
-      rawE(1, 3, 1),
-      rawE(2, 3, 1),
-    ),
-  )
-  .mkWeightedGraph
-val c4  = Graph
-  .fromWeightedEdges(
-    List(
-      rawE(0, 1, 1),
-      rawE(1, 2, 1),
-      rawE(2, 3, 1),
-      rawE(3, 0, 1),
-    ),
-  )
-  .mkWeightedGraph
-val p12 = Graph
-  .fromWeightedEdges(
-    List(
-      rawE(0, 2, 1),
-      rawE(0, 4, 1),
-      rawE(0, 5, 1),
-      rawE(0, 8, 1),
-      rawE(0, 9, 1),
-      rawE(1, 3, 1),
-      rawE(1, 6, 1),
-      rawE(1, 7, 1),
-      rawE(1, 10, 1),
-      rawE(1, 11, 1),
-      rawE(2, 6, 1),
-      rawE(2, 7, 1),
-      rawE(2, 8, 1),
-      rawE(2, 9, 1),
-      rawE(3, 4, 1),
-      rawE(3, 5, 1),
-      rawE(3, 10, 1),
-      rawE(3, 11, 1),
-      rawE(4, 5, 1),
-      rawE(4, 8, 1),
-      rawE(4, 10, 1),
-      rawE(5, 9, 1),
-      rawE(5, 11, 1),
-      rawE(6, 7, 1),
-      rawE(6, 8, 1),
-      rawE(6, 10, 1),
-      rawE(7, 9, 1),
-      rawE(7, 11, 1),
-      rawE(8, 10, 1),
-      rawE(9, 11, 1),
-    ),
-  )
-  .mkWeightedGraph
+val k4  = Graph.fromWeightedEdges(
+  List(
+    rawE(0, 1, 1),
+    rawE(0, 2, 1),
+    rawE(0, 3, 1),
+    rawE(1, 2, 1),
+    rawE(1, 3, 1),
+    rawE(2, 3, 1),
+  ),
+).mkWeightedGraph
+val c4  = Graph.fromWeightedEdges(
+  List(
+    rawE(0, 1, 1),
+    rawE(1, 2, 1),
+    rawE(2, 3, 1),
+    rawE(3, 0, 1),
+  ),
+).mkWeightedGraph
+val p12 = Graph.fromWeightedEdges(
+  List(
+    rawE(0, 2, 1),
+    rawE(0, 4, 1),
+    rawE(0, 5, 1),
+    rawE(0, 8, 1),
+    rawE(0, 9, 1),
+    rawE(1, 3, 1),
+    rawE(1, 6, 1),
+    rawE(1, 7, 1),
+    rawE(1, 10, 1),
+    rawE(1, 11, 1),
+    rawE(2, 6, 1),
+    rawE(2, 7, 1),
+    rawE(2, 8, 1),
+    rawE(2, 9, 1),
+    rawE(3, 4, 1),
+    rawE(3, 5, 1),
+    rawE(3, 10, 1),
+    rawE(3, 11, 1),
+    rawE(4, 5, 1),
+    rawE(4, 8, 1),
+    rawE(4, 10, 1),
+    rawE(5, 9, 1),
+    rawE(5, 11, 1),
+    rawE(6, 7, 1),
+    rawE(6, 8, 1),
+    rawE(6, 10, 1),
+    rawE(7, 9, 1),
+    rawE(7, 11, 1),
+    rawE(8, 10, 1),
+    rawE(9, 11, 1),
+  ),
+).mkWeightedGraph
 
 // see https://upload.wikimedia.org/wikipedia/commons/5/57/Dijkstra_Animation.gif
-val dijkstraExample = Graph
-  .fromWeightedEdges(
-    Seq(
-      rawE(0, 5, 14),
-      rawE(0, 2, 9),
-      rawE(0, 1, 7),
-      rawE(1, 2, 10),
-      rawE(1, 3, 15),
-      rawE(2, 3, 11),
-      rawE(2, 5, 2),
-      rawE(3, 4, 6),
-      rawE(4, 5, 9),
-    ),
-  )
-  .mkWeightedGraph
+val dijkstraExample = Graph.fromWeightedEdges(
+  Seq(
+    rawE(0, 5, 14),
+    rawE(0, 2, 9),
+    rawE(0, 1, 7),
+    rawE(1, 2, 10),
+    rawE(1, 3, 15),
+    rawE(2, 3, 11),
+    rawE(2, 5, 2),
+    rawE(3, 4, 6),
+    rawE(4, 5, 9),
+  ),
+).mkWeightedGraph
 
 // see https://en.wikipedia.org/wiki/Transitive_reduction#/media/File:Tred-G.svg
 // with a=1, b=3, c=4, d=0, e=2
-val tRedExample = Graph
-  .fromEdges(
-    Seq(
-      rawSE(0, 2),
-      rawSE(1, 0),
-      rawSE(1, 2),
-      rawSE(1, 3),
-      rawSE(1, 4),
-      rawSE(3, 0),
-      rawSE(4, 0),
-      rawSE(4, 2),
-    ),
-  )
-  .mkDiGraph
+val tRedExample = Graph.fromEdges(
+  Seq(
+    rawSE(0, 2),
+    rawSE(1, 0),
+    rawSE(1, 2),
+    rawSE(1, 3),
+    rawSE(1, 4),
+    rawSE(3, 0),
+    rawSE(4, 0),
+    rawSE(4, 2),
+  ),
+).mkDiGraph
 
 object OvgSample:
   val obstacles  = Obstacles(

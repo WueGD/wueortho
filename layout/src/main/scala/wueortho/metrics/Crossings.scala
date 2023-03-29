@@ -23,8 +23,4 @@ object Crossings:
 
     val (vertical, horizontal) = routes.map(separateRoutes).unzip
 
-    (for
-      v <- vertical.flatten
-      h <- horizontal.flatten
-      if v intersects h
-    yield 1).sum
+    vertical.flatten.flatMap(v => horizontal.flatten.map(v -> _)).count(_ intersects _)

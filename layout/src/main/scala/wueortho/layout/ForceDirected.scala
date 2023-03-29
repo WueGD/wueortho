@@ -9,10 +9,10 @@ import scala.util.Random
 import java.lang.Math.sqrt
 
 object ForceDirected:
-  private val EPS = 1e-8
+  // private val EPS = 1e-8 // todo fix some numeric unsoundness
 
   def layout(cfg: Config)(graph: WeightedGraph, init: VertexLayout): VertexLayout =
-    assert(!graph.hasLoops, "Layouting graphs with loops is unsupported")
+    assert(!graph.hasLoops, "graphs with loops are unsupported")
 
     @tailrec
     def go(i: Int, temp: Double, pos: Vector[Vec2D]): Vector[Vec2D] =
@@ -28,16 +28,14 @@ object ForceDirected:
           ).fold(Vec2D(0, 0))(_ + _)
 
         // attractive forces:
-        val disp = graph.edges.foldLeft(afterRep.toVector)((d, edge) =>
+        val displacement = graph.edges.foldLeft(afterRep.toVector)((d, edge) =>
           val delta = pos(edge.to.toInt) - pos(edge.from.toInt) // todo ensure non-zero length edge
           assert(delta.x1 != 0 || delta.x2 != 0, s"Edge $edge must have non-zero length")
           val force = delta.scale(cfg.attractive(delta.len) / delta.len * edge.weight)
           d.updated(edge.to.toInt, d(edge.to.toInt) - force).updated(edge.from.toInt, d(edge.from.toInt) + force),
         )
 
-        val newPos = pos.zip(disp).map { case (p, d) =>
-          p + (if d.len < temp then d else d.scale(temp / d.len))
-        }
+        val newPos = pos.zip(displacement).map((p, d) => p + (if d.len < temp then d else d.scale(temp / d.len)))
 
         go(i - 1, cfg.cooling(temp), newPos)
     end go

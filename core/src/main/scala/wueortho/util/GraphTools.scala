@@ -28,14 +28,16 @@ object GraphConversions:
   def wg2sg(g: WeightedGraph)   = Graph.fromEdges(g.edges.map(_.unweighted), g.numberOfVertices).mkSimpleGraph
   def wd2dg(g: WeightedDiGraph) = Graph.fromEdges(g.edges.map(_.unweighted), g.numberOfVertices).mkDiGraph
   def sg2dg(g: SimpleGraph)     = g.vertices.zipWithIndex
-    .foldLeft(Graph.DiBuilder.reserve(g.numberOfVertices)) { case (builder, (vtx, u)) =>
-      vtx.neighbors.foldLeft(builder) { case (builder, SimpleLink(v, _)) => builder.addEdge(NodeIndex(u), v) }
-    }
+    .foldLeft(Graph.DiBuilder.reserve(g.numberOfVertices)):
+      case (builder, (vtx, u)) =>
+        vtx.neighbors.foldLeft(builder):
+          case (builder, SimpleLink(v, _)) => builder.addEdge(NodeIndex(u), v)
     .mkDiGraph
   def wg2wd(g: WeightedGraph)   = g.vertices.zipWithIndex
-    .foldLeft(Graph.DiBuilder.reserve(g.numberOfVertices)) { case (builder, (vtx, u)) =>
-      vtx.neighbors.foldLeft(builder) { case (builder, WeightedLink(v, w, _)) => builder.addEdge(NodeIndex(u), v, w) }
-    }
+    .foldLeft(Graph.DiBuilder.reserve(g.numberOfVertices)):
+      case (builder, (vtx, u)) =>
+        vtx.neighbors.foldLeft(builder):
+          case (builder, WeightedLink(v, w, _)) => builder.addEdge(NodeIndex(u), v, w)
     .mkWeightedDiGraph
 
   trait WithWeightStrategy:
@@ -64,8 +66,7 @@ object GraphConversions:
     case UndirectStrategy.OnlyMatchingEdges =>
       for
         (vtx, u) <- g.vertices.zipWithIndex
-        v_       <- vtx.neighbors
-        (v, w)    = ex(v_)
+        (v, w)   <- vtx.neighbors.map(ex)
         if u <= v.toInt && g(v).neighbors.exists(ex(_) == (NodeIndex(u), w))
       yield mkE(NodeIndex(u), v, w)
 
@@ -97,7 +98,7 @@ object GraphProperties:
     def hasLoops(using f: LinkAsInt[V]) =
       g.vertices.zipWithIndex.exists((v, i) => v.neighbors.exists(f.asInt(_) == i))
 
-    def hasMultiEdges(using f: LinkAsInt[V]) =
+    def hasMultiEdges =
       g.vertices.exists(v => v.neighbors.size != v.neighbors.distinct.size)
 
 object DiGraphProperties:

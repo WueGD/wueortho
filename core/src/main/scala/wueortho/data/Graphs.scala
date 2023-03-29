@@ -1,8 +1,5 @@
 package wueortho.data
 
-import scala.reflect.ClassTag
-import scala.annotation.nowarn
-
 sealed trait Graph[V, E]:
   def numberOfVertices: Int
   def apply(i: NodeIndex): Vertex[V]
@@ -43,16 +40,18 @@ object Graph:
   def diBuilder() = DiBuilder.empty
 
   private def fromEdgesUndirected[E](ex: E => (NodeIndex, NodeIndex, Double), edges: Seq[E], size: Int) =
-    val $ = if size < 0 then builder() else Builder.reserve(size)
-    edges.map(ex).foldLeft($) { case (_, (from, to, w)) => $.addEdge(from, to, w) }
-    if size >= 0 then assert($.size == size, s"node index was out of bounds [0, $size)")
-    $
+    val bld = if size < 0 then builder() else Builder.reserve(size)
+    edges.map(ex).foldLeft(bld):
+      case (_, (from, to, w)) => bld.addEdge(from, to, w)
+    if size >= 0 then assert(bld.size == size, s"node index was out of bounds [0, $size)")
+    bld
 
   private def fromEdgesDirected[E](ex: E => (NodeIndex, NodeIndex, Double), edges: Seq[E], size: Int) =
-    val $ = if size < 0 then diBuilder() else DiBuilder.reserve(size)
-    edges.map(ex).foldLeft($) { case (_, (from, to, w)) => $.addEdge(from, to, w) }
-    if size >= 0 then assert($.size == size, s"node index was out of bounds [0, $size)")
-    $
+    val bld = if size < 0 then diBuilder() else DiBuilder.reserve(size)
+    edges.map(ex).foldLeft(bld):
+      case (_, (from, to, w)) => bld.addEdge(from, to, w)
+    if size >= 0 then assert(bld.size == size, s"node index was out of bounds [0, $size)")
+    bld
 
   private def mkEdges[V, E](nodes: Seq[Vertex[V]], mk: (NodeIndex, V) => E, chk: (Int, V) => Boolean) = for
     (node, u) <- nodes.zipWithIndex
@@ -61,29 +60,29 @@ object Graph:
   yield mk(NodeIndex(u), v)
 
   private case class SGImpl private[Graph] (nodes: IndexedSeq[Vertex[SimpleLink]]) extends SimpleGraph:
-    override def apply(i: NodeIndex)     = nodes(i.toInt)
-    override inline def numberOfVertices = nodes.length
-    override def vertices                = nodes
-    override lazy val edges              = mkEdges(nodes, (u, l) => SimpleEdge(u, l.toNode), (u, l) => u <= l.toNode.toInt)
+    override def apply(i: NodeIndex) = nodes(i.toInt)
+    override def numberOfVertices    = nodes.length
+    override def vertices            = nodes
+    override lazy val edges          = mkEdges(nodes, (u, l) => SimpleEdge(u, l.toNode), (u, l) => u <= l.toNode.toInt)
 
   private case class DGImpl private[Graph] (nodes: IndexedSeq[Vertex[NodeIndex]]) extends DiGraph:
-    override def apply(i: NodeIndex)     = nodes(i.toInt)
-    override inline def numberOfVertices = nodes.length
-    override def vertices                = nodes
-    override lazy val edges              = mkEdges(nodes, SimpleEdge.apply, (_, _) => true)
+    override def apply(i: NodeIndex) = nodes(i.toInt)
+    override def numberOfVertices    = nodes.length
+    override def vertices            = nodes
+    override lazy val edges          = mkEdges(nodes, SimpleEdge.apply, (_, _) => true)
 
   private case class WGImpl private[Graph] (nodes: IndexedSeq[Vertex[WeightedLink]]) extends WeightedGraph:
-    override def apply(i: NodeIndex)     = nodes(i.toInt)
-    override inline def numberOfVertices = nodes.length
-    override def vertices                = nodes
-    override lazy val edges              =
+    override def apply(i: NodeIndex) = nodes(i.toInt)
+    override def numberOfVertices    = nodes.length
+    override def vertices            = nodes
+    override lazy val edges          =
       mkEdges(nodes, (u, l) => WeightedEdge(u, l.toNode, l.weight), (u, l) => u <= l.toNode.toInt)
 
   private case class WDImpl private[Graph] (nodes: IndexedSeq[Vertex[WeightedDiLink]]) extends WeightedDiGraph:
-    override def apply(i: NodeIndex)     = nodes(i.toInt)
-    override inline def numberOfVertices = nodes.length
-    override def vertices                = nodes
-    override lazy val edges              = mkEdges(nodes, (u, l) => WeightedEdge(u, l.toNode, l.weight), (_, _) => true)
+    override def apply(i: NodeIndex) = nodes(i.toInt)
+    override def numberOfVertices    = nodes.length
+    override def vertices            = nodes
+    override lazy val edges          = mkEdges(nodes, (u, l) => WeightedEdge(u, l.toNode, l.weight), (_, _) => true)
 
   import scala.collection.mutable
 

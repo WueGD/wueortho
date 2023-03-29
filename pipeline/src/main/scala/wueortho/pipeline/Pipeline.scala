@@ -26,7 +26,6 @@ object Pipeline:
 
   import wueortho.io.random.RandomGraphs.{RandomGraphConfig, GraphCore}
   import wueortho.data.{Path as _, *}
-  import wueortho.io.svg.Svg
 
   def mkDefault =
     val seed = Seed.fromHex("99C0FFEE").toOption.get

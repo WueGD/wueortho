@@ -4,7 +4,7 @@ import wueortho.util.Codecs.given
 import wueortho.data.*
 
 import io.circe.derivation.*
-import scala.util.{Try, Random}
+import scala.util.Random
 
 object RandomGraphs:
   case class RandomGraphConfig(n: Int, m: Int, seed: Seed, core: GraphCore, allowLoops: Boolean)

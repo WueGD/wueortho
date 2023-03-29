@@ -1,7 +1,7 @@
 package wueortho.routing
 
 import wueortho.data.*, Direction.*
-import wueortho.util.*, GraphConversions.undirected.*
+import wueortho.util.*
 import Constraint.CTerm, Constraint.builder.*, ORTools.{LPInstance, LPResult}
 
 import scala.collection.BitSet
@@ -185,15 +185,13 @@ trait NudgingCommons:
 
     def mkSepEdges(queue: Seq[NodeData[CNodeAny]]) =
       val iTree = mutable.LinearIntervalTree.empty()
-      (queue flatMap { next =>
+      val edges = queue.flatMap: next =>
         val (low, high) = next.data.dim.low -> next.data.dim.high
-        val edges       = iTree
-          .overlaps(low - overscan, high + overscan)
-          .map(ol => SimpleEdge(next.id, NodeIndex(ol)))
+        val edges       = iTree.overlaps(low - overscan, high + overscan).map(ol => SimpleEdge(next.id, NodeIndex(ol)))
         iTree.cutout(low, high)
         iTree += (low, high, next.id.toInt)
         edges
-      }).toSet
+      edges.toSet
 
     def mkEdges(queue: Seq[NodeData[CNodeAny]]) =
       val obsPseudoEdges =
@@ -260,8 +258,7 @@ trait NudgingCommons:
       val nodes = GraphSearch.bfs.traverse(neighbors, candidate)
       visited ++= nodes.filter(i => !isBorderNode(allNodes(i.toInt))).map(_.toInt)
       if nodes.size < 2 then BitSet.empty else BitSet(nodes.map(_.toInt)*)
-    )
-      .filter(_.nonEmpty)
+    ).filter(_.nonEmpty)
   end split
 
   protected def mkConstraint(low: NodeData[CNodeAny], high: NodeData[CNodeAny], m: CTerm) =

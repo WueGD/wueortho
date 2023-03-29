@@ -2,7 +2,6 @@ package wueortho.deprecated
 
 import wueortho.data.*
 import wueortho.util.{Constraint, ORTools}, Constraint.CTerm, ORTools.LPResult
-import wueortho.deprecated.PathsOnGridNode
 
 import scala.annotation.{tailrec, nowarn}
 

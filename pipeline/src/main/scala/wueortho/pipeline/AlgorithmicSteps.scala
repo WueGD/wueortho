@@ -6,7 +6,6 @@ import wueortho.overlaps.Nachmanson
 import wueortho.ports.AngleHeuristic
 import wueortho.routing.*
 import wueortho.deprecated
-import wueortho.pipeline.Step.Tag
 import wueortho.util.GraphConversions, GraphConversions.toWeighted.*
 import wueortho.util.Codecs.given
 import io.circe.derivation.ConfiguredEnumCodec
@@ -110,8 +109,7 @@ object AlgorithmicSteps:
     yield ()
 
   given Provider[Step.NoNudging] = (s: Step.NoNudging, cache: StageCache) =>
-    cache
-      .getStageResult(Stage.EdgeRouting, mk(s.routing))
+    cache.getStageResult(Stage.EdgeRouting, mk(s.routing))
       .flatMap(r => cache.setStage(Stage.Routes, mk(s.tag), r.routes))
 
 enum Enlarge derives CanEqual:

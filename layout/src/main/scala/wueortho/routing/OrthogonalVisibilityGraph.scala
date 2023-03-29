@@ -1,7 +1,6 @@
 package wueortho.routing
 
 import wueortho.data.*
-import wueortho.routing.RoutingGraph
 
 import scala.util.Random
 import scala.Option.when
@@ -29,9 +28,9 @@ case class OVGNode(
   def allLinks = List(left, top, right, bottom)
 
   def dirToNode(id: NodeIndex) =
-    def isLinkToNode(link: NavigableLink) = PartialFunction.cond(link) {
+    def isLinkToNode(link: NavigableLink) = PartialFunction.cond(link):
       case NavigableLink.Node(other) if other == id => true
-    }
+
     if isLinkToNode(left) then Some(Direction.West)
     else if isLinkToNode(top) then Some(Direction.North)
     else if isLinkToNode(right) then Some(Direction.East)
@@ -39,9 +38,9 @@ case class OVGNode(
     else None
 
   def dirToPort(id: Int) =
-    def isLinkToPort(link: NavigableLink) = PartialFunction.cond(link) {
+    def isLinkToPort(link: NavigableLink) = PartialFunction.cond(link):
       case NavigableLink.Port(other) if other == id => true
-    }
+
     if isLinkToPort(left) then Some(Direction.West)
     else if isLinkToPort(top) then Some(Direction.North)
     else if isLinkToPort(right) then Some(Direction.East)
@@ -52,7 +51,7 @@ enum NavigableLink derives CanEqual:
   case EndOfWorld
   case Node(idx: NodeIndex)
   case Obstacle(idx: Int) // index of the rect array
-  case Port(idx: Int) // ports(x).u = 2 * x, ports(x).v = 2 * x + 1
+  case Port(idx: Int)     // ports(x).u = 2 * x, ports(x).v = 2 * x + 1
 
 object OrthogonalVisibilityGraph:
   case class HSegment(fromX: Double, toX: Double, y: Double, origin: Origin)
@@ -74,11 +73,10 @@ object OrthogonalVisibilityGraph:
         QueueItem.Mid(pos, snd, i)
       (when(filter(t.uDir))(mkMid(t.uTerm, 2 * i)) :: when(filter(t.vDir))(mkMid(t.vTerm, 2 * i + 1)) :: Nil).flatten
 
-    given Ordering[QueueItem] = Ordering.by((_: QueueItem).pos).orElseBy {
+    given Ordering[QueueItem] = Ordering.by((_: QueueItem).pos).orElseBy:
       case _: QueueItem.Start => 2
       case _: QueueItem.Mid   => 1
       case _: QueueItem.End   => 0
-    }
 
   enum PartialOVGNode:
     case Init(left: NavigableLink, bottom: NavigableLink, vi: Int, hi: Int, obstacle: Option[Int])
@@ -89,7 +87,7 @@ object OrthogonalVisibilityGraph:
     def withTop(top: NavigableLink): PartialOVGNode = this match
       case base: Init            => WithTop(top, base)
       case WithRight(right, b)   => Ready(OVGNode(b.left, top, right, b.bottom, b.obstacle))
-      case _: WithTop | _: Ready => sys.error(s"Cannot add bootom part to $this")
+      case _: WithTop | _: Ready => sys.error(s"Cannot add bottom part to $this")
 
     def withRight(right: NavigableLink): PartialOVGNode = this match
       case base: Init              => WithRight(right, base)
@@ -121,26 +119,24 @@ object OrthogonalVisibilityGraph:
         HSegment(nextPHP(state, rect.left), nextNHP(state, rect.right), y, origin)
 
       def mkPortSeg(state: State[HSegment], id: Int, x: Double, y: Double) =
-        val (term, dir) =
+        val dir =
           val tmp = ports(id / 2)
-          if id % 2 == 0 then tmp.uTerm -> tmp.uDir else tmp.vTerm -> tmp.vDir
+          if id % 2 == 0 then tmp.uDir else tmp.vDir
         dir match
           case Direction.East => HSegment(x, nextNHP(state, x), y, Origin.Port(id))
           case Direction.West => HSegment(nextPHP(state, x), x, y, Origin.Port(id))
           case _              => sys.error(s"cannot build a horizontal segment for port with direction $dir")
 
-      queue
-        .foldLeft(State[HSegment](Set.empty, Set.empty, Nil))((s, item) =>
-          item match
-            case Start(y, rect, idx) =>
-              val orig = Origin.Obstacle(Direction.South, idx)
-              State(s.posHP + rect.right, s.negHP + rect.left, mkObsSeg(s, rect, rect.bottom, orig) :: s.segments)
-            case End(y, rect, idx)   =>
-              val orig = Origin.Obstacle(Direction.North, idx)
-              State(s.posHP - rect.right, s.negHP - rect.left, mkObsSeg(s, rect, rect.top, orig) :: s.segments)
-            case Mid(y, x, idx)      => s.copy(segments = mkPortSeg(s, idx, x, y) :: s.segments),
-        )
-        .segments
+      queue.foldLeft(State[HSegment](Set.empty, Set.empty, Nil))((s, item) =>
+        item match
+          case Start(y, rect, idx) =>
+            val orig = Origin.Obstacle(Direction.South, idx)
+            State(s.posHP + rect.right, s.negHP + rect.left, mkObsSeg(s, rect, rect.bottom, orig) :: s.segments)
+          case End(y, rect, idx)   =>
+            val orig = Origin.Obstacle(Direction.North, idx)
+            State(s.posHP - rect.right, s.negHP - rect.left, mkObsSeg(s, rect, rect.top, orig) :: s.segments)
+          case Mid(y, x, idx)      => s.copy(segments = mkPortSeg(s, idx, x, y) :: s.segments),
+      ).segments
 
     val vSegs =
       val queue = (nodes.zipWithIndex.flatMap((rect, i) => List(Start(rect.left, rect, i), End(rect.right, rect, i)))
@@ -150,26 +146,24 @@ object OrthogonalVisibilityGraph:
         VSegment(x, nextPHP(state, rect.bottom), nextNHP(state, rect.top), origin)
 
       def mkPortSeg(state: State[VSegment], id: Int, x: Double, y: Double) =
-        val (term, dir) =
+        val dir =
           val tmp = ports(id / 2)
-          if id % 2 == 0 then tmp.uTerm -> tmp.uDir else tmp.vTerm -> tmp.vDir
+          if id % 2 == 0 then tmp.uDir else tmp.vDir
         dir match
           case Direction.North => VSegment(x, y, nextNHP(state, y), Origin.Port(id))
           case Direction.South => VSegment(x, nextPHP(state, y), y, Origin.Port(id))
           case _               => sys.error(s"cannot build a vertical segment for port with direction $dir")
 
-      queue
-        .foldLeft(State[VSegment](Set.empty, Set.empty, Nil))((s, item) =>
-          item match
-            case Start(x, rect, idx) =>
-              val orig: Origin.Obstacle = Origin.Obstacle(Direction.West, idx)
-              State(s.posHP + rect.top, s.negHP + rect.bottom, mkObsSeg(s, rect, rect.left, orig) :: s.segments)
-            case End(x, rect, idx)   =>
-              val orig: Origin.Obstacle = Origin.Obstacle(Direction.East, idx)
-              State(s.posHP - rect.top, s.negHP - rect.bottom, mkObsSeg(s, rect, rect.right, orig) :: s.segments)
-            case Mid(x, y, idx)      => s.copy(segments = mkPortSeg(s, idx, x, y) :: s.segments),
-        )
-        .segments
+      queue.foldLeft(State[VSegment](Set.empty, Set.empty, Nil))((s, item) =>
+        item match
+          case Start(x, rect, idx) =>
+            val orig: Origin.Obstacle = Origin.Obstacle(Direction.West, idx)
+            State(s.posHP + rect.top, s.negHP + rect.bottom, mkObsSeg(s, rect, rect.left, orig) :: s.segments)
+          case End(x, rect, idx)   =>
+            val orig: Origin.Obstacle = Origin.Obstacle(Direction.East, idx)
+            State(s.posHP - rect.top, s.negHP - rect.bottom, mkObsSeg(s, rect, rect.right, orig) :: s.segments)
+          case Mid(x, y, idx)      => s.copy(segments = mkPortSeg(s, idx, x, y) :: s.segments),
+      ).segments
 
     hSegs -> vSegs
   end buildSegments

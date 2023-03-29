@@ -1,6 +1,6 @@
 import Deps._
 
-ThisBuild / scalaVersion := "3.2.2"
+ThisBuild / scalaVersion := "3.3.0-RC3"
 ThisBuild / organization := "de.uniwue.info1"
 ThisBuild / version      := "0.1.0"
 ThisBuild / scalacOptions ++= compilerOptions
@@ -43,7 +43,8 @@ lazy val compilerOptions = Seq(
   "-deprecation",
   "-feature",
   "-Wconf:any:verbose",
-  "-Werror",
+  "-Wunused:imports,locals,privates,linted,implicits",
+  "-Wvalue-discard",
 )
 
 enablePlugins(JavaAppPackaging)

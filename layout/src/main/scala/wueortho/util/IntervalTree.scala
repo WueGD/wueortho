@@ -1,7 +1,6 @@
 package wueortho.util.mutable
 
 import scala.annotation.targetName
-import scala.collection.mutable
 
 trait IntervalTree:
   @targetName("append") def +=(low: Double, high: Double, ref: Int): Unit
@@ -15,25 +14,24 @@ object LinearIntervalTree:
 
   def empty(): IntervalTree = Impl(mutable.ArrayBuffer.empty[Interval])
 
-  def apply(vals: (Double, Double, Int)*): IntervalTree =
+  def apply(values: (Double, Double, Int)*): IntervalTree =
     val res = empty()
-    res ++= vals
+    res ++= values
     res
 
   case class Interval(low: Double, high: Double, key: Int) derives CanEqual:
     def overlaps(lower: Double, upper: Double): Boolean = !(lower > high || upper < low)
     def cutout(from: Double, to: Double)                =
-      Option.unless(high <= from || to <= low)(
+      Option.unless(high <= from || to <= low):
         (if low < from then List(Interval(low, from, key)) else Nil)
-          ++ (if to < high then List(Interval(to, high, key)) else Nil),
-      )
+          ++ (if to < high then List(Interval(to, high, key)) else Nil)
     override def toString(): String                     = s"[$low, $high] #$key"
 
   private case class Impl(buf: mutable.ArrayBuffer[Interval]) extends IntervalTree:
     @targetName("append")
     override def +=(low: Double, high: Double, ref: Int): Unit = buf += Interval(low, high, ref)
     @targetName("appendAll")
-    override def ++=(all: Seq[(Double, Double, Int)]): Unit = buf ++= all.map(Interval(_, _, _))
+    override def ++=(all: Seq[(Double, Double, Int)]): Unit    = buf ++= all.map(Interval(_, _, _))
 
     override def overlaps(low: Double, high: Double): List[Int] = buf.filter(_.overlaps(low, high)).map(_.key).toList
 

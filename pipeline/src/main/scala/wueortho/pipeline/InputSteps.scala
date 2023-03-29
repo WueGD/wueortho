@@ -1,13 +1,10 @@
 package wueortho.pipeline
 
 import wueortho.data.*
-import wueortho.io.random.RandomGraphs.RandomGraphConfig
 import wueortho.io.{praline, random}
-import wueortho.util.Codecs.given
 
 import scala.util.Try
-import io.circe.derivation.*
-import java.nio.file.{Path, Files}
+import java.nio.file.Files
 
 object InputSteps:
   given Provider[Step.RandomGraph] = (s: Step.RandomGraph, cache: StageCache) =>

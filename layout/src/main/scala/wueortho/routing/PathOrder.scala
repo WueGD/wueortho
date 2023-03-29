@@ -5,8 +5,6 @@ import Direction.*
 
 import scala.collection.mutable
 
-import wueortho.util.Debugging
-
 trait PathOrder:
   def topPaths(n: NodeIndex): Seq[Int]
   def rightPaths(n: NodeIndex): Seq[Int]
@@ -38,7 +36,7 @@ object PathOrder:
         assert(db > 0 && b > 0 || db < 0 && b < pb.size - 1, s"T1 violation: b=$b in $pa and $pb (starting $v1--$v2)")
 
         if pa(a - da) != pb(b - db) then
-          // - a/b have no common next vetex towards left/down: check their directions -> you are finished!
+          // - a/b have no common next vertex towards left/down: check their directions -> you are finished!
           (for
             dirA <- rg.connection(pa(a), pa(a - da))
             dirB <- rg.connection(pb(b), pb(b - db))
@@ -86,28 +84,28 @@ object PathOrder:
       !a.view.slice(after + 1, a.size).exists(b.view.slice(0, until).contains)
 
     for // knock-knees
-      nodeId          <- NodeIndex(0) until rg.size
-      fromLeft        <- rg.neighbor(nodeId, West).map(id => right(id.toInt))
-      fromBottom      <- rg.neighbor(nodeId, South).map(id => top(id.toInt))
-      (toTop, toRight) = top(nodeId.toInt)                            -> right(nodeId.toInt)
-      if toTop.nonEmpty && toRight.nonEmpty && fromLeft.nonEmpty && fromBottom.nonEmpty
-      (wsh, neh)       = fromBottom.lastIndexWhere(fromLeft.contains) -> toTop.indexWhere(toRight.contains)
-      (wsv, nev)       = fromLeft.lastIndexWhere(fromBottom.contains) -> toRight.indexWhere(toTop.contains)
-      (wnh, seh)       = toTop.lastIndexWhere(fromLeft.contains)      -> fromBottom.indexWhere(toRight.contains)
-      (wnv, sev)       = fromLeft.indexWhere(toTop.contains)          -> toRight.lastIndexWhere(fromBottom.contains)
+      nodeId     <- NodeIndex(0) until rg.size
+      fromLeft   <- rg.neighbor(nodeId, West).map(id => right(id.toInt))
+      fromBottom <- rg.neighbor(nodeId, South).map(id => top(id.toInt))
     do
-      if wsh >= 0 && neh >= 0 && checkNoSeparator(fromBottom, wsh, toTop, neh) then
-        fromBottom.insert(wsh + 1, toTop(neh))
-        toTop.insert(neh, fromBottom(wsh))
-      if wsv >= 0 && nev >= 0 && checkNoSeparator(fromLeft, wsv, toRight, nev) then
-        fromLeft.insert(wsv + 1, toRight(nev))
-        toRight.insert(nev, fromLeft(wsv))
-      if wnh >= 0 && seh >= 0 && checkNoSeparator(toTop, wnh, fromBottom, seh) then
-        toTop.insert(wnh + 1, fromBottom(seh))
-        fromBottom.insert(seh, toTop(wnh))
-      if wnv >= 0 && sev >= 0 && checkNoSeparator(toRight, sev, fromLeft, wnv) then
-        fromLeft.insert(wnv, toRight(sev))
-        toRight.insert(sev + 1, fromLeft(wnv))
+      val (toTop, toRight) = top(nodeId.toInt) -> right(nodeId.toInt)
+      if toTop.nonEmpty && toRight.nonEmpty && fromLeft.nonEmpty && fromBottom.nonEmpty then
+        val (wsh, neh) = fromBottom.lastIndexWhere(fromLeft.contains) -> toTop.indexWhere(toRight.contains)
+        val (wsv, nev) = fromLeft.lastIndexWhere(fromBottom.contains) -> toRight.indexWhere(toTop.contains)
+        val (wnh, seh) = toTop.lastIndexWhere(fromLeft.contains)      -> fromBottom.indexWhere(toRight.contains)
+        val (wnv, sev) = fromLeft.indexWhere(toTop.contains)          -> toRight.lastIndexWhere(fromBottom.contains)
+        if wsh >= 0 && neh >= 0 && checkNoSeparator(fromBottom, wsh, toTop, neh) then
+          fromBottom.insert(wsh + 1, toTop(neh))
+          toTop.insert(neh, fromBottom(wsh))
+        if wsv >= 0 && nev >= 0 && checkNoSeparator(fromLeft, wsv, toRight, nev) then
+          fromLeft.insert(wsv + 1, toRight(nev))
+          toRight.insert(nev, fromLeft(wsv))
+        if wnh >= 0 && seh >= 0 && checkNoSeparator(toTop, wnh, fromBottom, seh) then
+          toTop.insert(wnh + 1, fromBottom(seh))
+          fromBottom.insert(seh, toTop(wnh))
+        if wnv >= 0 && sev >= 0 && checkNoSeparator(toRight, sev, fromLeft, wnv) then
+          fromLeft.insert(wnv, toRight(sev))
+          toRight.insert(sev + 1, fromLeft(wnv))
 
     new RoutingGraph with PathOrder:
       val (t, r) = (top.map(_.toSeq), right.map(_.toSeq))

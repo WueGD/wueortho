@@ -2,7 +2,6 @@ package wueortho.pipeline
 
 import wueortho.data.Seed
 import wueortho.io.random.RandomGraphs.RandomGraphConfig
-import wueortho.io.svg.Svg
 import wueortho.util.Codecs.given
 import wueortho.routing.Nudging
 

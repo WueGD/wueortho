@@ -1,10 +1,9 @@
 package wueortho.io.svg
 
 import wueortho.data.*
-import wueortho.io.svg.EdgeRenderer
 import wueortho.util.Codecs.given
 
-import scala.annotation.{targetName, tailrec}
+import scala.annotation.targetName
 import scalatags.Text.{Frag, svgAttrs as ^}
 import scalatags.Text.svgTags.*
 import scalatags.Text.implicits.*
@@ -30,7 +29,7 @@ case class Svg(
     portLabelOffset: Double = 15,
     portLabelColor: String = "gray",
 ) derives ConfiguredCodec:
-  def make(ctnt: SvgFrag) = root(ctnt.bbox, viewPortPadding)(ctnt.frags)
+  def make(content: SvgFrag) = root(content.bbox, viewPortPadding)(content.frags)
 
   private val (tx, ty)               = pixelTransformers(this)
   private def bbox(ps: Seq[Vec2D])   = Rect2D.boundingBox(ps).scaled(pixelsPerUnit)
@@ -67,13 +66,11 @@ case class Svg(
   def drawEdgeRoutes(routes: Seq[EdgeRoute]) = edgeColor.zip(routes).map(drawEdgeRoute).reduce(_ ++ _)
 
   private def drawEdgeRoute(route: EdgeRoute, color: String) =
-    import EdgeRoute.OrthoSeg.*
+    val commands = edgeBends match
+      case EdgeBends.Smooth(radius) => EdgeRenderer.smoothSvgPathCommands(this, route, radius)
+      case EdgeBends.Straight       => EdgeRenderer.straightSvgPathCommands(this, route)
 
-    val cmds = edgeBends match
-      case EdgeBends.Smooth(radius) => EdgeRenderer.smoothSvgPathCmds(this, route, radius)
-      case EdgeBends.Straight       => EdgeRenderer.straightSvgPathCmds(this, route)
-
-    SvgFrag(bbox(route.points), Seq(pathFrag(cmds, color, edgeStrokeWidth, "none")))
+    SvgFrag(bbox(route.points), Seq(pathFrag(commands, color, edgeStrokeWidth, "none")))
 
   private def rectFrag(r: Rect2D, stroke: String, strokeWidth: Double, fill: String) = rect(
     ^.x           := tx(r.center.x1 - r.span.x1),
@@ -102,8 +99,8 @@ case class Svg(
     s,
   )
 
-  private def pathFrag(cmds: Seq[String], color: String, strokeWidth: Double, fill: String) = path(
-    ^.d           := cmds.mkString(" "),
+  private def pathFrag(commands: Seq[String], color: String, strokeWidth: Double, fill: String) = path(
+    ^.d           := commands.mkString(" "),
     ^.stroke      := color,
     ^.strokeWidth := strokeWidth,
     ^.fill        := fill,
@@ -138,14 +135,14 @@ object Svg:
     case Direction.South => p.copy(x2 = p.x2 + d)
     case Direction.West  => p.copy(x1 = p.x1 + d)
 
-  private def root(vp: Rect2D, pad: Double)(ctnt: Seq[Frag]): String =
+  private def root(vp: Rect2D, pad: Double)(content: Seq[Frag]): String =
     val x = vp.center.x1 - vp.span.x1 - pad
     val y = -vp.center.x2 - vp.span.x2 - pad
     val w = 2 * vp.span.x1 + 2 * pad
     val h = 2 * vp.span.x2 + 2 * pad
     s"""<?xml version="1.0" standalone="no"?>
        |<svg viewBox="$x $y $w $h" version="1.1" xmlns="http://www.w3.org/2000/svg">
-       |${ctnt.map(_.render).mkString("\n")}
+       |${content.map(_.render).mkString("\n")}
        |</svg>""".stripMargin
 
   case class SvgFrag(bbox: Rect2D, frags: Seq[Frag]):
