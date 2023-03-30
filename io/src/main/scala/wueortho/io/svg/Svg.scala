@@ -1,12 +1,10 @@
 package wueortho.io.svg
 
-import wueortho.data.*
+import wueortho.data.*, Direction.*
 import wueortho.util.Codecs.given
 
 import scala.annotation.targetName
-import scalatags.Text.{Frag, svgAttrs as ^}
-import scalatags.Text.svgTags.*
-import scalatags.Text.implicits.*
+import scalatags.Text, Text.{Frag, svgAttrs as ^}, Text.svgTags.*, Text.implicits.*
 import io.circe.derivation.ConfiguredCodec
 
 import Svg.*
@@ -26,14 +24,24 @@ case class Svg(
     nodeLabelColor: String = "black",
     portColor: String = "black",
     portSize: Double = 10,
-    portLabelOffset: Double = 15,
+    portLabelOffset: Double = 10,
     portLabelColor: String = "gray",
+    fontSize: Double = 16,
 ) derives ConfiguredCodec:
-  def make(content: SvgFrag) = root(content.bbox, viewPortPadding)(content.frags)
+
+  def make(content: SvgFrag) = root(content.bbox, viewPortPadding)(preamble, content.frags)
 
   private val (tx, ty)               = pixelTransformers(this)
   private def bbox(ps: Seq[Vec2D])   = Rect2D.boundingBox(ps).scaled(pixelsPerUnit)
   private def bboxR(rs: Seq[Rect2D]) = Rect2D.boundingBoxOfRects(rs*).scaled(pixelsPerUnit)
+
+  private val preamble = s"""<style>
+                            |  <![CDATA[
+                            |    text {
+                            |      font: ${fontSize}px sans-serif;
+                            |    }
+                            |    ]]>
+                            |</style>""".stripMargin
 
   def drawObstacles(obstacles: Obstacles) =
     SvgFrag(bboxR(obstacles.nodes), obstacles.nodes.map(rectFrag(_, obstacleColor, obstacleStrokeWidth, obstacleFill)))
@@ -45,19 +53,27 @@ case class Svg(
   def drawNodeLabels(vl: VertexLayout) =
     SvgFrag(bbox(vl.nodes), vl.nodes.zipWithIndex.map((p, i) => labelFrag(p, i.toString, nodeLabelColor)))
 
-  def drawPortLabels(ports: PortLayout) =
+  def drawPortLabels(ports: PortLayout): SvgFrag = drawPortLabels(ports, VertexLabels.enumerate(ports.numberOfPorts))
+
+  def drawPortLabels(ports: PortLayout, vls: VertexLabels.PlainText): SvgFrag =
+    def opposedTo(p: Vec2D, dir: Direction) = dir match
+      case North => p.copy(x2 = p.x2 - (portLabelOffset + fontSize) / pixelsPerUnit)
+      case East  => Vec2D(p.x1 - (portLabelOffset + fontSize / 2) / pixelsPerUnit, p.x2 - fontSize / 2 / pixelsPerUnit)
+      case South => p.copy(x2 = p.x2 + portLabelOffset / pixelsPerUnit)
+      case West  => Vec2D(p.x1 + (portLabelOffset + fontSize / 2) / pixelsPerUnit, p.x2 - fontSize / 2 / pixelsPerUnit)
+
     val points = ports.toVertexLayout.nodes
-    val labels = ports.byEdge.zipWithIndex.flatMap((et, i) =>
+    val frags  = ports.byEdge.zip(vls.labels).flatMap: (et, s) =>
       List(
-        labelFrag(opposedTo(et.uTerm, et.uDir, portLabelOffset / pixelsPerUnit), i.toString, portLabelColor),
-        labelFrag(opposedTo(et.vTerm, et.vDir, portLabelOffset / pixelsPerUnit), i.toString, portLabelColor),
-      ),
-    )
-    SvgFrag(bbox(points), labels)
+        labelFrag(opposedTo(et.uTerm, et.uDir), s, portLabelColor),
+        labelFrag(opposedTo(et.vTerm, et.vDir), s, portLabelColor),
+      )
+    SvgFrag(bbox(points), frags)
+  end drawPortLabels
 
   def drawStraightEdges(g: SimpleGraph, vl: VertexLayout) =
-    val lines =
-      edgeColor.zip(g.edges).map((edge, color) => lineFrag(vl(edge.from), vl(edge.to), color, edgeStrokeWidth))
+    val lines = edgeColor.zip(g.edges).map: (edge, color) =>
+      lineFrag(vl(edge.from), vl(edge.to), color, edgeStrokeWidth)
     SvgFrag(bbox(vl.nodes), lines)
 
   def drawNodes(vl: VertexLayout) =
@@ -129,21 +145,17 @@ object Svg:
 
   def pixelTransformers(svg: Svg) = ((x: Double) => svg.pixelsPerUnit * x, (y: Double) => -svg.pixelsPerUnit * y)
 
-  private def opposedTo(p: Vec2D, dir: Direction, d: Double) = dir match
-    case Direction.North => p.copy(x2 = p.x2 - d)
-    case Direction.East  => p.copy(x1 = p.x1 - d)
-    case Direction.South => p.copy(x2 = p.x2 + d)
-    case Direction.West  => p.copy(x1 = p.x1 + d)
-
-  private def root(vp: Rect2D, pad: Double)(content: Seq[Frag]): String =
+  private def root(vp: Rect2D, pad: Double)(preamble: String, content: Seq[Frag]): String =
     val x = vp.center.x1 - vp.span.x1 - pad
     val y = -vp.center.x2 - vp.span.x2 - pad
     val w = 2 * vp.span.x1 + 2 * pad
     val h = 2 * vp.span.x2 + 2 * pad
     s"""<?xml version="1.0" standalone="no"?>
        |<svg viewBox="$x $y $w $h" version="1.1" xmlns="http://www.w3.org/2000/svg">
+       |$preamble
        |${content.map(_.render).mkString("\n")}
        |</svg>""".stripMargin
+  end root
 
   case class SvgFrag(bbox: Rect2D, frags: Seq[Frag]):
     @targetName("join")
@@ -165,6 +177,7 @@ object Svg:
       case EdgeColor.Cycle(colors) =>
         lazy val repeated: LazyList[String] = LazyList(colors*) #::: repeated
         ts zip repeated
+  end EdgeColor
 
   val defaultColors = List(
     "#293462",

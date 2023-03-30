@@ -10,10 +10,10 @@ tmp.*
 test.*
 *.svg
 *.json
+*.png
 target
 project/project
 project/target
 project/metals.sbt
 *.swp
 notes
-data

@@ -43,5 +43,7 @@ object Pipeline:
         Step.SvgToFile(Paths.get("pipeline-out.svg").nn, None, None),
       ),
     )
+  end mkDefault
 
   def saveDefault(path: Path) = Files.writeString(path, mkDefault.asJson.spaces2)
+end Pipeline

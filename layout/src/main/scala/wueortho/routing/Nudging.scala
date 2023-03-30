@@ -75,6 +75,7 @@ trait NudgingCommons:
         nodes: List[NodeIndex],
     ) derives CanEqual:
       def isH = dir.isHorizontal
+    end SegInRG
 
     def mkAll(
         paths: IndexedSeq[Path],
@@ -146,8 +147,10 @@ trait NudgingCommons:
       )
       if lut.nonEmpty then traceRGSegments(rg, pathId, gs, lut)
       SegmentInfo(gs.dir, pathId, gs.idx, gs.nextDir, endsAt, lut)
+    end mkInfo
 
     def mkEst(gs: Segment.SegInRG) = Estimated(gs.norm, gs.min, gs.max)
+  end SegmentBuilder
 
   private def traceRGSegments(rg: RoutingGraph & PathOrder, pathId: Int, gs: Segment.SegInRG, isAfter: BitSet) =
     Debugging.dbg(s"path #$pathId ${gs.dir} (@${gs.norm}) is after ${isAfter.mkString("[", ", ", "]")}")
@@ -171,6 +174,7 @@ trait NudgingCommons:
           if a.info.idx < b.info.idx then a.info.nextDir == East || a.info.nextDir == North
           else b.info.nextDir == West || b.info.nextDir == South
         else b.info.pathsBefore(a.info.pathId)
+  end CNode
 
   protected trait CGraphCommons:
     def segments: IndexedSeq[CNode[Segment]]
@@ -192,6 +196,7 @@ trait NudgingCommons:
         iTree += (low, high, next.id.toInt)
         edges
       edges.toSet
+    end mkSepEdges
 
     def mkEdges(queue: Seq[NodeData[CNodeAny]]) =
       val obsPseudoEdges =
@@ -234,6 +239,7 @@ trait NudgingCommons:
         j = i - 1
       end while
       buf.toIndexedSeq
+    end if
   end mkQueue
 
   protected def isBorderNode(node: NodeData[CNodeAny]): Boolean = node.data.kind match
@@ -282,13 +288,13 @@ trait NudgingCommons:
       if cmp(lowNodeId.toInt) && !(isBorderNode(lowNode) && isBorderNode(highNode))
     yield mkConstraint(lowNode, highNode, margin)
 
-    for
-      (xv, yv)  <- State.get[(Int, Int)]
-      margin     = if isH then mkVar(xv) else mkVar(yv)
-      (cs, m)    = mkConstraints(margin).unzip
-      usedMargin = m.reduce(_ || _)
-      _         <- if usedMargin then State.set(if isH then (xv + 1, yv) else (xv, yv + 1)) else State.pure(())
-    yield cs -> (if usedMargin then margin else mkConst(0))
+    State: (xv, yv) =>
+      val margin     = if isH then mkVar(xv) else mkVar(yv)
+      val (cs, m)    = mkConstraints(margin).unzip
+      val usedMargin = m.reduce(_ || _)
+      if usedMargin then (if isH then (xv + 1, yv) else (xv, yv + 1)) -> (cs -> margin)
+      else (xv, yv)                                                   -> (cs -> mkConst(0))
+  end mkConstraintsForComponent
 
   protected def maximize(cs: Seq[Constraint], obj: CTerm) =
     val lp = LPInstance(cs, obj, maximize = true)

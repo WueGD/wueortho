@@ -52,6 +52,7 @@ object AlgorithmicSteps:
       case PortMode.OnlyHorizontal => makePorts(obs, graph, onlyHorizontal)
       case PortMode.Quadrants      => makePorts(obs, graph, quadrantHeuristic)
       case PortMode.Octants        => makePorts(obs, graph, octantHeuristic(_, _, barycenter))
+  end mkPorts
 
   given Provider[Step.SimplifiedRoutingGraph] = (s: Step.SimplifiedRoutingGraph, cache: StageCache) =>
     for
@@ -103,6 +104,7 @@ object AlgorithmicSteps:
       obsIn       <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
       g           <- cache.getStageResult(Stage.Graph, mk(s.graph))
       (r, pl, obs) = FullNudging(s.config, rIn, plIn, g, obsIn)
+      _            = locally(r, pl, obs) // todo remove this when unused warnings got fixed
       _           <- cache.setStage(Stage.Routes, mk(s.tag), r)
       _           <- cache.setStage(Stage.Ports, mk(s.tag), pl)
       _           <- cache.setStage(Stage.Obstacles, mk(s.tag), obs)
@@ -111,6 +113,7 @@ object AlgorithmicSteps:
   given Provider[Step.NoNudging] = (s: Step.NoNudging, cache: StageCache) =>
     cache.getStageResult(Stage.EdgeRouting, mk(s.routing))
       .flatMap(r => cache.setStage(Stage.Routes, mk(s.tag), r.routes))
+end AlgorithmicSteps
 
 enum Enlarge derives CanEqual:
   case Original
