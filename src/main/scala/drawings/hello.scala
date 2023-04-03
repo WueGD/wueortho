@@ -9,7 +9,6 @@ import wueortho.overlaps.*
 import wueortho.routing.*
 import wueortho.deprecated
 import wueortho.io.svg.Svg
-import wueortho.io.praline.LoadGraph
 import wueortho.layout.ForceDirected
 import wueortho.ports.AngleHeuristic
 import wueortho.pipeline.Pipeline
@@ -21,15 +20,16 @@ import drawings.Debugging.*
 
 @main def runPipeline = Pipeline.run(Pipeline.load(Paths.get("config.json").nn).fold(throw _, identity))
 
-@main def runPraline =
-  given GraphConversions.WithWeightStrategy = GraphConversions.withUniformWeights(1.0)
+// @main def runPraline =
+//   given GraphConversions.WithWeightStrategy = GraphConversions.withUniformWeights(1.0)
 
-  val graph  = LoadGraph.unsafeFrom(Files.readString(Paths.get("input.json")).nn)
-  val init   = ForceDirected.initLayout(Random(0x99c0ffee), graph.numberOfVertices)
-  val layout = ForceDirected.layout(ForceDirected.defaultConfig)(graph.withWeights, init)
-  val svg    = debugSvg(graph, layout)
-  Files.writeString(Paths.get("debug-praline.svg"), svg)
-  ()
+//   val graph  = LoadGraph.unsafeFrom(Files.readString(Paths.get("input.json")).nn)
+//   val init   = ForceDirected.initLayout(Random(0x99c0ffee), graph.numberOfVertices)
+//   val layout = ForceDirected.layout(ForceDirected.defaultConfig)(graph.withWeights, init)
+//   val svg    = debugSvg(graph, layout)
+//   Files.writeString(Paths.get("debug-praline.svg"), svg)
+//   ()
+// end runPraline
 
 @main def runIntervalTree =
   import wueortho.util.mutable
@@ -65,6 +65,7 @@ import drawings.Debugging.*
     maximize = true,
   )
   println(ORTools.solve(lp2))
+end runORToolsLP
 
 @main def runRouting =
   val (adj, lay, _, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
@@ -86,6 +87,7 @@ import drawings.Debugging.*
     FullNudging(Nudging.Config(1, false), rgo, OvgSample.ports, OvgSample.graph, OvgSample.obstacles)
   Files.writeString(Paths.get("fully-nudged-routing.svg"), debugSvg(fnObs, fnPorts, fnRoutes))
   ()
+end runRouting
 
 @main def runPorts =
   val neighbors = ForceDirected.initLayout(Random(0x99c0ffee), 12).nodes
@@ -118,6 +120,7 @@ import drawings.Debugging.*
   RoutingGraph.debug(routing)
   debugOVG(OvgSample.obstacles, rgAdj, rgLay, OvgSample.ports, "debug-rg")
   ()
+end runOVG
 
 @main def runOverlaps: Unit =
   val points     = ForceDirected.initLayout(Random(0x92c0ffee), 12 * 2).nodes
@@ -138,6 +141,7 @@ import drawings.Debugging.*
   Files.writeString(Paths.get("triangualted-fat.svg"), svg.make(svg.drawObstacles(Obstacles(withMargin)) ++ triag0Svg))
   Files.writeString(Paths.get("triangualted.svg"), svg.make(svg.drawObstacles(Obstacles(rects)) ++ triag0Svg))
   println(Overlaps.overlappingPairs(aligned).mkString("\n"))
+end runOverlaps
 
 @main def runMst: Unit =
   val vertices = ForceDirected.initLayout(Random(0x00c0ffee), 24)
@@ -150,6 +154,7 @@ import drawings.Debugging.*
   val svg      = debugSvg(mst.simple(using GraphConversions.UndirectStrategy.AllEdges), vertices)
   Files.writeString(Paths.get("mst.svg"), svg)
   ()
+end runMst
 
 @main def runTriangulate: Unit =
   val vertices = ForceDirected.initLayout(Random(0xffc0ffee), 24)
@@ -273,6 +278,7 @@ object OvgSample:
     SimpleEdge(NodeIndex(0), NodeIndex(1)),
   )
   lazy val graph = Graph.fromEdges(edges).mkSimpleGraph
+end OvgSample
 
 // see Corman et al. Intro to Algorithms, 3rd ed. p. 664--667
 val constraints = Seq(

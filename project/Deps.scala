@@ -7,4 +7,5 @@ object Deps {
   val orTools   = "com.google.ortools" % "ortools-java" % "9.5.2237"
 
   val circe = Seq("circe-core", "circe-parser").map("io.circe" %% _ % "0.14.4")
+  val cats  = "org.typelevel" %% "cats-core" % "2.9.0"
 }

@@ -11,7 +11,7 @@ lazy val core = project.settings(
 
 lazy val io = project.settings(
   name := "wueortho-io",
-  libraryDependencies ++= (scalatags +: circe),
+  libraryDependencies ++= (scalatags +: cats +: circe),
 ).dependsOn(core)
 
 lazy val layout = project.settings(
