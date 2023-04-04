@@ -2,14 +2,17 @@ package wueortho.io.praline
 
 import wueortho.data.*
 import cats.syntax.traverse.*
+import scala.language.implicitConversions
 
 object Extractors:
-  extension (g: Praline.Graph) def toSimpleGraph = simpleGraph(g)
+  extension (g: Praline.Graph)
+    def getSimpleGraph  = simpleGraph(g)
+    def getVertexLabels = vertexLabels(g)
 
   def simpleGraph(g: Praline.Graph) =
     val lut = (for
       (v, i) <- g.vertices.zipWithIndex
-      p      <- v.portCompositions
+      p      <- portsFlat(v.portCompositions)
     yield p.`@id` -> i).toMap
 
     def mkEdge(e: Praline.Edge) = (for
@@ -21,6 +24,10 @@ object Extractors:
     g.edges.traverse(mkEdge).map(_.foldLeft(Graph.builder())(_.addEdge.tupled(_)).mkSimpleGraph)
   end simpleGraph
 
+  def portsFlat(pc: List[Praline.PortComp]): List[Praline.PortComp.port] = pc.flatMap:
+    case p: Praline.PortComp.port               => List(p)
+    case Praline.PortComp.portGroup(_, _, next) => portsFlat(next)
+
   def shape2rect(s: Praline.Shape): Either[String, Rect2D] = s match
     case Praline.Shape.rect(x, y, w, h) if isFinite(x, y, w, h) =>
       Right(Rect2D(Vec2D(x + w / 2, y + h / 2), Vec2D(w / 2, h / 2)))
@@ -29,6 +36,26 @@ object Extractors:
     case _                                                      => Left(s"unrecognized shape $s")
 
   def rect2rect(r: Praline.Shape.rectangle) = Praline.Shape.rect(r.xposition, r.yposition, r.width, r.height)
+
+  def mainLabel(lm: Praline.LabelManager) =
+    for
+      mainId <- lm.mainLabel
+      label  <- lm.labels.find(_.`@id` == mainId)
+    yield label
+
+  def labelText(l: Praline.Label) = l match
+    case Praline.Label.text(_, inputText, _)          => Some(inputText)
+    case Praline.Label.textLabel(_, inputText, shape) => Some(inputText)
+    case Praline.Label.iconLabel(_, _)                => None
+    case Praline.Label.referenceIcon(_, _, _)         => None
+
+  def vertexLabels(g: Praline.Graph) =
+    (g.vertices.traverse: v =>
+        for
+          main <- mainLabel(v.labelManager).toRight(s"vertex $v has no main label")
+          text <- labelText(main).toRight(s"label $main has no label text")
+        yield text)
+      .map(l => Labels.PlainText(l.toIndexedSeq))
 
   def isFinite(ds: Double*) = ds.forall(_.isFinite)
 

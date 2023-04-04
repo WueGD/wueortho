@@ -29,7 +29,7 @@ object AlgorithmicSteps:
     yield ()
 
   private def align(in: Step.GTreeOverlaps, obs: Obstacles) =
-    val aligned = Nachmanson.align(Enlarge(in.enlarge, obs.nodes))
+    val aligned = Nachmanson.align(Stretch(in.stretch, obs.nodes))
     val result  = Obstacles((aligned zip obs.nodes).map((r, o) => Rect2D(r.center, o.span)))
     in.forceGeneralPosition.fold(result)(seed => result.forceGeneralPosition(seed.newRandom))
 
@@ -59,7 +59,7 @@ object AlgorithmicSteps:
       g    <- cache.getStageResult(Stage.Graph, mk(s.graph))
       obs  <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
       pl   <- cache.getStageResult(Stage.Ports, mk(s.ports))
-      large = Obstacles.lift(Enlarge(s.enlarge, _))(obs)
+      large = Obstacles.lift(Stretch(s.stretch, _))(obs)
       _    <- cache.setStage(Stage.RoutingGraph, mk(s.tag), RoutingGraph.create(large, g.edges.toIndexedSeq, pl))
     yield ()
 
@@ -115,14 +115,14 @@ object AlgorithmicSteps:
       .flatMap(r => cache.setStage(Stage.Routes, mk(s.tag), r.routes))
 end AlgorithmicSteps
 
-enum Enlarge derives CanEqual:
+enum Stretch derives CanEqual:
   case Original
   case Uniform(l: Double)
   case Scale(l: Vec2D)
   case Replace(width: Double, height: Double)
 
-object Enlarge:
-  def apply(s: Enlarge, rs: IndexedSeq[Rect2D]): IndexedSeq[Rect2D] = s match
+object Stretch:
+  def apply(s: Stretch, rs: IndexedSeq[Rect2D]): IndexedSeq[Rect2D] = s match
     case Original               => rs
     case Uniform(l)             => rs.map(r => r.copy(span = r.span.scale(l)))
     case Scale(l)               => rs.map(r => Rect2D(r.center, Vec2D(r.span.x1 * l.x1, r.span.x2 * l.x2)))

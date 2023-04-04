@@ -50,12 +50,17 @@ case class Svg(
     val points = ports.toVertexLayout.nodes
     SvgFrag(bbox(points), points.map(portFrag(_, portColor, portSize)))
 
-  def drawNodeLabels(vl: VertexLayout) =
-    SvgFrag(bbox(vl.nodes), vl.nodes.zipWithIndex.map((p, i) => labelFrag(p, i.toString, nodeLabelColor)))
+  def drawNodeLabels(vl: VertexLayout, labels: Labels) = labels match
+    case Labels.Hide              => SvgFrag.empty
+    case Labels.PlainText(labels) =>
+      val offset = Vec2D(0, -fontSize * pixelsPerUnit / 2)
+      SvgFrag(bbox(vl.nodes), vl.nodes.zip(labels).map((p, l) => labelFrag(p + offset, l, nodeLabelColor)))
 
-  def drawPortLabels(ports: PortLayout): SvgFrag = drawPortLabels(ports, VertexLabels.enumerate(ports.numberOfPorts))
+  def drawPortLabels(ports: PortLayout, labels: Labels): SvgFrag = labels match
+    case Labels.Hide              => SvgFrag.empty
+    case Labels.PlainText(labels) => drawPortLabels(ports, labels)
 
-  def drawPortLabels(ports: PortLayout, vls: VertexLabels.PlainText): SvgFrag =
+  def drawPortLabels(ports: PortLayout, vls: IndexedSeq[String]): SvgFrag =
     def opposedTo(p: Vec2D, dir: Direction) = dir match
       case North => p.copy(x2 = p.x2 - (portLabelOffset + fontSize) / pixelsPerUnit)
       case East  => Vec2D(p.x1 - (portLabelOffset + fontSize / 2) / pixelsPerUnit, p.x2 - fontSize / 2 / pixelsPerUnit)
@@ -63,7 +68,7 @@ case class Svg(
       case West  => Vec2D(p.x1 + (portLabelOffset + fontSize / 2) / pixelsPerUnit, p.x2 - fontSize / 2 / pixelsPerUnit)
 
     val points = ports.toVertexLayout.nodes
-    val frags  = ports.byEdge.zip(vls.labels).flatMap: (et, s) =>
+    val frags  = ports.byEdge.zip(vls).flatMap: (et, s) =>
       List(
         labelFrag(opposedTo(et.uTerm, et.uDir), s, portLabelColor),
         labelFrag(opposedTo(et.vTerm, et.vDir), s, portLabelColor),
