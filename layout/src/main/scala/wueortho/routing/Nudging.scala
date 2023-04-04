@@ -145,14 +145,14 @@ trait NudgingCommons:
         case South => gs.nodes.tail.flatMap(i => rg.topPaths(i).takeWhile(_ != pathId))
         case North => gs.nodes.init.flatMap(i => rg.topPaths(i).takeWhile(_ != pathId))
       )
-      if lut.nonEmpty then traceRGSegments(rg, pathId, gs, lut)
+      // if lut.nonEmpty then traceRGSegments(rg, pathId, gs, lut)
       SegmentInfo(gs.dir, pathId, gs.idx, gs.nextDir, endsAt, lut)
     end mkInfo
 
     def mkEst(gs: Segment.SegInRG) = Estimated(gs.norm, gs.min, gs.max)
   end SegmentBuilder
 
-  private def traceRGSegments(rg: RoutingGraph & PathOrder, pathId: Int, gs: Segment.SegInRG, isAfter: BitSet) =
+  def traceRGSegments(rg: RoutingGraph & PathOrder, pathId: Int, gs: Segment.SegInRG, isAfter: BitSet) =
     Debugging.dbg(s"path #$pathId ${gs.dir} (@${gs.norm}) is after ${isAfter.mkString("[", ", ", "]")}")
     println(gs.dir match
       case North => gs.nodes.init.map(i => s"TRACE: $i to top: ${rg.topPaths(i).mkString(", ")}").mkString("\n")
@@ -170,7 +170,6 @@ trait NudgingCommons:
       case (_, _: ObsBorder.End) | (_: ObsBorder.Begin, _) => false
       case (a: Segment, b: Segment)                        =>
         if a.info.pathId == b.info.pathId then
-          println(s"WARN: equal paths $a vs. $b")
           if a.info.idx < b.info.idx then a.info.nextDir == East || a.info.nextDir == North
           else b.info.nextDir == West || b.info.nextDir == South
         else b.info.pathsBefore(a.info.pathId)
@@ -207,9 +206,9 @@ trait NudgingCommons:
     lazy val graph: DiGraph =
       val digraph = Graph.fromEdges(mkEdges(mkQueue(allNodes)).toSeq, allNodes.size).mkDiGraph
       val res     = TransitiveReduction(digraph)
-      println(s"======DEBUG ${if isHorizontal then "HORIZONTAL" else "VERTICAL"} CONSTRAINT GRAPH======")
-      allNodes.foreach(println)
-      res.vertices.zipWithIndex.foreach((v, i) => println(s"$i: ${v.neighbors.mkString("[", ", ", "]")}"))
+      // println(s"======DEBUG ${if isHorizontal then "HORIZONTAL" else "VERTICAL"} CONSTRAINT GRAPH======")
+      // allNodes.foreach(println)
+      // res.vertices.zipWithIndex.foreach((v, i) => println(s"$i: ${v.neighbors.mkString("[", ", ", "]")}"))
       res
 
     def borderConstraints =
@@ -298,7 +297,7 @@ trait NudgingCommons:
 
   protected def maximize(cs: Seq[Constraint], obj: CTerm) =
     val lp = LPInstance(cs, obj, maximize = true)
-    Debugging.dbg(lp)
+    // Debugging.dbg(lp)
     ORTools.solve(lp).fold(sys.error, identity)
 
   protected def setX(node: CNode[Segment], start: Double, xSols: LPResult) =

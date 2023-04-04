@@ -65,8 +65,10 @@ object EdgeNudging extends NudgingCommons:
               val (end, s) = setX(head, start, xSols)
               fromPath(next, end, s :: res)
       paths.flatMap(p => fromPath(p.toList, xSols(p.startX), Nil))
+    end segments
 
     override lazy val obs: IndexedSeq[CNode[ObsBorder]] = obstacles.flatMap(o => Vector(o.bottom, o.top))
+  end VGraph
 
   private def mkObsNodes(r: Rect2D, i: Int) = ObsNodes(
     CNode(mkConst(r.left), Estimated(r.left, r.bottom, r.top), ObsBorder.Begin(i)),
@@ -79,7 +81,7 @@ object EdgeNudging extends NudgingCommons:
     ports.byEdge.flatMap(et => List(Terminal(et.uTerm, et.uDir, -1), Terminal(et.vTerm, et.vDir, -1)))
 
   def calcEdgeRoutes(routing: Routed, ports: PortLayout, obstacles: Obstacles): IndexedSeq[EdgeRoute] =
-    import Constraint.builder.*, Direction.*, Debugging.dbg
+    import Constraint.builder.*, Direction.*
 
     val mkEowH: S[(CNode[EndOfWorld], CNode[EndOfWorld])] =
       State((xv, yv) => (xv + 2, yv) -> (EndOfWorld.mkNode(mkVar(xv), West), EndOfWorld.mkNode(mkVar(xv + 1), East)))
@@ -88,18 +90,18 @@ object EdgeNudging extends NudgingCommons:
 
     (for
       allSegs     <- Segment.mkAll(routing.paths, routing, mkPseudoTerminals(ports), i => segBuilder(i, routing))
-      _            = allSegs.flatMap(_.toList).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_)) // DEBUG
+      // _            = allSegs.flatMap(_.toList).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_)) // DEBUG
       obsNodes     = obstacles.nodes.zipWithIndex.map(mkObsNodes.tupled)
       (hcs, hObj) <- mkEowH.flatMap(HGraph(_, allSegs, obsNodes).mkConstraints)
       hSol         = maximize(hcs, hObj)
-      dbghsol      = hSol.solutions.map("%+10.6f".format(_)).mkString("[", ", ", "]")                                // DEBUG
+      // dbghsol      = hSol.solutions.map("%+10.6f".format(_)).mkString("[", ", ", "]")                                // DEBUG
       (vcs, vObj) <- mkEowV.flatMap(VGraph(_, allSegs, obsNodes, hSol).mkConstraints)
       vSol         = maximize(vcs, vObj)
-      _            = {
-        println(s"DEBUG: #vars: ${vSol.solutions.size + hSol.solutions.size} #constraints: ${vcs.size + hcs.size}")
-        println(s"TRACE: h-solved $dbghsol")
-        println(s"TRACE: v-solved ${vSol.solutions.map("%+10.6f".format(_)).mkString("[", ", ", "]")}")
-      }
+    // _            = {
+    //   println(s"DEBUG: #vars: ${vSol.solutions.size + hSol.solutions.size} #constraints: ${vcs.size + hcs.size}")
+    //   println(s"TRACE: h-solved $dbghsol")
+    //   println(s"TRACE: v-solved ${vSol.solutions.map("%+10.6f".format(_)).mkString("[", ", ", "]")}")
+    // }
     yield mkRoutes(hSol, vSol, allSegs)).runA(0 -> 0)
   end calcEdgeRoutes
 end EdgeNudging

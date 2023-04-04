@@ -51,31 +51,19 @@ object Step:
 
   def resolve(t: Tag) = t.getOrElse("default")
 
-  private def runStep[S <: Step](step: S, cache: StageCache)(using p: Provider[S]): Either[String, Unit] =
-    p.run(step, cache)
-
   import InputSteps.given, AlgorithmicSteps.given, OutputSteps.given
+  import scala.deriving.Mirror, scala.compiletime.*
 
-  def nextStep(step: Step, cache: StageCache) = step match
-    case s: ReadPralineFile         => runStep(s, cache)
-    case s: GraphFromPraline        => runStep(s, cache)
-    case s: RandomGraph             => runStep(s, cache)
-    case s: VertexLabelsFromPraline => runStep(s, cache)
-    case s: SyntheticVertexLabels   => runStep(s, cache)
-    case s: UniformObstacles        => runStep(s, cache)
-    case s: ObstaclesFromLabels     => runStep(s, cache)
-    case s: ForceDirectedLayout     => runStep(s, cache)
-    case s: GTreeOverlaps           => runStep(s, cache)
-    case s: PortsByAngle            => runStep(s, cache)
-    case s: SyntheticPortLabels     => runStep(s, cache)
-    case s: SimplifiedRoutingGraph  => runStep(s, cache)
-    case s: OVGRoutingGraph         => runStep(s, cache)
-    case s: EdgeRouting             => runStep(s, cache)
-    case s: GeoNudging              => runStep(s, cache)
-    case s: FullNudging             => runStep(s, cache)
-    case s: OldNudging              => runStep(s, cache)
-    case s: NoNudging               => runStep(s, cache)
-    case s: SvgDrawing              => runStep(s, cache)
-    case s: SvgToFile               => runStep(s, cache)
-    case s: Metrics                 => runStep(s, cache)
+  inline given delegating[T](using m: Mirror.SumOf[T]): Provider[T] =
+    val elems = allProviders[m.MirroredElemTypes]
+    new Provider[T]:
+      override def run(s: T, cache: StageCache): Either[String, Unit] =
+        elems(m.ordinal(s)).asInstanceOf[Provider[Any]].run(s, cache)
+
+  inline def allProviders[T <: Tuple]: List[Provider[?]] =
+    inline erasedValue[T] match
+      case _: EmptyTuple => Nil
+      case _: (t *: ts)  => summonInline[Provider[t]] :: allProviders[ts]
+
+  def nextStep(step: Step, cache: StageCache) = Provider[Step].run(step, cache)
 end Step

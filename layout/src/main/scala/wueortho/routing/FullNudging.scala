@@ -32,6 +32,8 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
         if gs.isH then (xv, yv + 1) -> CNode(mkVar(yv), mkEst(gs), MidSeg(mkInfo(gs, mkVar(xv))))
         else (xv + 1, yv)           -> CNode(mkVar(xv), mkEst(gs), MidSeg(mkInfo(gs, mkVar(yv)))),
       )
+    end new
+  end segBuilder
 
   private trait CGraph(obstacles: IndexedSeq[ObsNodes], paths: IndexedSeq[PathNodes]) extends CGraphCommons:
     def paddingConstraints: Seq[Constraint] =
@@ -135,6 +137,7 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
               val (end, s) = setX(head, start, xSols)
               fromPath(next, end, s :: res)
       paths.flatMap(p => fromPath(p.toList, xSols(p.startX), Nil))
+    end segments
 
   end VGraph
 
@@ -173,6 +176,7 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
               val (end, s) = setY(head, start, xSols(head.pos), ySols)
               fromPath(next, end, s :: res)
       paths.flatMap(p => fromPath(p.toList, ySols(p.startY), Nil))
+    end segments
   end HGraph2ndPass
 
   private def mkTerminals(pl: PortLayout, g: SimpleGraph) = (pl.byEdge zip g.edges)
@@ -186,12 +190,10 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
     )
     Obstacles(obsNodes.map(nodes2rect))
 
-  import Debugging.dbg
-
   def calcAll(routing: Routed, ports: PortLayout, graph: SimpleGraph, obstacles: Obstacles) = (for
     obsNodes <- obstacles.nodes.zipWithIndex.map(mkObsNodes.tupled).toVector.sequence
     paths    <- Segment.mkAll(routing.paths, routing, mkTerminals(ports, graph), i => segBuilder(i, routing, obsNodes))
-    _         = paths.flatMap(_.toList).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_)) // DEBUG
+    // _         = paths.flatMap(_.toList).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_)) // DEBUG
     hGraph   <- mkHGraph(paths, obsNodes)
     xSols1   <- hGraph.mkConstraints.map(maximize)
     ySols    <- mkVGraph(paths, obsNodes, xSols1).flatMap(_.mkConstraints).map(maximize)

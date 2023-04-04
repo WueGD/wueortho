@@ -22,6 +22,9 @@ end Stage
 trait Provider[S]:
   def run(s: S, cache: StageCache): Either[String, Unit]
 
+object Provider:
+  def apply[S](using p: Provider[S]) = p
+
 class StageCache:
   private val cache = scala.collection.mutable.Map.empty[(Stage[?], String), Any]
 

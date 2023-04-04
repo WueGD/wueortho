@@ -72,6 +72,7 @@ enum SvgConfig(val svg: Svg):
           obstacleFill = "silver",
           obstacleColor = "black",
           portSize = 5,
+          portLabelOffset = 3,
           fontSize = 10,
         ),
       )

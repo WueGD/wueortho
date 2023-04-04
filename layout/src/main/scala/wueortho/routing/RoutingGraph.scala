@@ -14,6 +14,7 @@ trait RoutingGraph:
   def portId(node: NodeIndex): Option[Int]
 
   def connection(u: NodeIndex, v: NodeIndex): Option[Direction] = neighbors(u).find(_._2 == v).map(_._1)
+end RoutingGraph
 
 object RoutingGraph:
   enum QueueItem:
@@ -59,6 +60,7 @@ object RoutingGraph:
     def addLeft(node: RGNode, left: Int)     =
       assert(left >= 0 && node.adj(0) == -1, s"won't change left from ${node.adj(0)} to $left")
       node.adj(0) = left
+  end RGNode
 
   def create(obs: Obstacles, edges: IndexedSeq[SimpleEdge], ports: PortLayout) =
     trait Builder:
@@ -123,6 +125,7 @@ object RoutingGraph:
               buffer += ProtoSeg(pos, lb, ub, item)
             case QueueItem.Begin(_, obsId)                   =>
               activeObs += obsId
+        end for
 
         val byStart = obs.nodes.sortBy(begin)
         for (seg, i) <- buffer.zipWithIndex do
@@ -202,9 +205,8 @@ object RoutingGraph:
       hLinks(hi) = i
       nodes += node
     end for
-
-    println("horizontal segments:")
-    println(hSegs.zipWithIndex.map((s, i) => s"$i: $s").mkString("\n"))
+    // println("horizontal segments:")
+    // println(hSegs.zipWithIndex.map((s, i) => s"$i: $s").mkString("\n"))
 
     for (linkTo, segNr) <- vLinks.zipWithIndex do
       assert(linkTo >= 0, s"no link for vertical segment #$segNr ${vSegs(segNr)}")
@@ -230,6 +232,7 @@ object RoutingGraph:
       override def resolveEdge(edgeId: Int): (NodeIndex, NodeIndex)             = NodeIndex(2 * edgeId) -> NodeIndex(2 * edgeId + 1)
       override def portId(node: NodeIndex): Option[Int]                         = Option.when(node.toInt < ports.numberOfPorts)(node.toInt)
       override def size: Int                                                    = nodes.length
+  end create
 
   def debug(rg: RoutingGraph) = for i <- NodeIndex(0) until rg.size do
     println(s"$i @ ${rg.locate(i)} -> ${rg.neighbors(i).map((dir, n) => s"$n ${dir.show}").mkString("(", ", ", ")")}")
