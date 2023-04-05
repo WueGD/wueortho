@@ -9,7 +9,7 @@ import scala.util.Try
 
 object Praline:
   case class Graph(vertices: List[Vertex], edges: List[Edge]) derives Decoder
-  case class Edge(ports: List[Int]) derives Decoder
+  case class Edge(ports: List[Int], paths: List[Path]) derives Decoder
   case class Vertex(`@id`: Int, portCompositions: List[PortComp], shape: Shape, labelManager: LabelManager)
       derives Decoder
   case class LabelManager(labels: List[Label], mainLabel: Option[Int]) derives Decoder
@@ -44,6 +44,14 @@ object Praline:
             .orElse(cursor.value.asString.filter(_ == "NaN").map(nan => Number(Double.NaN))).get
 
     given Conversion[Number, Double] = _.asDouble
+
+  enum Path derives ConfiguredDecoder:
+    case polygonalPath(startPoint: Point, endPoint: Point, bendPoints: List[Point])
+
+  case class Point(x: Double, y: Double) derives Decoder
+
+  object Point:
+    given Conversion[Point, wueortho.data.Vec2D] = (p: Point) => wueortho.data.Vec2D(p.x, p.y)
 
 end Praline
 

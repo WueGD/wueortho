@@ -35,6 +35,13 @@ object InputSteps:
       _   <- cache.setStage(Stage.VertexLabels, mk(s.tag), res)
     yield ()
 
+  given Provider[Step.VertexLayoutFromPraline] = (s: Step.VertexLayoutFromPraline, cache: StageCache) =>
+    for
+      raw <- cache.getStageResult(Stage.PralineInput, mk(s.input))
+      res <- raw.getVertexLayout
+      _   <- cache.setStage(Stage.Layout, mk(s.tag), res)
+    yield ()
+
   given Provider[Step.UniformObstacles] = (s: Step.UniformObstacles, cache: StageCache) =>
     for
       vl <- cache.getStageResult(Stage.Layout, mk(s.vertexLayout))
@@ -49,14 +56,18 @@ object InputSteps:
       _  <- cache.setStage(Stage.Obstacles, mk(s.tag), labels2obs(s.config, vl, l))
     yield ()
 
-  private def labels2obs(c: VertexLabelConfig, vl: VertexLayout, l: Labels) = l match
-    case Labels.Hide              => Obstacles.fromVertexLayout((pos, _) => Rect2D(pos, Vec2D(c.minWidth, c.minHeight)))(vl)
-    case Labels.PlainText(labels) =>
-      val textSize = TextUtils.TextSize(c.fontSize)
-      Obstacles(for (pos, label) <- vl.nodes zip labels yield
-        val size = textSize(label)
-        Rect2D(pos, Vec2D(size.x1 max c.minWidth, size.x2 max c.minHeight).scale(0.5)),
-      )
+  private def labels2obs(c: VertexLabelConfig, vl: VertexLayout, l: Labels) =
+    extension (s: Vec2D) def withPadding = Vec2D(s.x1 + c.padding, s.x2 + c.padding)
+    l match
+      case Labels.Hide              =>
+        Obstacles.fromVertexLayout((pos, _) => Rect2D(pos, Vec2D(c.minWidth, c.minHeight).scale(0.5).withPadding))(vl)
+      case Labels.PlainText(labels) =>
+        val textSize = TextUtils.TextSize(c.fontSize)
+        Obstacles:
+            for (pos, label) <- vl.nodes zip labels yield
+              val Vec2D(textWidth, textHeight) = textSize(label)
+              Rect2D(pos, Vec2D(textWidth max c.minWidth, textHeight max c.minHeight).scale(0.5).withPadding)
+  end labels2obs
 
   given Provider[Step.SyntheticVertexLabels] = (s: Step.SyntheticVertexLabels, cache: StageCache) =>
     s.config match

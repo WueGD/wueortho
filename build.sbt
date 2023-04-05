@@ -29,6 +29,7 @@ lazy val root = (project in file(".")).aggregate(core, io, layout, pipeline).dep
 lazy val compilerOptions = Seq(
   "-source:future",
   "-release:17",
+  "-Xmax-inlines:256",
   "-Yexplicit-nulls",
   "-language:strictEquality",
   "-deprecation",

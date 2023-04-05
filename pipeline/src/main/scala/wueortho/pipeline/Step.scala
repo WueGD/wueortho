@@ -15,6 +15,7 @@ enum Step derives ConfiguredCodec:
   case GraphFromPraline(input: Tag, tag: Tag)
   case RandomGraph(config: RandomGraphConfig, tag: Tag)
   case ForceDirectedLayout(iterations: Int, seed: Seed, graph: Tag, tag: Tag)
+  case VertexLayoutFromPraline(input: Tag, tag: Tag)
   case VertexLabelsFromPraline(input: Tag, tag: Tag)
   case SyntheticVertexLabels(config: SyntheticLabels, graph: Tag, tag: Tag)
   case UniformObstacles(width: Double, height: Double, vertexLayout: Tag, tag: Tag)
