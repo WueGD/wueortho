@@ -1,6 +1,7 @@
 package wueortho.data
 
 import scala.util.Random
+import Direction.*
 
 case class EdgeTerminals(uTerm: Vec2D, uDir: Direction, vTerm: Vec2D, vDir: Direction)
 
@@ -36,8 +37,14 @@ object EdgeRoute:
     lazy val len = Math.abs(this match { case HSeg(dx) => dx; case VSeg(dy) => dy })
     lazy val sgn = Math.signum(this match { case HSeg(dx) => dx; case VSeg(dy) => dy })
 
+    lazy val dir = this match
+      case HSeg(dx) => if dx < 0 then West else East
+      case VSeg(dy) => if dy < 0 then South else North
+  end OrthoSeg
+
   object OrthoSeg:
     extension (p: Vec2D)
       def moveBy(s: OrthoSeg) = s match
         case HSeg(dx) => p.copy(x1 = p.x1 + dx)
         case VSeg(dy) => p.copy(x2 = p.x2 + dy)
+end EdgeRoute

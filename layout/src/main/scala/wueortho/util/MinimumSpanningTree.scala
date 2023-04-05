@@ -23,6 +23,7 @@ object MinimumSpanningTree:
       case Root | Bound(_, _) => this
       case Discovered(w, p)   => VertexState.Bound(w, p)
       case Undiscovered       => sys.error(s"cannot bind undiscovered vertex $this")
+  end VertexState
 
   def create(g: WeightedGraph): WeightedDiGraph =
     val state = mutable.ArraySeq.fill(g.vertices.size)(VertexState.Undiscovered)
@@ -38,14 +39,16 @@ object MinimumSpanningTree:
               state(v.toInt) = VertexState.Discovered(-weight, u)
               queue.enqueue(-weight -> v)
         state(u.toInt) = state(u.toInt).bind
+    end while
 
     mkTree(state.toSeq)
+  end create
 
   private def mkTree(s: Seq[VertexState]) =
     val builder = Graph.DiBuilder.reserve(s.size)
     s.zipWithIndex.foreach:
       case (VertexState.Bound(w, u), v) => builder.addEdge(u, NodeIndex(v), -w)
-      case (VertexState.Root, i)        => println(s"DEBUG: MST root is $i")
+      case (VertexState.Root, i)        => // the root has no incoming edges
       case x                            => sys.error(s"unbound vertex $x in MST")
     builder.mkWeightedDiGraph
 

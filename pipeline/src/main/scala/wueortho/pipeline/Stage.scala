@@ -2,11 +2,9 @@ package wueortho.pipeline
 
 import wueortho.data.*
 import wueortho.routing.{RoutingGraph, Routed}
-import wueortho.io.praline.Praline
 
 enum Stage[T]:
   case Graph        extends Stage[SimpleGraph]
-  case PralineInput extends Stage[Praline.Graph]
   case Layout       extends Stage[VertexLayout]
   case VertexLabels extends Stage[Labels]
   case Obstacles    extends Stage[Obstacles]

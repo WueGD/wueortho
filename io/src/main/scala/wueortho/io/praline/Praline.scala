@@ -45,13 +45,13 @@ object Praline:
 
     given Conversion[Number, Double] = _.asDouble
 
-  enum Path derives ConfiguredDecoder:
+  enum Path derives ConfiguredDecoder, CanEqual:
     case polygonalPath(startPoint: Point, endPoint: Point, bendPoints: List[Point])
 
-  case class Point(x: Double, y: Double) derives Decoder
+  case class Point(x: Double, y: Double) derives Decoder, CanEqual
 
   object Point:
-    given Conversion[Point, wueortho.data.Vec2D] = (p: Point) => wueortho.data.Vec2D(p.x, p.y)
+    given Conversion[Point, wueortho.data.Vec2D] = (p: Point) => wueortho.data.Vec2D(p.x, -p.y)
 
 end Praline
 

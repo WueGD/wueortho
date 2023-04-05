@@ -1,7 +1,7 @@
 package wueortho.pipeline
 
 import wueortho.data.*
-import wueortho.io.{praline, random}, praline.Extractors.*
+import wueortho.io.{praline, random}, praline.Praline, praline.Extractors.*
 import wueortho.util.Codecs.given
 
 import io.circe.derivation.ConfiguredEnumCodec
@@ -15,32 +15,24 @@ object InputSteps:
     (for
       raw   <- Try(Files.readString(s.path).nn).toEither
       graph <- praline.parseGraph(raw)
-      _     <- cache.setStage(Stage.PralineInput, mk(s.tag), graph)
+      _     <- PralineExtractor.values.view
+                 .foldLeft(Right(()): Either[String, Unit])((u, ex) => u.flatMap(_ => maybeExtract(ex, graph, s, cache)))
     yield ()).left.map(_.toString)
+
+  private def maybeExtract(ex: PralineExtractor, g: Praline.Graph, s: Step.ReadPralineFile, cache: StageCache) =
+    import PralineExtractor.*
+    if !s.use.contains(ex) then Right(())
+    else
+      ex match
+        case Graph        => g.getSimpleGraph.flatMap(cache.setStage(Stage.Graph, mk(s.tag), _))
+        case VertexLabels => g.getVertexLabels.flatMap(cache.setStage(Stage.VertexLabels, mk(s.tag), _))
+        case VertexLayout => g.getVertexLayout.flatMap(cache.setStage(Stage.Layout, mk(s.tag), _))
+        case Obstacles    => g.getObstacles.flatMap(cache.setStage(Stage.Obstacles, mk(s.tag), _))
+        case EdgeRoutes   => g.getEdgeRoutes.flatMap(cache.setStage(Stage.Routes, mk(s.tag), _))
+  end maybeExtract
 
   given Provider[Step.RandomGraph] = (s: Step.RandomGraph, cache: StageCache) =>
     cache.updateStage(Stage.Graph, mk(s.tag), _ => random.RandomGraphs.mkSimpleGraph(s.config))
-
-  given Provider[Step.GraphFromPraline] = (s: Step.GraphFromPraline, cache: StageCache) =>
-    for
-      raw   <- cache.getStageResult(Stage.PralineInput, mk(s.input))
-      graph <- raw.getSimpleGraph
-      _     <- cache.setStage(Stage.Graph, mk(s.tag), graph)
-    yield ()
-
-  given Provider[Step.VertexLabelsFromPraline] = (s: Step.VertexLabelsFromPraline, cache: StageCache) =>
-    for
-      raw <- cache.getStageResult(Stage.PralineInput, mk(s.input))
-      res <- raw.getVertexLabels
-      _   <- cache.setStage(Stage.VertexLabels, mk(s.tag), res)
-    yield ()
-
-  given Provider[Step.VertexLayoutFromPraline] = (s: Step.VertexLayoutFromPraline, cache: StageCache) =>
-    for
-      raw <- cache.getStageResult(Stage.PralineInput, mk(s.input))
-      res <- raw.getVertexLayout
-      _   <- cache.setStage(Stage.Layout, mk(s.tag), res)
-    yield ()
 
   given Provider[Step.UniformObstacles] = (s: Step.UniformObstacles, cache: StageCache) =>
     for
@@ -99,3 +91,6 @@ enum VertexLabelConfig(val minWidth: Double, val minHeight: Double, val padding:
 
 enum SyntheticLabels derives CanEqual, ConfiguredEnumCodec:
   case Hide, Enumerate
+
+enum PralineExtractor derives CanEqual, ConfiguredEnumCodec:
+  case Graph, VertexLabels, VertexLayout, Obstacles, EdgeRoutes

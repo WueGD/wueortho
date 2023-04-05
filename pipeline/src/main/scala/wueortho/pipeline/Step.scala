@@ -12,17 +12,13 @@ import java.nio.file.Path
 import Step.*
 
 enum Step derives ConfiguredCodec:
-  case GraphFromPraline(input: Tag, tag: Tag)
   case RandomGraph(config: RandomGraphConfig, tag: Tag)
   case ForceDirectedLayout(iterations: Int, seed: Seed, graph: Tag, tag: Tag)
-  case VertexLayoutFromPraline(input: Tag, tag: Tag)
-  case VertexLabelsFromPraline(input: Tag, tag: Tag)
   case SyntheticVertexLabels(config: SyntheticLabels, graph: Tag, tag: Tag)
   case UniformObstacles(width: Double, height: Double, vertexLayout: Tag, tag: Tag)
   case GTreeOverlaps(stretch: Stretch, forceGeneralPosition: Option[Seed], obstacles: Tag, tag: Tag)
   case ObstaclesFromLabels(config: VertexLabelConfig, vertexLayout: Tag, vertexLabels: Tag, tag: Tag)
   case PortsByAngle(mode: PortMode, obstacles: Tag, graph: Tag, tag: Tag)
-  // case PortLabelsFromPraline(tag: Tag)
   case SyntheticPortLabels(config: SyntheticLabels, ports: Tag, tag: Tag)
   case SimplifiedRoutingGraph(stretch: Stretch, obstacles: Tag, graph: Tag, ports: Tag, tag: Tag)
   case OVGRoutingGraph(obstacles: Tag, ports: Tag, tag: Tag)
@@ -31,6 +27,9 @@ enum Step derives ConfiguredCodec:
   case OldNudging(routing: Tag, ports: Tag, obstacles: Tag, tag: Tag)
   case NoNudging(routing: Tag, tag: Tag)
   case FullNudging(config: Nudging.Config, routing: Tag, ports: Tag, obstacles: Tag, graph: Tag, tag: Tag)
+  case SvgToFile(path: Path, svg: Tag, tag: Tag)
+  case Metrics(metrics: List[String], obstacles: Tag, routes: Tag, tag: Tag)
+  case ReadPralineFile(path: Path, use: List[PralineExtractor], tag: Tag)
   case SvgDrawing(
       config: SvgConfig,
       obstacles: Tag,
@@ -40,9 +39,6 @@ enum Step derives ConfiguredCodec:
       portLabels: Tag,
       tag: Tag,
   )
-  case SvgToFile(path: Path, svg: Tag, tag: Tag)
-  case Metrics(metrics: List[String], obstacles: Tag, routes: Tag, tag: Tag)
-  case ReadPralineFile(path: Path, tag: Tag)
 
   def tag: Tag
 end Step
