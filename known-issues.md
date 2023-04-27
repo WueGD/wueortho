@@ -1,6 +1,7 @@
 KNOWN ISSUES
 ============
 
+* [BUG] building the routing graph crashes for dense sets of obstacles
 * [BUG] multiple monotony constraints might replace a separation constraint but do not induce a margin (we may be able to show that this cannot happen)
 * [BUG] one separate run of the geo-nudging might put two segments in the same position that do not have each other in their `pathsBefore` sets. This can mean that we introduce unnecessary eyes (fixed for: knock-knee situations)
 * [BUG] segments get pressed into obstacles by EndOfWorld nodes (fixed for full nudging)

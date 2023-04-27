@@ -8,11 +8,9 @@ object Debugging:
 
   def rg2adj(graph: RoutingGraph) =
     val layout      = VertexLayout((0 until graph.size).map(i => graph.locate(NodeIndex(i))))
-    val adjacencies = Graph
-      .fromEdges(
-        (NodeIndex(0) until graph.size).flatMap(u => graph.neighbors(u).map((_, v) => SimpleEdge(u, v))),
-      )
-      .mkSimpleGraph
+    val adjacencies = Graph.fromEdges(
+      (NodeIndex(0) until graph.size).flatMap(u => graph.neighbors(u).map((_, v) => SimpleEdge(u, v))),
+    ).mkSimpleGraph
     adjacencies -> layout
 
   def showCTerm(t: Constraint.CTerm): String =

@@ -1,6 +1,6 @@
 import Deps._
 
-ThisBuild / scalaVersion := "3.3.0-RC3"
+ThisBuild / scalaVersion := "3.3.0-RC4"
 ThisBuild / organization := "de.uniwue.info1"
 ThisBuild / version      := "0.1.0"
 ThisBuild / scalacOptions ++= compilerOptions
@@ -35,7 +35,7 @@ lazy val compilerOptions = Seq(
   "-deprecation",
   "-feature",
   "-Wconf:any:verbose",
-  "-Wunused:imports,locals,privates,linted,implicits",
+  "-Wunused:all",
   "-Wvalue-discard",
 )
 

@@ -83,7 +83,7 @@ object Extractors:
     import EdgeRoute.OrthoSeg.*
     ps.sliding(2).toList.traverse:
       case Seq(a, b) =>
-        if a == b then Left(s"empty segements are unsupported")
+        if a == b then Left(s"empty segments are unsupported")
         else if a.x1 == b.x1 then Right(VSeg(b.x2 - a.x2))
         else if a.x2 == b.x2 then Right(HSeg(b.x1 - a.x1))
         else Left(s"segment from $a to $b is not orthogonal")

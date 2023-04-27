@@ -104,7 +104,6 @@ object AlgorithmicSteps:
       obsIn       <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
       g           <- cache.getStageResult(Stage.Graph, mk(s.graph))
       (r, pl, obs) = FullNudging(s.config, rIn, plIn, g, obsIn)
-      _            = locally(r, pl, obs) // todo remove this when unused warnings got fixed
       _           <- cache.setStage(Stage.Routes, mk(s.tag), r)
       _           <- cache.setStage(Stage.Ports, mk(s.tag), pl)
       _           <- cache.setStage(Stage.Obstacles, mk(s.tag), obs)
