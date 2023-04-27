@@ -24,7 +24,17 @@ object Debugging:
       case Scale(l, a: Constant) => s"$l * ${showCTerm(a)}"
       case Scale(l, a: Variable) => s"$l * ${showCTerm(a)}"
       case Scale(l, a)           => s"$l * (${showCTerm(a)})"
+  end showCTerm
 
   def showConstraint(c: Constraint) = c match
     case Constraint.SmallerOrEqual(a, b) => s"${showCTerm(a)} <= ${showCTerm(b)}"
     case Constraint.Equal(a, b)          => s"${showCTerm(a)} == ${showCTerm(b)}"
+
+  def printRoutes(r: IndexedSeq[EdgeRoute]) =
+    println("=========BEGIN ROUTES OUTPUT=========")
+    for
+      er        <- r
+      Seq(a, b) <- er.points.sliding(2)
+    do println(s"${a.x1} ${a.x2} ${b.x1} ${b.x2}")
+    println("========= END ROUTES OUTPUT =========")
+end Debugging

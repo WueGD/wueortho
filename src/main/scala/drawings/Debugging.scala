@@ -25,6 +25,7 @@ object Debugging:
     val portsSvg = svg.drawPorts(ports)
     Files.writeString(Paths.get(s"$name.svg"), svg.make(edgesSvg ++ portsSvg ++ nodesSvg ++ rectsSvg))
     Files.writeString(Paths.get(s"$name-input.svg"), svg.make(rectsSvg ++ svg.drawPorts(ports)))
+  end debugOVG
 
   def debugConnectivity(adj: SimpleGraph, lay: VertexLayout) =
     for (pos, u) <- lay.nodes.zipWithIndex do
@@ -51,3 +52,4 @@ object Debugging:
     val nodesSvg = svg.drawNodes(vl)
     val edgesSvg = svg.drawStraightEdges(adj, vl)
     svg.make(rectsSvg ++ edgesSvg ++ nodesSvg)
+end Debugging

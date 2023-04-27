@@ -20,7 +20,19 @@ object Crossings:
             go((isH, s) :: res, p2, !isH, next)
 
       go(Nil, r.terminals.uTerm, r.terminals.uDir.isHorizontal, r.route.toList)
+    end separateRoutes
 
     val (vertical, horizontal) = routes.map(separateRoutes).unzip
 
     vertical.flatten.flatMap(v => horizontal.flatten.map(v -> _)).count(_ intersects _)
+  end numberOfCrossings
+
+  case class SkewLine(p1: Vec2D, p2: Vec2D):
+    infix def intersects(o: SkewLine) =
+      val d = (p2.x1 - p1.x1) * (o.p2.x2 - o.p1.x2) - (p2.x2 - p1.x2) * (o.p2.x1 - o.p1.x1)
+      if d == 0 then false
+      else
+        val s = ((o.p1.x1 - p1.x1) * (o.p2.x2 - o.p1.x2) - (o.p1.x2 - p1.x2) * (o.p2.x1 - o.p1.x1)) / d
+        val t = -((p2.x1 - p1.x1) * (o.p1.x2 - p1.x2) - (p2.x2 - p1.x2) * (o.p1.x1 - p1.x1)) / d
+        0 <= s && s <= 1 && 0 <= t && t <= 1
+end Crossings

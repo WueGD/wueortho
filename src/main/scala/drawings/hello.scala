@@ -31,6 +31,15 @@ import drawings.Debugging.*
 //   ()
 // end runPraline
 
+@main def runSkewCrossings =
+  import wueortho.metrics.Crossings.*
+  val l1 = SkewLine(Vec2D(1, 1), Vec2D(3, 2))
+  val l2 = SkewLine(Vec2D(1, 4), Vec2D(2, -1))
+  val l3 = SkewLine(Vec2D(1, 4), Vec2D(4, 2))
+  println(s"l1 -|- l2: ${l1 intersects l2}")
+  println(s"l2 -|- l1: ${l2 intersects l1}")
+  println(s"l1 -|- l3: ${l1 intersects l3}")
+
 @main def runIntervalTree =
   import wueortho.util.mutable
 
