@@ -13,7 +13,7 @@ import Step.*
 
 enum Step derives ConfiguredCodec:
   case RandomGraph(config: RandomGraphConfig, tag: Tag)
-  case ForceDirectedLayout(iterations: Int, seed: Seed, graph: Tag, tag: Tag)
+  case ForceDirectedLayout(iterations: Int, seed: Seed, repetitions: Int, graph: Tag, tag: Tag)
   case SyntheticVertexLabels(config: SyntheticLabels, graph: Tag, tag: Tag)
   case UniformObstacles(width: Double, height: Double, vertexLayout: Tag, tag: Tag)
   case GTreeOverlaps(stretch: Stretch, forceGeneralPosition: Option[Seed], obstacles: Tag, tag: Tag)

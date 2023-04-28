@@ -42,7 +42,7 @@ object Pipeline:
     Pipeline(
       List(
         Step.RandomGraph(RandomGraphConfig(20, 60, seed, GraphCore.Tree, allowLoops = false), None),
-        Step.ForceDirectedLayout(1000, seed, None, None),
+        Step.ForceDirectedLayout(1000, seed, 1, None, None),
         Step.UniformObstacles(4.0, 2.0, None, Some("raw")),
         Step.GTreeOverlaps(Stretch.Scale(Vec2D(1.5, 2.0)), Some(seed), Some("raw"), None),
         Step.PortsByAngle(PortMode.Octants, None, None, None),

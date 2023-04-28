@@ -5,10 +5,13 @@ import wueortho.layout.{ForceDirected as FDLayout}
 import wueortho.overlaps.Nachmanson
 import wueortho.ports.AngleHeuristic
 import wueortho.routing.*
+import wueortho.metrics.Crossings
 import wueortho.deprecated
 import wueortho.util.GraphConversions, GraphConversions.toWeighted.*
 import wueortho.util.Codecs.given
 import io.circe.derivation.ConfiguredEnumCodec
+
+import scala.util.Random
 
 object AlgorithmicSteps:
   import Step.{resolve as mk}
@@ -17,10 +20,16 @@ object AlgorithmicSteps:
     cache.updateStage(Stage.Layout, mk(s.tag), _ => cache.getStageResult(Stage.Graph, mk(s.graph)).map(layout(s, _)))
 
   private def layout(in: Step.ForceDirectedLayout, graph: SimpleGraph) =
-    FDLayout.layout(FDLayout.defaultConfig.copy(iterCap = in.iterations))(
-      graph = graph.withWeights(using GraphConversions.withUniformWeights(w = 1)),
-      init = FDLayout.initLayout(in.seed.newRandom, graph.numberOfVertices),
-    )
+    val run        = FDLayout.layout(FDLayout.defaultConfig.copy(iterCap = in.iterations))
+    val weighted   = graph.withWeights(using GraphConversions.withUniformWeights(w = 1))
+    val baseRandom = in.seed.newRandom
+    (for _ <- 1 to in.repetitions yield
+      val layout    = run(weighted, FDLayout.initLayout(Random(baseRandom.nextLong()), graph.numberOfVertices))
+      val crossings = Crossings.numberOfCrossings(graph, layout)
+      println(s"DEBUG: crossings=$crossings")
+      layout -> crossings
+    ).minBy(_._2)._1
+  end layout
 
   given Provider[Step.GTreeOverlaps] = (s: Step.GTreeOverlaps, cache: StageCache) =>
     for

@@ -35,4 +35,13 @@ object Crossings:
         val s = ((o.p1.x1 - p1.x1) * (o.p2.x2 - o.p1.x2) - (o.p1.x2 - p1.x2) * (o.p2.x1 - o.p1.x1)) / d
         val t = -((p2.x1 - p1.x1) * (o.p1.x2 - p1.x2) - (p2.x2 - p1.x2) * (o.p1.x1 - p1.x1)) / d
         0 <= s && s <= 1 && 0 <= t && t <= 1
+
+  def numberOfCrossings(g: SimpleGraph, vl: VertexLayout) = (for
+    (e1, i) <- g.edges.zipWithIndex
+    e2      <- g.edges.drop(i + 1)
+  yield
+    val (l1, l2) = SkewLine(vl(e1.from), vl(e1.to)) -> SkewLine(vl(e2.from), vl(e2.to))
+    if l1 intersects l2 then 1 else 0
+  ).sum
+
 end Crossings
