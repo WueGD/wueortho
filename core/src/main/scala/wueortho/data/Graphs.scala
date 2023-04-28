@@ -8,7 +8,7 @@ sealed trait Graph[V, E]:
 
 case class Vertex[V](neighbors: IndexedSeq[V])
 
-case class SimpleLink(toNode: NodeIndex, reverseIndex: Int):
+case class BasicLink(toNode: NodeIndex, reverseIndex: Int):
   def withWeight(w: Double) = WeightedLink(toNode, w, reverseIndex)
 case class WeightedLink(toNode: NodeIndex, weight: Double, reverseIndex: Int)
 case class WeightedDiLink(toNode: NodeIndex, weight: Double)
@@ -18,16 +18,16 @@ case class SimpleEdge(from: NodeIndex, to: NodeIndex):
 case class WeightedEdge(from: NodeIndex, to: NodeIndex, weight: Double):
   def unweighted = SimpleEdge(from, to)
 
-sealed trait SimpleGraph     extends Graph[SimpleLink, SimpleEdge]
+sealed trait BasicGraph      extends Graph[BasicLink, SimpleEdge]
 sealed trait WeightedGraph   extends Graph[WeightedLink, WeightedEdge]
 sealed trait DiGraph         extends Graph[NodeIndex, SimpleEdge]
 sealed trait WeightedDiGraph extends Graph[WeightedDiLink, WeightedEdge]
 
 object Graph:
   case class fromEdges(edges: Seq[SimpleEdge], size: Int = -1):
-    def mkSimpleGraph: SimpleGraph =
+    def mkSimpleGraph: BasicGraph =
       fromEdgesUndirected[SimpleEdge](e => (e.from, e.to, 0.0), edges, size).mkSimpleGraph
-    def mkDiGraph: DiGraph         =
+    def mkDiGraph: DiGraph        =
       fromEdgesDirected[SimpleEdge](e => (e.from, e.to, 0.0), edges, size).mkDiGraph
 
   case class fromWeightedEdges(edges: Seq[WeightedEdge], size: Int = -1):
@@ -59,7 +59,7 @@ object Graph:
     if chk(u, v)
   yield mk(NodeIndex(u), v)
 
-  private case class SGImpl private[Graph] (nodes: IndexedSeq[Vertex[SimpleLink]]) extends SimpleGraph:
+  private case class SGImpl private[Graph] (nodes: IndexedSeq[Vertex[BasicLink]]) extends BasicGraph:
     override def apply(i: NodeIndex) = nodes(i.toInt)
     override def numberOfVertices    = nodes.length
     override def vertices            = nodes
@@ -100,8 +100,8 @@ object Graph:
 
     def size = lut.size
 
-    def mkSimpleGraph: SimpleGraph     = SGImpl(
-      lut.map(links => Vertex(links.map((v, _, rl) => SimpleLink(v, rl)).toIndexedSeq)).toIndexedSeq,
+    def mkSimpleGraph: BasicGraph      = SGImpl(
+      lut.map(links => Vertex(links.map((v, _, rl) => BasicLink(v, rl)).toIndexedSeq)).toIndexedSeq,
     )
     def mkWeightedGraph: WeightedGraph = WGImpl(
       lut.map(links => Vertex(links.map((v, w, rl) => WeightedLink(v, w, rl)).toIndexedSeq)).toIndexedSeq,

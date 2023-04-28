@@ -19,7 +19,7 @@ object AlgorithmicSteps:
   given Provider[Step.ForceDirectedLayout] = (s: Step.ForceDirectedLayout, cache: StageCache) =>
     cache.updateStage(Stage.Layout, mk(s.tag), _ => cache.getStageResult(Stage.Graph, mk(s.graph)).map(layout(s, _)))
 
-  private def layout(in: Step.ForceDirectedLayout, graph: SimpleGraph) =
+  private def layout(in: Step.ForceDirectedLayout, graph: BasicGraph) =
     val run        = FDLayout.layout(FDLayout.defaultConfig.copy(iterCap = in.iterations))
     val weighted   = graph.withWeights(using GraphConversions.withUniformWeights(w = 1))
     val baseRandom = in.seed.newRandom
@@ -49,7 +49,7 @@ object AlgorithmicSteps:
       _   <- cache.setStage(Stage.Ports, mk(s.tag), mkPorts(s.mode, obs, g))
     yield ()
 
-  private def mkPorts(mode: PortMode, obs: Obstacles, graph: SimpleGraph) =
+  private def mkPorts(mode: PortMode, obs: Obstacles, graph: BasicGraph) =
     import AngleHeuristic.*
 
     lazy val barycenter =

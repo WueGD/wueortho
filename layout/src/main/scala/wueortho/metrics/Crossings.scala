@@ -36,7 +36,7 @@ object Crossings:
         val t = -((p2.x1 - p1.x1) * (o.p1.x2 - p1.x2) - (p2.x2 - p1.x2) * (o.p1.x1 - p1.x1)) / d
         0 <= s && s <= 1 && 0 <= t && t <= 1
 
-  def numberOfCrossings(g: SimpleGraph, vl: VertexLayout) = (for
+  def numberOfCrossings(g: BasicGraph, vl: VertexLayout) = (for
     (e1, i) <- g.edges.zipWithIndex
     e2      <- g.edges.drop(i + 1)
   yield

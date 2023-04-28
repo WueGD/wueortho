@@ -4,7 +4,7 @@ import wueortho.data.*
 import wueortho.routing.{RoutingGraph, Routed}
 
 enum Stage[T]:
-  case Graph        extends Stage[SimpleGraph]
+  case Graph        extends Stage[BasicGraph]
   case Layout       extends Stage[VertexLayout]
   case VertexLabels extends Stage[Labels]
   case Obstacles    extends Stage[Obstacles]

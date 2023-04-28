@@ -245,7 +245,7 @@ trait NudgingCommons:
     case _: Segment.MidSeg => false
     case _                 => true
 
-  protected def split(g: SimpleGraph, allNodes: IndexedSeq[NodeData[CNodeAny]]) =
+  protected def split(g: BasicGraph, allNodes: IndexedSeq[NodeData[CNodeAny]]) =
     import scala.collection.mutable
 
     val visited = mutable.BitSet.empty

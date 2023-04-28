@@ -179,7 +179,7 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
     end segments
   end HGraph2ndPass
 
-  private def mkTerminals(pl: PortLayout, g: SimpleGraph) = (pl.byEdge zip g.edges)
+  private def mkTerminals(pl: PortLayout, g: BasicGraph) = (pl.byEdge zip g.edges)
     .flatMap((et, se) => List(Terminal(et.uTerm, et.uDir, se.from.toInt), Terminal(et.vTerm, et.vDir, se.to.toInt)))
 
   private def mkPorts(routes: IndexedSeq[EdgeRoute]) = PortLayout(routes.map(_.terminals))
@@ -190,7 +190,7 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
     )
     Obstacles(obsNodes.map(nodes2rect))
 
-  def calcAll(routing: Routed, ports: PortLayout, graph: SimpleGraph, obstacles: Obstacles) = (for
+  def calcAll(routing: Routed, ports: PortLayout, graph: BasicGraph, obstacles: Obstacles) = (for
     obsNodes <- obstacles.nodes.zipWithIndex.map(mkObsNodes.tupled).toVector.sequence
     paths    <- Segment.mkAll(routing.paths, routing, mkTerminals(ports, graph), i => segBuilder(i, routing, obsNodes))
     // _         = paths.flatMap(_.toList).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_)) // DEBUG
@@ -208,5 +208,5 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
 end FullNudging
 
 object FullNudging:
-  def apply(config: Nudging.Config, routing: Routed, ports: PortLayout, graph: SimpleGraph, obstacles: Obstacles) =
+  def apply(config: Nudging.Config, routing: Routed, ports: PortLayout, graph: BasicGraph, obstacles: Obstacles) =
     new FullNudging(config).calcAll(routing, ports, graph, obstacles)

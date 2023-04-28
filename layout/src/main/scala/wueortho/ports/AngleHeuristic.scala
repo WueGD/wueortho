@@ -88,7 +88,7 @@ object AngleHeuristic:
 
   extension [T <: Tuple](l: List[T]) def eachWith[A](a: A) = l.map(_ ++ Tuple1(a))
 
-  def makePorts(obs: Obstacles, graph: SimpleGraph, s: (Rect2D, Seq[Vec2D]) => IndexedSeq[(Vec2D, Direction)]) =
+  def makePorts(obs: Obstacles, graph: BasicGraph, s: (Rect2D, Seq[Vec2D]) => IndexedSeq[(Vec2D, Direction)]) =
     assert(obs.nodes.length == graph.numberOfVertices, "There must be as many obstacles as vertices in the graph!")
     assert(!graph.hasLoops, "Generating ports is unsupported for graphs with loops")
 
@@ -97,13 +97,14 @@ object AngleHeuristic:
       s(r, centers)
 
     PortLayout(for
-      (tmp, u)              <- graph.vertices.zipWithIndex
-      (SimpleLink(v, j), i) <- tmp.neighbors.zipWithIndex
+      (tmp, u)             <- graph.vertices.zipWithIndex
+      (BasicLink(v, j), i) <- tmp.neighbors.zipWithIndex
       if u < v.toInt
     yield
       val (posU, dirU) = vertices(u)(i)
       val (posV, dirV) = vertices(v.toInt)(j)
       EdgeTerminals(posU, dirU, posV, dirV),
     )
+  end makePorts
 
 end AngleHeuristic

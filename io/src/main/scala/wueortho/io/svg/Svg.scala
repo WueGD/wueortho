@@ -76,7 +76,7 @@ case class Svg(
     SvgFrag(bbox(points), frags)
   end drawPortLabels
 
-  def drawStraightEdges(g: SimpleGraph, vl: VertexLayout) =
+  def drawStraightEdges(g: BasicGraph, vl: VertexLayout) =
     val lines = edgeColor.zip(g.edges).map: (edge, color) =>
       lineFrag(vl(edge.from), vl(edge.to), color, edgeStrokeWidth)
     SvgFrag(bbox(vl.nodes), lines)

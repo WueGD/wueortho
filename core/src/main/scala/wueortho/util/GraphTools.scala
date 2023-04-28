@@ -9,15 +9,15 @@ object GraphConversions:
   object undirected extends UndirectMixin
 
   trait SimpleMixin:
-    extension (g: SimpleGraph) def directed: DiGraph       = sg2dg(g)
+    extension (g: BasicGraph) def directed: DiGraph        = sg2dg(g)
     extension (g: WeightedDiGraph) def unweighted: DiGraph = wd2dg(g)
     extension (g: WeightedGraph)
-      def unweighted: SimpleGraph   = wg2sg(g)
+      def unweighted: BasicGraph    = wg2sg(g)
       def directed: WeightedDiGraph = wg2wd(g)
 
   trait ToWeightedMixin:
-    extension (g: SimpleGraph) def withWeights(using f: WithWeightStrategy) = sg2wg(g, f)
-    extension (g: DiGraph) def withWeight(using f: WithWeightStrategy)      = dg2wd(g, f)
+    extension (g: BasicGraph) def withWeights(using f: WithWeightStrategy) = sg2wg(g, f)
+    extension (g: DiGraph) def withWeight(using f: WithWeightStrategy)     = dg2wd(g, f)
 
   trait UndirectMixin:
     extension (g: DiGraph) def undirected(using f: UndirectStrategy) = dg2sg(g, f)
@@ -27,17 +27,17 @@ object GraphConversions:
 
   def wg2sg(g: WeightedGraph)   = Graph.fromEdges(g.edges.map(_.unweighted), g.numberOfVertices).mkSimpleGraph
   def wd2dg(g: WeightedDiGraph) = Graph.fromEdges(g.edges.map(_.unweighted), g.numberOfVertices).mkDiGraph
-  def sg2dg(g: SimpleGraph)     = g.vertices.zipWithIndex
-    .foldLeft(Graph.DiBuilder.reserve(g.numberOfVertices)):
+  def sg2dg(g: BasicGraph)      = (g.vertices.zipWithIndex.foldLeft(Graph.DiBuilder.reserve(g.numberOfVertices)):
       case (builder, (vtx, u)) =>
         vtx.neighbors.foldLeft(builder):
-          case (builder, SimpleLink(v, _)) => builder.addEdge(NodeIndex(u), v)
+          case (builder, BasicLink(v, _)) => builder.addEdge(NodeIndex(u), v)
+    )
     .mkDiGraph
-  def wg2wd(g: WeightedGraph)   = g.vertices.zipWithIndex
-    .foldLeft(Graph.DiBuilder.reserve(g.numberOfVertices)):
+  def wg2wd(g: WeightedGraph)   = (g.vertices.zipWithIndex.foldLeft(Graph.DiBuilder.reserve(g.numberOfVertices)):
       case (builder, (vtx, u)) =>
         vtx.neighbors.foldLeft(builder):
           case (builder, WeightedLink(v, w, _)) => builder.addEdge(NodeIndex(u), v, w)
+    )
     .mkWeightedDiGraph
 
   trait WithWeightStrategy:
@@ -45,10 +45,10 @@ object GraphConversions:
 
   def withUniformWeights(w: Double): WithWeightStrategy = (_, _, _) => w
 
-  def sg2wg(g: SimpleGraph, s: WithWeightStrategy) = Graph
+  def sg2wg(g: BasicGraph, s: WithWeightStrategy) = Graph
     .fromWeightedEdges(g.edges.zipWithIndex.map((e, i) => e.withWeight(s(e.from, e.to, i))), g.numberOfVertices)
     .mkWeightedGraph
-  def dg2wd(g: DiGraph, s: WithWeightStrategy)     = Graph
+  def dg2wd(g: DiGraph, s: WithWeightStrategy)    = Graph
     .fromWeightedEdges(g.edges.zipWithIndex.map((e, i) => e.withWeight(s(e.from, e.to, i))), g.numberOfVertices)
     .mkWeightedDiGraph
 
@@ -72,12 +72,10 @@ object GraphConversions:
 
   def dg2sg(g: DiGraph, s: UndirectStrategy)         =
     Graph.fromEdges(extractEdges(g, v => v -> 0, s, (u, v, _) => SimpleEdge(u, v)), g.numberOfVertices).mkSimpleGraph
-  def wd2wg(g: WeightedDiGraph, s: UndirectStrategy) = Graph
-    .fromWeightedEdges(
-      extractEdges(g, v => v.toNode -> v.weight, s, (u, v, w) => WeightedEdge(u, v, w)),
-      g.numberOfVertices,
-    )
-    .mkWeightedGraph
+  def wd2wg(g: WeightedDiGraph, s: UndirectStrategy) = Graph.fromWeightedEdges(
+    extractEdges(g, v => v.toNode -> v.weight, s, (u, v, w) => WeightedEdge(u, v, w)),
+    g.numberOfVertices,
+  ).mkWeightedGraph
   def wd2sg(g: WeightedDiGraph, s: UndirectStrategy) = Graph
     .fromEdges(extractEdges(g, v => v.toNode -> v.weight, s, (u, v, _) => SimpleEdge(u, v)), g.numberOfVertices)
     .mkSimpleGraph
@@ -89,7 +87,7 @@ object GraphProperties:
     def asInt(v: V): Int
 
   object LinkAsInt:
-    given LinkAsInt[SimpleLink]     = _.toNode.toInt
+    given LinkAsInt[BasicLink]      = _.toNode.toInt
     given LinkAsInt[WeightedLink]   = _.toNode.toInt
     given LinkAsInt[NodeIndex]      = _.toInt
     given LinkAsInt[WeightedDiLink] = _.toNode.toInt
@@ -100,6 +98,7 @@ object GraphProperties:
 
     def hasMultiEdges =
       g.vertices.exists(v => v.neighbors.size != v.neighbors.distinct.size)
+end GraphProperties
 
 object DiGraphProperties:
   import scala.collection.mutable
@@ -119,3 +118,4 @@ object DiGraphProperties:
     val lut = mutable.BitSet.empty
     g.vertices.flatMap(_.neighbors.map(f.asInt)).foreach(lut += _)
     (NodeIndex(0) until g.numberOfVertices).filter(i => !lut(i.toInt))
+end DiGraphProperties

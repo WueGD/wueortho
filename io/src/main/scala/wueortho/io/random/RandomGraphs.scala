@@ -12,7 +12,7 @@ object RandomGraphs:
   enum GraphCore derives CanEqual, ConfiguredEnumCodec:
     case Empty, Path, Tree, Star
 
-  def mkSimpleGraph(config: RandomGraphConfig): Either[String, SimpleGraph] =
+  def mkSimpleGraph(config: RandomGraphConfig): Either[String, BasicGraph] =
     import config.*
 
     def nodePair(rndm: Random): (NodeIndex, NodeIndex) =
@@ -41,3 +41,5 @@ object RandomGraphs:
     val rndm      = seed.newRandom
     val coreEdges = mkCore(rndm)
     mkHull(rndm, coreEdges.size).map(hullEdges => Graph.fromEdges(coreEdges ++ hullEdges).mkSimpleGraph)
+  end mkSimpleGraph
+end RandomGraphs
