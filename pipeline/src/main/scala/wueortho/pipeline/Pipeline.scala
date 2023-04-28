@@ -20,9 +20,19 @@ object Pipeline:
   yield res
 
   def run(p: Pipeline) =
-    val cache = StageCache()
-    val res   = p.steps.foldLeft(Some(()).toRight(""))((eth, st) => eth.flatMap(_ => Step.nextStep(st, cache)))
-    res.fold(sys.error, identity)
+    if p.steps.isEmpty then RunningTime("empty pipeline", 0, 0, Nil)
+    else
+      val cache = StageCache()
+      val res   = RunningTime.of("total"):
+        p.steps.zipWithIndex.foldLeft(Some(List.empty[RunningTime]).toRight("")):
+          case (eth, (st, i)) =>
+            eth.flatMap: rts =>
+              val rt = RunningTime.of(s"$i: ${st.show}"):
+                Step.nextStep(st, cache)
+              rt.map(rts :+ _)
+      res.fold(sys.error, identity)
+    end if
+  end run
 
   import wueortho.io.random.RandomGraphs.{RandomGraphConfig, GraphCore}
   import wueortho.data.{Path as _, *}

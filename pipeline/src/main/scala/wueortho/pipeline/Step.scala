@@ -41,6 +41,7 @@ enum Step derives ConfiguredCodec:
   )
 
   def tag: Tag
+  def show = s"${getClass.getSimpleName()}~${Step.resolve(tag)}"
 end Step
 
 object Step:
