@@ -53,7 +53,7 @@ case class Svg(
   def drawNodeLabels(vl: VertexLayout, labels: Labels) = labels match
     case Labels.Hide              => SvgFrag.empty
     case Labels.PlainText(labels) =>
-      val offset = Vec2D(0, -fontSize * pixelsPerUnit / 2)
+      val offset = Vec2D(0, -fontSize / 2 / pixelsPerUnit)
       SvgFrag(bbox(vl.nodes), vl.nodes.zip(labels).map((p, l) => labelFrag(p + offset, l, nodeLabelColor)))
 
   def drawPortLabels(ports: PortLayout, labels: Labels): SvgFrag = labels match
