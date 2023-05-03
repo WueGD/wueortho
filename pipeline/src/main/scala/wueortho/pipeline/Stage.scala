@@ -14,11 +14,12 @@ enum Stage[T]:
   case EdgeRouting  extends Stage[Routed]
   case Routes       extends Stage[IndexedSeq[EdgeRoute]]
   case Svg          extends Stage[String]
+  case Metadata     extends Stage[Metadata]
   case Terminal     extends Stage[Unit]
 end Stage
 
 trait Provider[S]:
-  def run(s: S, cache: StageCache): Either[String, Unit]
+  def run(s: S, cache: StageCache): Either[String, List[RunningTime]]
 
 object Provider:
   def apply[S](using p: Provider[S]) = p
@@ -33,7 +34,15 @@ class StageCache:
     f(getStageResult(stage, tag).toOption).map(cache(stage -> tag) = _)
 
   def setStage[T](stage: Stage[T], tag: String, t: T): Either[String, Unit] = updateStage(stage, tag, _ => Right(t))
+
+  def view = new StageCache.View:
+    override def getResult[T](s: Stage[T], tag: Option[String]): Either[String, T] =
+      cache.get(s -> StepUtils.resolve(tag)).map(_.asInstanceOf[T])
+        .toRight(StageCache.errMsg(s, StepUtils.resolve(tag)))
 end StageCache
 
 object StageCache:
   def errMsg(s: Stage[?], t: String) = s"could not find stage $s with tag $t"
+
+  trait View:
+    def getResult[T](s: Stage[T], tag: Option[String]): Either[String, T]

@@ -14,28 +14,31 @@ import io.circe.derivation.ConfiguredEnumCodec
 import scala.util.Random
 
 object AlgorithmicSteps:
-  import Step.{resolve as mk}
+  import StepUtils.{resolve as mk, *}
 
   given Provider[Step.ForceDirectedLayout] = (s: Step.ForceDirectedLayout, cache: StageCache) =>
-    cache.updateStage(Stage.Layout, mk(s.tag), _ => cache.getStageResult(Stage.Graph, mk(s.graph)).map(layout(s, _)))
+    for
+      g         <- cache.getStageResult(Stage.Graph, mk(s.graph))
+      (res, rts) = layout(s, g)
+      _         <- cache.setStage(Stage.Layout, mk(s.tag), res)
+    yield rts
 
   private def layout(in: Step.ForceDirectedLayout, graph: BasicGraph) =
     val run        = FDLayout.layout(FDLayout.defaultConfig.copy(iterCap = in.iterations))
     val weighted   = graph.withWeights(using GraphConversions.withUniformWeights(w = 1))
     val baseRandom = in.seed.newRandom
-    (for _ <- 1 to in.repetitions yield
+    val (res, rts) = RunningTime.ofAll((1 to in.repetitions).toList, i => s"run#$i"): _ =>
       val layout    = run(weighted, FDLayout.initLayout(Random(baseRandom.nextLong()), graph.numberOfVertices))
       val crossings = Crossings.numberOfCrossings(graph, layout)
-      println(s"DEBUG: crossings=$crossings")
       layout -> crossings
-    ).minBy(_._2)._1
+    res.minBy(_._2)._1 -> rts
   end layout
 
   given Provider[Step.GTreeOverlaps] = (s: Step.GTreeOverlaps, cache: StageCache) =>
     for
       obs <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles)).map(align(s, _))
       _   <- cache.setStage(Stage.Obstacles, mk(s.tag), align(s, obs))
-    yield ()
+    yield Nil
 
   private def align(in: Step.GTreeOverlaps, obs: Obstacles) =
     val aligned = Nachmanson.align(Stretch(in.stretch, obs.nodes))
@@ -47,7 +50,7 @@ object AlgorithmicSteps:
       g   <- cache.getStageResult(Stage.Graph, mk(s.graph))
       obs <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
       _   <- cache.setStage(Stage.Ports, mk(s.tag), mkPorts(s.mode, obs, g))
-    yield ()
+    yield Nil
 
   private def mkPorts(mode: PortMode, obs: Obstacles, graph: BasicGraph) =
     import AngleHeuristic.*
@@ -70,7 +73,7 @@ object AlgorithmicSteps:
       pl   <- cache.getStageResult(Stage.Ports, mk(s.ports))
       large = Obstacles.lift(Stretch(s.stretch, _))(obs)
       _    <- cache.setStage(Stage.RoutingGraph, mk(s.tag), RoutingGraph.create(large, g.edges.toIndexedSeq, pl))
-    yield ()
+    yield Nil
 
   given Provider[Step.OVGRoutingGraph] = (s: Step.OVGRoutingGraph, cache: StageCache) =>
     for
@@ -79,14 +82,14 @@ object AlgorithmicSteps:
       (adj, vl, _, ovg) = OrthogonalVisibilityGraph.create(obs.nodes, pl)
       res               = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, vl, pl)
       _                <- cache.setStage(Stage.RoutingGraph, mk(s.tag), res)
-    yield ()
+    yield Nil
 
   given Provider[Step.EdgeRouting] = (s: Step.EdgeRouting, cache: StageCache) =>
     for
       rg <- cache.getStageResult(Stage.RoutingGraph, mk(s.routingGraph))
       pl <- cache.getStageResult(Stage.Ports, mk(s.ports))
       _  <- cache.setStage(Stage.EdgeRouting, mk(s.tag), Routing(rg, pl))
-    yield ()
+    yield Nil
 
   given Provider[Step.GeoNudging] = (s: Step.GeoNudging, cache: StageCache) =>
     for
@@ -94,7 +97,7 @@ object AlgorithmicSteps:
       pl  <- cache.getStageResult(Stage.Ports, mk(s.ports))
       obs <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
       _   <- cache.setStage(Stage.Routes, mk(s.tag), EdgeNudging.calcEdgeRoutes(r, pl, obs))
-    yield ()
+    yield Nil
 
   given Provider[Step.OldNudging] = (s: Step.OldNudging, cache: StageCache) =>
     for
@@ -104,7 +107,7 @@ object AlgorithmicSteps:
       ovg    = OrthogonalVisibilityGraph.create(obs.nodes, pl)._4
       onGrid = deprecated.PathOrder(r, pl, r.paths)
       _     <- cache.setStage(Stage.Routes, mk(s.tag), deprecated.Nudging.calcEdgeRoutes(ovg, onGrid, r.paths, pl, obs))
-    yield ()
+    yield Nil
 
   given Provider[Step.FullNudging] = (s: Step.FullNudging, cache: StageCache) =>
     for
@@ -116,11 +119,11 @@ object AlgorithmicSteps:
       _           <- cache.setStage(Stage.Routes, mk(s.tag), r)
       _           <- cache.setStage(Stage.Ports, mk(s.tag), pl)
       _           <- cache.setStage(Stage.Obstacles, mk(s.tag), obs)
-    yield ()
+    yield Nil
 
   given Provider[Step.NoNudging] = (s: Step.NoNudging, cache: StageCache) =>
     cache.getStageResult(Stage.EdgeRouting, mk(s.routing))
-      .flatMap(r => cache.setStage(Stage.Routes, mk(s.tag), r.routes))
+      .flatMap(r => cache.setStage(Stage.Routes, mk(s.tag), r.routes)).nil
 end AlgorithmicSteps
 
 enum Stretch derives CanEqual:

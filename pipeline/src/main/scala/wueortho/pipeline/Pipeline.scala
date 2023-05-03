@@ -20,7 +20,7 @@ object Pipeline:
   yield res
 
   def run(p: Pipeline) =
-    if p.steps.isEmpty then RunningTime("empty pipeline", 0, 0, Nil)
+    if p.steps.isEmpty then PipelineResult.empty
     else
       val cache = StageCache()
       val res   = RunningTime.of("total"):
@@ -30,7 +30,12 @@ object Pipeline:
               val rt = RunningTime.of(s"$i: ${st.show}"):
                 Step.nextStep(st, cache)
               rt.map(rts :+ _)
-      res.fold(sys.error, identity)
+
+      val (cacheView, rt) = cache.view -> res.fold(sys.error, identity)
+
+      new PipelineResult:
+        export cacheView.*
+        override def runningTime = rt
     end if
   end run
 
@@ -57,3 +62,11 @@ object Pipeline:
 
   def saveDefault(path: Path) = Files.writeString(path, mkDefault.asJson.spaces2)
 end Pipeline
+
+trait PipelineResult extends StageCache.View:
+  def runningTime: RunningTime
+
+object PipelineResult:
+  def empty = new PipelineResult:
+    override def getResult[T](s: Stage[T], tag: Option[String]) = Left("not available")
+    override def runningTime: RunningTime                       = RunningTime("empty pipeline", 0, 0, Nil)

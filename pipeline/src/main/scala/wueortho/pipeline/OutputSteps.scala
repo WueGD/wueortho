@@ -8,7 +8,7 @@ import scala.util.Try
 import java.nio.file.Files
 
 object OutputSteps:
-  import Step.{resolve as mk}
+  import StepUtils.{resolve as mk}
 
   given Provider[Step.SvgDrawing] = (s: Step.SvgDrawing, cache: StageCache) =>
     for
@@ -18,7 +18,7 @@ object OutputSteps:
       vls <- cache.getStageResult(Stage.VertexLabels, mk(s.vertexLabels))
       pls <- cache.getStageResult(Stage.PortLabels, mk(s.portLabels))
       _   <- cache.setStage(Stage.Svg, mk(s.tag), drawAll(s.config.svg, obs, pl, r, vls, pls))
-    yield ()
+    yield Nil
 
   private def drawAll(
       svg: Svg,
@@ -38,25 +38,36 @@ object OutputSteps:
 
   given Provider[Step.SvgToFile] = (s: Step.SvgToFile, cache: StageCache) =>
     for
-      svg <- cache.getStageResult(Stage.Svg, Step.resolve(s.svg))
+      svg <- cache.getStageResult(Stage.Svg, mk(s.svg))
       _   <- Try(Files.writeString(s.path, svg)).toEither.left.map(_.toString)
-    yield ()
+    yield Nil
 
   given Provider[Step.Metrics] = (s: Step.Metrics, cache: StageCache) =>
     for
       obs <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
       r   <- cache.getStageResult(Stage.Routes, mk(s.routes))
-    yield printMetrics(obs, r, s.metrics*)
+      m    = calcMetrics(obs, r, s.metrics*)
+      _   <- cache.setStage(Stage.Metadata, mk(s.tag), m)
+    yield
+      printMetrics(m)
+      Nil
 
   private val allMetrics = List("Crossings", "BoundingBoxArea", "ConvexHullArea", "TotalEdgeLength", "EdgeBends")
 
-  private def printMetrics(obs: Obstacles, r: IndexedSeq[EdgeRoute], ms: String*): Unit = ms.foreach:
-    case "all"             => printMetrics(obs, r, allMetrics*)
-    case "Crossings"       => println(s"crossings: ${Crossings.numberOfCrossings(r)}")
-    case "BoundingBoxArea" => println(s"bounding box area: ${Area.boundingBoxArea(obs, r)}")
-    case "ConvexHullArea"  => println(s"convex hull area: ${Area.convexHullArea(obs, r)}")
-    case "TotalEdgeLength" => println(s"total edge length: ${EdgeLength.totalEdgeLength(r)}")
-    case "EdgeBends"       => println(s"edge bends: ${EdgeLength.numberOfBends(r)}")
+  private def printMetrics(m: Metadata): Unit = m.entries.foreach((name, value) => println(s"$name: $value"))
+
+  private def calcMetrics(obs: Obstacles, r: IndexedSeq[EdgeRoute], ms: String*): Metadata = Metadata(
+    (ms.flatMap: m =>
+        m match
+          case "all"             => calcMetrics(obs, r, allMetrics*).entries.toList
+          case "Crossings"       => List(m -> Crossings.numberOfCrossings(r).toString)
+          case "BoundingBoxArea" => List(m -> Area.boundingBoxArea(obs, r).toString)
+          case "ConvexHullArea"  => List(m -> Area.convexHullArea(obs, r).toString)
+          case "TotalEdgeLength" => List(m -> EdgeLength.totalEdgeLength(r).toString)
+          case "EdgeBends"       => List(m -> EdgeLength.numberOfBends(r).toString),
+      )
+      .toMap,
+  )
 end OutputSteps
 
 enum SvgConfig(val svg: Svg):

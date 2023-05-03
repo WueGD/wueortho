@@ -31,16 +31,28 @@ object RunningTime:
   trait RetrieveRunningTimes[T]:
     def apply(t: T): List[RunningTime]
 
-  object RetrieveRunningTimes:
+  object RetrieveRunningTimes extends LowPriorityGivens:
     given fromEitherStringOr[T](using rt: RetrieveRunningTimes[T]): RetrieveRunningTimes[Either[String, T]] =
       (e: Either[String, T]) => e.fold(_ => Nil, rt(_))
 
     given RetrieveRunningTimes[Unit]              = (_: Unit) => Nil
+    given RetrieveRunningTimes[RunningTime]       = (rt: RunningTime) => List(rt)
     given RetrieveRunningTimes[List[RunningTime]] = (l: List[RunningTime]) => l
 
-  def of[T](title: String)(run: => T)(using inject: InjectRunningTime[T], retrieve: RetrieveRunningTimes[T]) =
+  trait LowPriorityGivens:
+    given catchAll[T]: RetrieveRunningTimes[T] = (_: T) => Nil
+
+  private def measure[T](title: String, run: => T)(using retrieve: RetrieveRunningTimes[T]): (T, RunningTime) =
     val start = System.nanoTime()
     val res   = run
     val end   = System.nanoTime()
-    inject(res, RunningTime(title, start, end, retrieve(res)))
+    res -> RunningTime(title, start, end, retrieve(res))
+
+  def of[T](title: String)(run: => T)(using inject: InjectRunningTime[T], retrieve: RetrieveRunningTimes[T]) =
+    val (res, rt) = measure(title, run)
+    inject(res, rt)
+
+  def ofAll[S, T: RetrieveRunningTimes](l: List[S], mkTitle: S => String)(run: S => T) =
+    l.map(s => measure(mkTitle(s), run(s))).unzip
+
 end RunningTime

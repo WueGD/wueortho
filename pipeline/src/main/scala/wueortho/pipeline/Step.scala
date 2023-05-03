@@ -41,13 +41,11 @@ enum Step derives ConfiguredCodec:
   )
 
   def tag: Tag
-  def show = s"${getClass.getSimpleName()}~${Step.resolve(tag)}"
+  def show = s"${getClass.getSimpleName()}~${StepUtils.resolve(tag)}"
 end Step
 
 object Step:
   type Tag = Option[String]
-
-  def resolve(t: Tag) = t.getOrElse("default")
 
   import InputSteps.given, AlgorithmicSteps.given, OutputSteps.given
   import scala.deriving.Mirror, scala.compiletime.*
@@ -55,7 +53,7 @@ object Step:
   inline given delegating[T](using m: Mirror.SumOf[T]): Provider[T] =
     val elems = allProviders[m.MirroredElemTypes]
     new Provider[T]:
-      override def run(s: T, cache: StageCache): Either[String, Unit] =
+      override def run(s: T, cache: StageCache) =
         elems(m.ordinal(s)).asInstanceOf[Provider[Any]].run(s, cache)
 
   inline def allProviders[T <: Tuple]: List[Provider[?]] =
@@ -65,3 +63,8 @@ object Step:
 
   def nextStep(step: Step, cache: StageCache) = Provider[Step].run(step, cache)
 end Step
+
+object StepUtils:
+  def resolve(t: Tag) = t.getOrElse("default")
+
+  extension [T](eth: Either[T, Unit]) def nil = eth.map(_ => Nil)

@@ -19,8 +19,8 @@ import GraphConversions.all.*
 import drawings.Debugging.*
 
 @main def runPipeline =
-  val runningTime = Pipeline.run(Pipeline.load(Paths.get("config.json").nn).fold(throw _, identity))
-  println(runningTime.show)
+  val res = Pipeline.run(Pipeline.load(Paths.get("config.json").nn).fold(throw _, identity))
+  println(res.runningTime.show)
 
 // @main def runPraline =
 //   given GraphConversions.WithWeightStrategy = GraphConversions.withUniformWeights(1.0)

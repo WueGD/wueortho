@@ -9,7 +9,7 @@ import scala.util.Try
 import java.nio.file.Files
 
 object InputSteps:
-  import Step.{resolve as mk}
+  import StepUtils.{resolve as mk, *}
 
   given Provider[Step.ReadPralineFile] = (s: Step.ReadPralineFile, cache: StageCache) =>
     (for
@@ -17,7 +17,7 @@ object InputSteps:
       graph <- praline.parseGraph(raw)
       _     <- PralineExtractor.values.view
                  .foldLeft(Right(()): Either[String, Unit])((u, ex) => u.flatMap(_ => maybeExtract(ex, graph, s, cache)))
-    yield ()).left.map(_.toString)
+    yield Nil).left.map(_.toString)
 
   private def maybeExtract(ex: PralineExtractor, g: Praline.Graph, s: Step.ReadPralineFile, cache: StageCache) =
     import PralineExtractor.*
@@ -32,21 +32,21 @@ object InputSteps:
   end maybeExtract
 
   given Provider[Step.RandomGraph] = (s: Step.RandomGraph, cache: StageCache) =>
-    cache.updateStage(Stage.Graph, mk(s.tag), _ => random.RandomGraphs.mkSimpleGraph(s.config))
+    cache.updateStage(Stage.Graph, mk(s.tag), _ => random.RandomGraphs.mkSimpleGraph(s.config)).nil
 
   given Provider[Step.UniformObstacles] = (s: Step.UniformObstacles, cache: StageCache) =>
     for
       vl <- cache.getStageResult(Stage.Layout, mk(s.vertexLayout))
       obs = Obstacles.fromVertexLayout((c, _) => Rect2D(c, Vec2D(s.width / 2, s.height / 2)))(vl)
       _  <- cache.setStage(Stage.Obstacles, mk(s.tag), obs)
-    yield ()
+    yield Nil
 
   given Provider[Step.ObstaclesFromLabels] = (s: Step.ObstaclesFromLabels, cache: StageCache) =>
     for
       vl <- cache.getStageResult(Stage.Layout, mk(s.vertexLayout))
       l  <- cache.getStageResult(Stage.VertexLabels, mk(s.vertexLabels))
       _  <- cache.setStage(Stage.Obstacles, mk(s.tag), labels2obs(s.config, vl, l))
-    yield ()
+    yield Nil
 
   private def labels2obs(c: VertexLabelConfig, vl: VertexLayout, l: Labels) =
     extension (s: Vec2D) def withPadding = Vec2D(s.x1 + c.padding, s.x2 + c.padding)
@@ -63,21 +63,21 @@ object InputSteps:
 
   given Provider[Step.SyntheticVertexLabels] = (s: Step.SyntheticVertexLabels, cache: StageCache) =>
     s.config match
-      case SyntheticLabels.Hide      => cache.updateStage(Stage.VertexLabels, mk(s.tag), _ => Right(Labels.Hide))
+      case SyntheticLabels.Hide      => cache.updateStage(Stage.VertexLabels, mk(s.tag), _ => Right(Labels.Hide)).nil
       case SyntheticLabels.Enumerate =>
         for
           graph <- cache.getStageResult(Stage.Graph, mk(s.graph))
           _     <- cache.setStage(Stage.VertexLabels, mk(s.tag), Labels.enumerate(graph.numberOfVertices))
-        yield ()
+        yield Nil
 
   given Provider[Step.SyntheticPortLabels] = (s: Step.SyntheticPortLabels, cache: StageCache) =>
     s.config match
-      case SyntheticLabels.Hide      => cache.updateStage(Stage.PortLabels, mk(s.tag), _ => Right(Labels.Hide))
+      case SyntheticLabels.Hide      => cache.updateStage(Stage.PortLabels, mk(s.tag), _ => Right(Labels.Hide)).nil
       case SyntheticLabels.Enumerate =>
         for
           pl <- cache.getStageResult(Stage.Ports, mk(s.ports))
           _  <- cache.setStage(Stage.PortLabels, mk(s.tag), Labels.enumerate(pl.numberOfPorts))
-        yield ()
+        yield Nil
 end InputSteps
 
 enum VertexLabelConfig(val minWidth: Double, val minHeight: Double, val padding: Double, val fontSize: Int):
