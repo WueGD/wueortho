@@ -11,7 +11,7 @@ import wueortho.deprecated
 import wueortho.io.svg.Svg
 import wueortho.layout.ForceDirected
 import wueortho.ports.AngleHeuristic
-import wueortho.pipeline.Pipeline
+import wueortho.pipeline.{Pipeline, Stage}
 import GraphSearch.*
 import DifferenceConstraints.DifferenceConstraint
 import GraphConversions.all.*
@@ -21,6 +21,7 @@ import drawings.Debugging.*
 @main def runPipeline =
   val res = Pipeline.run(Pipeline.load(Paths.get("config.json").nn).fold(throw _, identity))
   println(res.runningTime.show)
+  println(res.getResult(Stage.Metadata, None).fold(identity, _.show))
 
 // @main def runPraline =
 //   given GraphConversions.WithWeightStrategy = GraphConversions.withUniformWeights(1.0)

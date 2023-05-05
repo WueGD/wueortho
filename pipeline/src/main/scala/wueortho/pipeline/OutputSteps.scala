@@ -46,25 +46,24 @@ object OutputSteps:
     for
       obs <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
       r   <- cache.getStageResult(Stage.Routes, mk(s.routes))
-      m    = calcMetrics(obs, r, s.metrics*)
+      m    = calcMetrics(obs, r, s.metrics*) + ("Vertices", s"${obs.nodes.size}") + ("Edges", s"${r.size}")
       _   <- cache.setStage(Stage.Metadata, mk(s.tag), m)
-    yield
-      printMetrics(m)
-      Nil
+    yield Nil
 
-  private val allMetrics = List("Crossings", "BoundingBoxArea", "ConvexHullArea", "TotalEdgeLength", "EdgeBends")
-
-  private def printMetrics(m: Metadata): Unit = m.entries.foreach((name, value) => println(s"$name: $value"))
+  private val allMetrics =
+    List("Crossings", "BoundingBoxArea", "ConvexHullArea", "TotalEdgeLength", "EdgeBends", "EdgeLengthVariance")
 
   private def calcMetrics(obs: Obstacles, r: IndexedSeq[EdgeRoute], ms: String*): Metadata = Metadata(
     (ms.flatMap: m =>
         m match
-          case "all"             => calcMetrics(obs, r, allMetrics*).entries.toList
-          case "Crossings"       => List(m -> Crossings.numberOfCrossings(r).toString)
-          case "BoundingBoxArea" => List(m -> Area.boundingBoxArea(obs, r).toString)
-          case "ConvexHullArea"  => List(m -> Area.convexHullArea(obs, r).toString)
-          case "TotalEdgeLength" => List(m -> EdgeLength.totalEdgeLength(r).toString)
-          case "EdgeBends"       => List(m -> EdgeLength.numberOfBends(r).toString),
+          case "all"                => calcMetrics(obs, r, allMetrics*).entries.toList
+          case "Crossings"          => List(m -> Crossings.numberOfCrossings(r).toString)
+          case "BoundingBoxArea"    => List(m -> Area.boundingBoxArea(obs, r).toString)
+          case "ConvexHullArea"     => List(m -> Area.convexHullArea(obs, r).toString)
+          case "TotalEdgeLength"    => List(m -> EdgeLength.totalEdgeLength(r).toString)
+          case "EdgeBends"          => List(m -> EdgeLength.numberOfBends(r).toString)
+          case "EdgeLengthVariance" => List(m -> EdgeLength.edgeLengthVariance(r).toString)
+          case _                    => List(m -> "unknown metric")
       )
       .toMap,
   )
