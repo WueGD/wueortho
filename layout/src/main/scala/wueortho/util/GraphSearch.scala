@@ -62,6 +62,7 @@ object GraphSearch:
                   ptrs += v   -> u.toInt
                   queue += nc -> v
             end for
+      end if
     end while
 
     Left(DijkstraError.NoShortestPath)
@@ -101,7 +102,7 @@ object GraphSearch:
     end while
 
     println(s"bellman-ford iterations: $iterations / $n")
-    return Some(dist.toIndexedSeq)
+    Some(dist.toIndexedSeq)
   end bellmanFordDistances
 
   private def bfsTraverse(neighbors: NodeIndex => Seq[NodeIndex], start: NodeIndex) =
@@ -118,3 +119,5 @@ object GraphSearch:
     end while
 
     result.toSeq
+  end bfsTraverse
+end GraphSearch

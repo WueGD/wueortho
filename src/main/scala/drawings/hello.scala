@@ -6,14 +6,9 @@ import java.nio.file.{Paths, Files}
 import wueortho.util.*
 import wueortho.data.*
 import wueortho.overlaps.*
-import wueortho.routing.*
-import wueortho.deprecated
 import wueortho.io.svg.Svg
 import wueortho.layout.ForceDirected
-import wueortho.ports.AngleHeuristic
 import wueortho.pipeline.{Pipeline, Stage}
-import GraphSearch.*
-import DifferenceConstraints.DifferenceConstraint
 import GraphConversions.all.*
 
 import drawings.Debugging.*
@@ -33,106 +28,6 @@ import drawings.Debugging.*
 //   Files.writeString(Paths.get("debug-praline.svg"), svg)
 //   ()
 // end runPraline
-
-@main def runSkewCrossings =
-  import wueortho.metrics.Crossings.*
-  val l1 = SkewLine(Vec2D(1, 1), Vec2D(3, 2))
-  val l2 = SkewLine(Vec2D(1, 4), Vec2D(2, -1))
-  val l3 = SkewLine(Vec2D(1, 4), Vec2D(4, 2))
-  println(s"l1 -|- l2: ${l1 intersects l2}")
-  println(s"l2 -|- l1: ${l2 intersects l1}")
-  println(s"l1 -|- l3: ${l1 intersects l3}")
-
-@main def runIntervalTree =
-  import wueortho.util.mutable
-
-  val uut = mutable.LinearIntervalTree(intervals*)
-  mutable.LinearIntervalTree.debugPrintAll(uut)
-  println(uut.overlaps(0.3, 0.8).mkString("overlaps: [", ", ", "]"))
-  uut.cutout(0.3, 0.8)
-  mutable.LinearIntervalTree.debugPrintAll(uut)
-
-@main def runTransitiveReduction =
-  println(TransitiveReduction(tRedExample))
-
-@main def runORToolsLP =
-  import Constraint.builder.*
-  val (x, y) = (mkVar(0), mkVar(1))
-  val lp     = ORTools.LPInstance(
-    List(
-      x + 2 * y <= mkConst(14),
-      3 * x - y >= mkConst(0),
-      x - y <= mkConst(2),
-    ),
-    obj = 3 * x + 4 * y,
-    maximize = true,
-  )
-  println(ORTools.solve(lp))
-  val lp2    = ORTools.LPInstance(
-    List(
-      x <= mkConst(1),
-      y <= mkConst(1),
-    ),
-    obj = 2 * x + 3 * y + 2 * x,
-    maximize = true,
-  )
-  println(ORTools.solve(lp2))
-end runORToolsLP
-
-@main def runRouting =
-  val (adj, lay, _, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
-  val rga                = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, lay, OvgSample.ports)
-  val rgo                = Routing(rga, OvgSample.ports)
-  val onGrid             = deprecated.PathOrder(rga, OvgSample.ports, rgo.paths)
-  rgo.routes foreach { case EdgeRoute(terminals, route) =>
-    println(s"From ${terminals.uTerm} to ${terminals.vTerm}: ${route.mkString("[", ", ", "]")}")
-  }
-  Files.writeString(Paths.get("routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, rgo.routes))
-
-  val edgeRoutes = deprecated.Nudging.calcEdgeRoutes(ovg, onGrid, rgo.paths, OvgSample.ports, OvgSample.obstacles)
-  Files.writeString(Paths.get("constrained-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, edgeRoutes))
-
-  val geoRoutes = EdgeNudging.calcEdgeRoutes(rgo, OvgSample.ports, OvgSample.obstacles)
-  Files.writeString(Paths.get("geo-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, geoRoutes))
-
-  val (fnRoutes, fnPorts, fnObs) =
-    FullNudging(Nudging.Config(1, false), rgo, OvgSample.ports, OvgSample.graph, OvgSample.obstacles)
-  Files.writeString(Paths.get("fully-nudged-routing.svg"), debugSvg(fnObs, fnPorts, fnRoutes))
-  ()
-end runRouting
-
-@main def runPorts =
-  val neighbors = ForceDirected.initLayout(Random(0x99c0ffee), 12).nodes
-  val layout    = AngleHeuristic.quadrantHeuristic(Rect2D(Vec2D(0, 0), Vec2D(2, 1)), neighbors)
-  println(layout)
-
-@main def runDijkstra =
-  given dc: DijkstraCost[Double, Double] = _ + _
-
-  val graph     = dijkstraExample
-  val neighbors = (i: NodeIndex) => graph(i).neighbors.map(l => l.toNode -> l.weight)
-  println(dijkstra.shortestPath(neighbors, NodeIndex(0), NodeIndex(4), 0.0))
-  println(s"BFS(4): ${bfs.traverse(i => graph(i).neighbors.map(_.toNode), NodeIndex(3)).map(_.toInt + 1)}")
-
-@main def runBellmanFord =
-  println(s"""Dijkstra Sample:
-             |${bellmanFord.distances(dijkstraExample.directed, NodeIndex(0))}
-             |
-             |Corman Sample:
-             |${DifferenceConstraints.solve(constraints)}
-    """.stripMargin)
-
-@main def runOVG: Unit =
-  val (adj, lay, _, _) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
-  debugConnectivity(adj.unweighted, lay)
-  debugOVG(OvgSample.obstacles, adj.unweighted, lay, OvgSample.ports)
-  println("=============== ORTHOGONAL VISIBILITY GRAPH ^^^ | vvv SIMPLIFIED ROUTING GRAPH ===============")
-  val routing          = RoutingGraph.create(OvgSample.obstacles, OvgSample.edges, OvgSample.ports)
-  val (rgAdj, rgLay)   = Debugging.rg2adj(routing)
-  RoutingGraph.debug(routing)
-  debugOVG(OvgSample.obstacles, rgAdj, rgLay, OvgSample.ports, "debug-rg")
-  ()
-end runOVG
 
 @main def runOverlaps: Unit =
   val points     = ForceDirected.initLayout(Random(0x92c0ffee), 12 * 2).nodes
@@ -236,86 +131,3 @@ val p12 = Graph.fromWeightedEdges(
     rawE(9, 11, 1),
   ),
 ).mkWeightedGraph
-
-// see https://upload.wikimedia.org/wikipedia/commons/5/57/Dijkstra_Animation.gif
-val dijkstraExample = Graph.fromWeightedEdges(
-  Seq(
-    rawE(0, 5, 14),
-    rawE(0, 2, 9),
-    rawE(0, 1, 7),
-    rawE(1, 2, 10),
-    rawE(1, 3, 15),
-    rawE(2, 3, 11),
-    rawE(2, 5, 2),
-    rawE(3, 4, 6),
-    rawE(4, 5, 9),
-  ),
-).mkWeightedGraph
-
-// see https://en.wikipedia.org/wiki/Transitive_reduction#/media/File:Tred-G.svg
-// with a=1, b=3, c=4, d=0, e=2
-val tRedExample = Graph.fromEdges(
-  Seq(
-    rawSE(0, 2),
-    rawSE(1, 0),
-    rawSE(1, 2),
-    rawSE(1, 3),
-    rawSE(1, 4),
-    rawSE(3, 0),
-    rawSE(4, 0),
-    rawSE(4, 2),
-  ),
-).mkDiGraph
-
-object OvgSample:
-  val obstacles  = Obstacles(
-    Vector(
-      Rect2D(Vec2D(5.5, 1), Vec2D(3.5, 1)),
-      Rect2D(Vec2D(9, 5.5), Vec2D(2, 1.5)),
-      Rect2D(Vec2D(1.5, 7.5), Vec2D(1.5, 1.5)),
-    ),
-  )
-  val ports      = PortLayout(
-    Vector(
-      EdgeTerminals(Vec2D(5, 2), Direction.North, Vec2D(8, 4), Direction.South),
-      EdgeTerminals(Vec2D(9, 1), Direction.East, Vec2D(10, 4), Direction.South),
-      EdgeTerminals(Vec2D(7, 5), Direction.West, Vec2D(3, 7), Direction.East),
-      EdgeTerminals(Vec2D(9, 7), Direction.North, Vec2D(1, 6), Direction.South),
-    ),
-  )
-  val edges      = Vector(
-    SimpleEdge(NodeIndex(0), NodeIndex(1)),
-    SimpleEdge(NodeIndex(1), NodeIndex(2)),
-    SimpleEdge(NodeIndex(2), NodeIndex(1)),
-    SimpleEdge(NodeIndex(0), NodeIndex(1)),
-  )
-  lazy val graph = Graph.fromEdges(edges).mkSimpleGraph
-end OvgSample
-
-// see Corman et al. Intro to Algorithms, 3rd ed. p. 664--667
-val constraints = Seq(
-  DifferenceConstraint(0, 1, 0),
-  DifferenceConstraint(0, 4, -1),
-  DifferenceConstraint(1, 4, 1),
-  DifferenceConstraint(2, 0, 5),
-  DifferenceConstraint(3, 0, 4),
-  DifferenceConstraint(3, 2, -1),
-  DifferenceConstraint(4, 2, -3),
-  DifferenceConstraint(4, 3, -3),
-)
-
-val intervals = List(
-  (0.0, 0.2, 0),
-  (0.1, 0.3, 1),
-  (0.2, 0.4, 2),
-  (0.3, 0.5, 3),
-  (0.4, 0.7, 4),
-  (0.6, 0.8, 5),
-  (0.7, 0.9, 6),
-  (0.8, 1.0, 7),
-  (0.9, 1.1, 8),
-  (0.3, 0.8, 9),
-  (0.2, 0.9, 10),
-  (0.1, 0.8, 11),
-  (0.3, 1.0, 12),
-)

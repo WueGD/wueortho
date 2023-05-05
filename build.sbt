@@ -16,7 +16,7 @@ lazy val io = project.settings(
 
 lazy val layout = project.settings(
   name := "wueortho-layout",
-  libraryDependencies ++= Seq(tinfour, orTools),
+  libraryDependencies ++= tinfour +: orTools +: scalatest,
 ).dependsOn(core)
 
 lazy val pipeline = project.settings(

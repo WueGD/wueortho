@@ -13,9 +13,9 @@ case class BasicLink(toNode: NodeIndex, reverseIndex: Int):
 case class WeightedLink(toNode: NodeIndex, weight: Double, reverseIndex: Int)
 case class WeightedDiLink(toNode: NodeIndex, weight: Double)
 
-case class SimpleEdge(from: NodeIndex, to: NodeIndex):
+case class SimpleEdge(from: NodeIndex, to: NodeIndex) derives CanEqual:
   def withWeight(w: Double) = WeightedEdge(from, to, w)
-case class WeightedEdge(from: NodeIndex, to: NodeIndex, weight: Double):
+case class WeightedEdge(from: NodeIndex, to: NodeIndex, weight: Double) derives CanEqual:
   def unweighted = SimpleEdge(from, to)
 
 sealed trait BasicGraph      extends Graph[BasicLink, SimpleEdge]

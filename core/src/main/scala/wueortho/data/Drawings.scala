@@ -3,7 +3,7 @@ package wueortho.data
 import scala.util.Random
 import Direction.*
 
-case class EdgeTerminals(uTerm: Vec2D, uDir: Direction, vTerm: Vec2D, vDir: Direction)
+case class EdgeTerminals(uTerm: Vec2D, uDir: Direction, vTerm: Vec2D, vDir: Direction) derives CanEqual
 
 case class PortLayout(byEdge: IndexedSeq[EdgeTerminals]):
   def apply(i: Int)          = byEdge(i)

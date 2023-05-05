@@ -7,6 +7,7 @@ trait IntervalTree:
   @targetName("appendAll") def ++=(all: Seq[(Double, Double, Int)]): Unit
   def cutout(low: Double, high: Double): Unit
   def overlaps(low: Double, high: Double): List[Int]
+  def toIndexedSeq: IndexedSeq[(Double, Double, Int)]
 end IntervalTree
 
 object LinearIntervalTree:
@@ -45,6 +46,10 @@ object LinearIntervalTree:
             unorderedRemove(buf, i)
             tmp ++= all
       buf ++= tmp
+    end cutout
+
+    override def toIndexedSeq: IndexedSeq[(Double, Double, Int)] = buf.toIndexedSeq.map(Tuple.fromProductTyped)
+  end Impl
 
   private def unorderedRemove[T](buf: mutable.ArrayBuffer[T], i: Int) =
     if i < 0 || i >= buf.length then
@@ -57,3 +62,4 @@ object LinearIntervalTree:
   def debugPrintAll(tree: IntervalTree) = tree match
     case Impl(buf) => println(buf.mkString("\n"))
     case _         => println(s"unknown implementation: [${tree.getClass}] $tree")
+end LinearIntervalTree

@@ -9,6 +9,7 @@ case class Vec2D(x1: Double, x2: Double) derives CanEqual:
   @targetName("minus") def -(o: Vec2D) = Vec2D(x1 - o.x1, x2 - o.x2)
   lazy val len                         = Math.hypot(x1, x2)
   def scale(a: Double)                 = Vec2D(x1 * a, x2 * a)
+  override def toString(): String      = s"($x1, $x2)"
 
 object Vec2D:
   def angle(a: Vec2D, b: Vec2D) = Math.atan2(b.x2 * a.x1 - b.x1 * a.x2, b.x1 * a.x1 + b.x2 * a.x2)
@@ -37,6 +38,7 @@ case class Rect2D(center: Vec2D, span: Vec2D) derives CanEqual:
 
   def corners: (Vec2D, Vec2D, Vec2D, Vec2D) =
     (Vec2D(left, top), Vec2D(right, top), Vec2D(right, bottom), Vec2D(left, bottom))
+end Rect2D
 
 object Rect2D:
   def boundingBox(interior: Seq[Vec2D]) =
@@ -47,6 +49,7 @@ object Rect2D:
 
   def boundingBoxOfRects(interior: Rect2D*) =
     Rect2D.boundingBox(interior.flatMap(r => Seq(r.center - r.span, r.center + r.span)))
+end Rect2D
 
 enum Direction derives CanEqual:
   case North, East, South, West
@@ -60,6 +63,7 @@ object Direction:
     def isVertical   = d == Direction.North || d == Direction.South
     def reverse      = Direction.fromOrdinal((d.ordinal + 2) % 4)
     def show         = s"[${d.toString.head}]"
+end Direction
 
 trait Positioned1D:
   def pos: Double
