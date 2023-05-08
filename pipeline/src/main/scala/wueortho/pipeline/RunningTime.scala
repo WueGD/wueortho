@@ -1,13 +1,14 @@
 package wueortho.pipeline
 
 case class RunningTime(title: String, start: Long, end: Long, parts: List[RunningTime]):
+  def totalTimeMs  = (end - start) / 1e6
   def show: String =
     def prefixLines(text: String, firstPrefix: String, otherPrefix: String) = text.linesIterator.toList match
       case Nil          => sys.error(s"$text should not give an empty lines iterator")
       case head :: Nil  => firstPrefix + head
       case head :: more => s"$firstPrefix$head\n${more.map(otherPrefix + _).mkString("\n")}"
 
-    s"$title (${Math.round((end - start) / 1e6)}ms)" + (
+    s"$title (${Math.round(totalTimeMs)}ms)" + (
       if parts.isEmpty then ""
       else
         ("" +: parts.init.map(part => prefixLines(part.show, "├╴", "│ ")) :+ prefixLines(parts.last.show, "└╴", "  "))
