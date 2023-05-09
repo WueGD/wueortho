@@ -1,7 +1,7 @@
 package wueortho.layout
 
 import wueortho.data.{WeightedGraph, Vec2D, VertexLayout}
-import wueortho.util.GraphProperties.hasLoops
+import wueortho.util.WhenSyntax.*
 
 import scala.annotation.tailrec
 import scala.util.Random
@@ -9,38 +9,58 @@ import scala.util.Random
 import java.lang.Math.sqrt
 
 object ForceDirected:
-  // private val EPS = 1e-8 // todo fix some numeric unsoundness
+  private val EPS = 1e-8
 
   def layout(cfg: Config)(graph: WeightedGraph, init: VertexLayout): VertexLayout =
-    assert(!graph.hasLoops, "graphs with loops are unsupported")
+
+    class PosVec(init: Seq[Vec2D]):
+      var a = Array[Vec2D](init*)
+      var b = Array[Vec2D](init*)
+
+      def apply(i: Int) = b(i)
+      def delta(i: Int) = a(i) - b(i)
+      def finish        = a.toVector
+
+      def move(i: Int, delta: Vec2D)   = a(i) += delta
+      def update(i: Int, value: Vec2D) = a(i) = value
+
+      def applyChanges() = Array.copy(a, 0, b, 0, a.length)
+    end PosVec
 
     @tailrec
-    def go(i: Int, temp: Double, pos: Vector[Vec2D]): Vector[Vec2D] =
-      if i < 0 then pos
+    def go(i: Int, temp: Double, pos: PosVec): Vector[Vec2D] =
+      if i < 0 then pos.finish
       else
-        val n        = graph.numberOfVertices
+        pos.applyChanges()
+        val n = graph.numberOfVertices
+
         // repulsive forces:
-        val afterRep =
-          for v <- 0 until n yield (for u <- 0 until n if u != v yield
-            val delta = pos(v) - pos(u) // todo ensure a gap
-            assert(delta.x1 != 0 || delta.x2 != 0, s"there must be a gap between ${pos(v)} and ${pos(u)}")
-            delta.scale(cfg.repulsive(delta.len) / delta.len)
-          ).fold(Vec2D(0, 0))(_ + _)
+        for
+          v <- 0 until n
+          u <- (v + 1) until n
+        do
+          val delta = (pos(v) - pos(u)) when (_.len > EPS) otherwise Vec2D(EPS, EPS)
+          val disp  = delta.scale(cfg.repulsive(delta.len) / delta.len)
+          pos.move(v, disp)
+          pos.move(u, -disp)
 
         // attractive forces:
-        val displacement = graph.edges.foldLeft(afterRep.toVector)((d, edge) =>
-          val delta = pos(edge.to.toInt) - pos(edge.from.toInt) // todo ensure non-zero length edge
-          assert(delta.x1 != 0 || delta.x2 != 0, s"Edge $edge must have non-zero length")
-          val force = delta.scale(cfg.attractive(delta.len) / delta.len * edge.weight)
-          d.updated(edge.to.toInt, d(edge.to.toInt) - force).updated(edge.from.toInt, d(edge.from.toInt) + force),
-        )
+        for edge <- graph.edges if edge.from != edge.to do
+          val delta = pos(edge.to.toInt) - pos(edge.from.toInt)
+          if delta.len > EPS then
+            val disp = delta.scale(cfg.attractive(delta.len) / delta.len * edge.weight)
+            pos.move(edge.from.toInt, disp)
+            pos.move(edge.to.toInt, -disp)
 
-        val newPos = pos.zip(displacement).map((p, d) => p + (if d.len < temp then d else d.scale(temp / d.len)))
+        // limit the displacement
+        for i <- 0 until n do
+          val d = pos.delta(i)
+          if d.len > temp then pos(i) += d.scale(temp / d.len)
 
-        go(i - 1, cfg.cooling(temp), newPos)
+        go(i - 1, cfg.cooling(temp), pos)
     end go
 
-    VertexLayout(go(cfg.iterCap, cfg.startingTemp, init.nodes.toVector))
+    VertexLayout(go(cfg.iterCap, cfg.startingTemp, PosVec(init.nodes)))
   end layout
 
   case class Config(
@@ -54,7 +74,8 @@ object ForceDirected:
   val defaultConfig = Config(
     startingTemp = 10.0,
     iterCap = 1000,
-    cooling = x => (x - 0.1) * 0.99 + 0.1,
+    // cooling = x => (x - 0.1) * 0.995 + 0.1,
+    cooling = x => (x - 0.01) max 0.1,
     repulsive = 1.0 / _,
     attractive = x => x * x,
   )

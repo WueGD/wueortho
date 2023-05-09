@@ -33,7 +33,7 @@ class LoopsSpec extends AnyFlatSpec, should.Matchers, Vec2DMatcher:
       BasicLink(NodeIndex(2), 0),
     )
 
-  it `should` "have a adjacency list with no duplicates at node 2" in:
+  it `should` "have a adjacency list with duplicates at node 2" in:
     graph(NodeIndex(2)).neighbors shouldEqual IndexedSeq(
       BasicLink(NodeIndex(1), 1),
       BasicLink(NodeIndex(3), 0),
@@ -46,6 +46,9 @@ class LoopsSpec extends AnyFlatSpec, should.Matchers, Vec2DMatcher:
       BasicLink(NodeIndex(2), 1),
       BasicLink(NodeIndex(0), 1),
     )
+
+  it `should` "have a loop edge" in:
+    graph.edges should contain(rawSE(2, 2))
 
   "The octant heuristic" `should` "generate ports for graphs with loops" in:
     val barycenter = Vec2D(2, 2)

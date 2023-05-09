@@ -96,8 +96,8 @@ object GraphProperties:
     def hasLoops(using f: LinkAsInt[V]) =
       g.vertices.zipWithIndex.exists((v, i) => v.neighbors.exists(f.asInt(_) == i))
 
-    def hasMultiEdges =
-      g.vertices.exists(v => v.neighbors.size != v.neighbors.distinct.size)
+    def hasMultiEdges(using f: LinkAsInt[V]) =
+      g.vertices.exists(v => v.neighbors.size != v.neighbors.distinctBy(f.asInt).size)
 end GraphProperties
 
 object DiGraphProperties:

@@ -28,7 +28,7 @@ enum Step derives ConfiguredCodec:
   case NoNudging(routing: Tag, tag: Tag)
   case FullNudging(config: Nudging.Config, routing: Tag, ports: Tag, obstacles: Tag, graph: Tag, tag: Tag)
   case SvgToFile(path: Path, svg: Tag, tag: Tag)
-  case Metrics(metrics: List[String], obstacles: Tag, routes: Tag, tag: Tag)
+  case Metrics(metrics: List[String], graph: Tag, obstacles: Tag, routes: Tag, tag: Tag)
   case ReadPralineFile(path: Path, use: List[PralineExtractor], tag: Tag)
   case SvgDrawing(
       config: SvgConfig,

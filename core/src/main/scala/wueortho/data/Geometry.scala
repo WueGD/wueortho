@@ -7,9 +7,11 @@ case class Vec2D(x1: Double, x2: Double) derives CanEqual:
   assert(!x2.isNaN, "x2 must not be NaN")
   @targetName("plus") def +(o: Vec2D)  = Vec2D(x1 + o.x1, x2 + o.x2)
   @targetName("minus") def -(o: Vec2D) = Vec2D(x1 - o.x1, x2 - o.x2)
+  def unary_-                          = Vec2D(-x1, -x2)
   lazy val len                         = Math.hypot(x1, x2)
   def scale(a: Double)                 = Vec2D(x1 * a, x2 * a)
   override def toString(): String      = s"($x1, $x2)"
+end Vec2D
 
 object Vec2D:
   def angle(a: Vec2D, b: Vec2D) = Math.atan2(b.x2 * a.x1 - b.x1 * a.x2, b.x1 * a.x1 + b.x2 * a.x2)

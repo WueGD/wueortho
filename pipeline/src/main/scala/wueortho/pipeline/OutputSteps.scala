@@ -3,6 +3,7 @@ package wueortho.pipeline
 import wueortho.data.*
 import wueortho.io.svg.Svg
 import wueortho.metrics.*
+import wueortho.util.GraphProperties.*
 
 import scala.util.Try
 import java.nio.file.Files
@@ -44,25 +45,37 @@ object OutputSteps:
 
   given Provider[Step.Metrics] = (s: Step.Metrics, cache: StageCache) =>
     for
+      g   <- cache.getStageResult(Stage.Graph, mk(s.graph))
       obs <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
       r   <- cache.getStageResult(Stage.Routes, mk(s.routes))
-      m    = calcMetrics(obs, r, s.metrics*) + ("Vertices", s"${obs.nodes.size}") + ("Edges", s"${r.size}")
+      m    = calcMetrics(g, obs, r, s.metrics*) + ("Vertices", s"${obs.nodes.size}") + ("Edges", s"${r.size}")
       _   <- cache.setStage(Stage.Metadata, mk(s.tag), m)
     yield Nil
 
   private val allMetrics =
-    List("Crossings", "BoundingBoxArea", "ConvexHullArea", "TotalEdgeLength", "EdgeBends", "EdgeLengthVariance")
+    List(
+      "Crossings",
+      "BoundingBoxArea",
+      "ConvexHullArea",
+      "TotalEdgeLength",
+      "EdgeBends",
+      "EdgeLengthVariance",
+      "HasLoops",
+      "HasMultiEdges",
+    )
 
-  private def calcMetrics(obs: Obstacles, r: IndexedSeq[EdgeRoute], ms: String*): Metadata = Metadata(
+  private def calcMetrics(g: BasicGraph, obs: Obstacles, r: IndexedSeq[EdgeRoute], ms: String*): Metadata = Metadata(
     (ms.flatMap: m =>
         m match
-          case "all"                => calcMetrics(obs, r, allMetrics*).entries.toList
+          case "all"                => calcMetrics(g, obs, r, allMetrics*).entries.toList
           case "Crossings"          => List(m -> Crossings.numberOfCrossings(r).toString)
           case "BoundingBoxArea"    => List(m -> Area.boundingBoxArea(obs, r).toString)
           case "ConvexHullArea"     => List(m -> Area.convexHullArea(obs, r).toString)
           case "TotalEdgeLength"    => List(m -> EdgeLength.totalEdgeLength(r).toString)
           case "EdgeBends"          => List(m -> EdgeLength.numberOfBends(r).toString)
           case "EdgeLengthVariance" => List(m -> EdgeLength.edgeLengthVariance(r).toString)
+          case "HasLoops"           => List(m -> g.hasLoops.toString())
+          case "HasMultiEdges"      => List(m -> g.hasMultiEdges.toString())
           case _                    => List(m -> "unknown metric")
       )
       .toMap,

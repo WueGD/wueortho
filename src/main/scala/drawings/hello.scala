@@ -12,7 +12,6 @@ import wueortho.pipeline.{Pipeline, Stage}
 import GraphConversions.all.*
 
 import drawings.Debugging.*
-import wueortho.ports.AngleHeuristic
 
 @main def runPipeline =
   val res = Pipeline.run(Pipeline.load(Paths.get("config.json").nn).fold(throw _, identity))
@@ -29,27 +28,6 @@ import wueortho.ports.AngleHeuristic
 //   Files.writeString(Paths.get("debug-praline.svg"), svg)
 //   ()
 // end runPraline
-
-@main def runLoops: Unit =
-  val obstacles  = Obstacles(
-    Vector(
-      Rect2D(Vec2D(5.5, 1), Vec2D(3.5, 1)),
-      Rect2D(Vec2D(9, 5.5), Vec2D(2, 1.5)),
-      Rect2D(Vec2D(1.5, 7.5), Vec2D(1.5, 1.5)),
-    ),
-  )
-  val edges      = Vector(
-    SimpleEdge(NodeIndex(0), NodeIndex(0)),
-    SimpleEdge(NodeIndex(0), NodeIndex(1)),
-    SimpleEdge(NodeIndex(1), NodeIndex(2)),
-    SimpleEdge(NodeIndex(2), NodeIndex(1)),
-    SimpleEdge(NodeIndex(0), NodeIndex(1)),
-  )
-  lazy val graph = Graph.fromEdges(edges).mkBasicGraph
-
-  val pl = AngleHeuristic.makePorts(obstacles, graph, AngleHeuristic.octantHeuristic(_, _, Vec2D(4.5, 5.5)))
-  println(pl)
-end runLoops
 
 @main def runOverlaps: Unit =
   val points     = ForceDirected.initLayout(Random(0x92c0ffee), 12 * 2).nodes

@@ -1,7 +1,6 @@
 package wueortho.ports
 
 import wueortho.data.*, Direction.*
-import wueortho.util.GraphProperties.hasLoops
 import Vec2D.angle
 
 object AngleHeuristic:

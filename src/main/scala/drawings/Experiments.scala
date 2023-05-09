@@ -1,6 +1,6 @@
 package drawings
 
-import wueortho.data.Metadata
+import wueortho.data.{Metadata, Seed}
 import wueortho.pipeline.{PralineExtractor as Use, *}
 import java.nio.file.{Path, Files}
 import scala.jdk.StreamConverters.*
@@ -11,6 +11,8 @@ object Experiments:
     "File",
     "Vertices",
     "Edges",
+    "HasLoops",
+    "HasMultiEdges",
     "Crossings",
     "EdgeBends",
     "TotalEdgeLength",
@@ -42,8 +44,8 @@ object Experiments:
 
     def mkPipeline(path: Path) = Pipeline(
       Seq(
-        Step.ReadPralineFile(path, List(Use.Obstacles, Use.EdgeRoutes), None),
-        Step.Metrics(List("all"), None, None, None),
+        Step.ReadPralineFile(path, List(Use.Graph, Use.Obstacles, Use.EdgeRoutes), None),
+        Step.Metrics(List("all"), None, None, None, None),
       ),
     )
   ).run
@@ -55,11 +57,12 @@ object Experiments:
       Seq(
         Step.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels, Use.VertexLayout), None),
         Step.ObstaclesFromLabels(VertexLabelConfig.PralineDefaults, None, None, None),
+        Step.GTreeOverlaps(Stretch.Original, Some(Seed(0x99c0ffee)), None, None),
         Step.PortsByAngle(PortMode.Octants, None, None, None),
         Step.SimplifiedRoutingGraph(Stretch.Original, None, None, None, None),
         Step.EdgeRouting(None, None, None),
         Step.FullNudging(Nudging.Config(padding = 10, use2ndHPass = true), None, None, None, None, None),
-        Step.Metrics(List("all"), None, None, None),
+        Step.Metrics(List("all"), None, None, None, None),
       ),
     )
   ).run
