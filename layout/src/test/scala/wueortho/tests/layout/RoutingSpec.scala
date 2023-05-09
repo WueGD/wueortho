@@ -12,8 +12,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should
 
 class RoutingSpec extends AnyFlatSpec, should.Matchers:
-  lazy val (ovgGraph, ovgLayout, _, ovg) = OrthogonalVisibilityGraph.create(OvgSample.obstacles.nodes, OvgSample.ports)
-  lazy val routingGraph                  = RoutingGraph.create(OvgSample.obstacles, OvgSample.edges, OvgSample.ports)
+  lazy val (ovgGraph, ovgLayout, _, ovg) = OrthogonalVisibilityGraph.create(Sample.obstacles.nodes, Sample.ports)
+  lazy val routingGraph                  = RoutingGraph.create(Sample.obstacles, Sample.edges, Sample.ports)
   lazy val (rgAsBasicGraph, _)           = Debugging.rg2adj(routingGraph)
 
   "The orthogonal visibility graph" `should` "not have loops" in:
@@ -51,12 +51,12 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
   //   debugOVG(OvgSample.obstacles, rgAdj, rgLay, OvgSample.ports, "debug-rg")
   //   Debugging.debugOVG(OvgSample.obstacles, adj.unweighted, lay, OvgSample.ports)
 
-  lazy val adapter       = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, ovgGraph, ovgLayout, OvgSample.ports)
-  lazy val ovgRouted     = Routing(adapter, OvgSample.ports)
-  lazy val gridWithPaths = deprecated.PathOrder(adapter, OvgSample.ports, ovgRouted.paths)
+  lazy val adapter       = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, ovgGraph, ovgLayout, Sample.ports)
+  lazy val ovgRouted     = Routing(adapter, Sample.ports)
+  lazy val gridWithPaths = deprecated.PathOrder(adapter, Sample.ports, ovgRouted.paths)
 
   "Routes on the orthogonal visibility graph" `should` "be given paths" in:
-    val spec = OvgSample.ports.byEdge zip List(
+    val spec = Sample.ports.byEdge zip List(
       List(VSeg(2.0), HSeg(3.0), VSeg(0.0)),
       List(HSeg(0.0), VSeg(0.0), HSeg(1.0), VSeg(3.0)),
       List(HSeg(0.0), VSeg(0.0), HSeg(-4.0), VSeg(2.0), HSeg(0.0)),
@@ -67,20 +67,19 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
       segments should contain theSameElementsInOrderAs segmentsSpec
 
   "Deprecated nudging of routes on the orthogonal visibility graph" `should` "complete without errors" in:
-    val routes = deprecated.Nudging
-      .calcEdgeRoutes(ovg, gridWithPaths, ovgRouted.paths, OvgSample.ports, OvgSample.obstacles)
-    routes should have size OvgSample.edges.size
+    val routes = deprecated.Nudging.calcEdgeRoutes(ovg, gridWithPaths, ovgRouted.paths, Sample.ports, Sample.obstacles)
+    routes should have size Sample.edges.size
 
   "Edge nudging of routes on the orthogonal visibility graph" `should` "complete without errors" in:
-    val routes = EdgeNudging.calcEdgeRoutes(ovgRouted, OvgSample.ports, OvgSample.obstacles)
-    routes should have size OvgSample.edges.size
+    val routes = EdgeNudging.calcEdgeRoutes(ovgRouted, Sample.ports, Sample.obstacles)
+    routes should have size Sample.edges.size
 
   "Full nudging of routes on the orthogonal visibility graph" `should` "complete without errors" in:
     val (routes, nudgedPorts, nudgedObstacles) =
-      FullNudging(Nudging.Config(1, false), ovgRouted, OvgSample.ports, OvgSample.graph, OvgSample.obstacles)
-    routes should have size OvgSample.edges.size
-    nudgedPorts.byEdge should have size OvgSample.edges.size
-    nudgedObstacles.nodes should have size OvgSample.obstacles.nodes.size
+      FullNudging(Nudging.Config(1, false), ovgRouted, Sample.ports, Sample.graph, Sample.obstacles)
+    routes should have size Sample.edges.size
+    nudgedPorts.byEdge should have size Sample.edges.size
+    nudgedObstacles.nodes should have size Sample.obstacles.nodes.size
 
   // TODO: Put these somewhere with access to writing SVGs
   // Files.writeString(Paths.get("ovg-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, ovgRouted.routes))
@@ -88,22 +87,22 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
   // Files.writeString(Paths.get("ovg-geo-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, geoRoutes))
   // Files.writeString(Paths.get("ovg-fully-nudged-routing.svg"), debugSvg(fnObs, fnPorts, fnRoutes))
 
-  lazy val routed = Routing(routingGraph, OvgSample.ports)
+  lazy val routed = Routing(routingGraph, Sample.ports)
 
   "Edge nudging of routes on the simplified routing graph" `should` "complete without errors" in:
-    val routes = EdgeNudging.calcEdgeRoutes(routed, OvgSample.ports, OvgSample.obstacles)
-    routes should have size OvgSample.edges.size
+    val routes = EdgeNudging.calcEdgeRoutes(routed, Sample.ports, Sample.obstacles)
+    routes should have size Sample.edges.size
 
   "Full nudging of routes on the simplified routing graph" `should` "complete without errors" in:
     val (routes, nudgedPorts, nudgedObstacles) =
-      FullNudging(Nudging.Config(1, true), routed, OvgSample.ports, OvgSample.graph, OvgSample.obstacles)
-    routes should have size OvgSample.edges.size
-    nudgedPorts.byEdge should have size OvgSample.edges.size
-    nudgedObstacles.nodes should have size OvgSample.obstacles.nodes.size
+      FullNudging(Nudging.Config(1, true), routed, Sample.ports, Sample.graph, Sample.obstacles)
+    routes should have size Sample.edges.size
+    nudgedPorts.byEdge should have size Sample.edges.size
+    nudgedObstacles.nodes should have size Sample.obstacles.nodes.size
 
 end RoutingSpec
 
-object OvgSample:
+object Sample:
   val obstacles  = Obstacles(
     Vector(
       Rect2D(Vec2D(5.5, 1), Vec2D(3.5, 1)),
@@ -125,5 +124,5 @@ object OvgSample:
     SimpleEdge(NodeIndex(2), NodeIndex(1)),
     SimpleEdge(NodeIndex(0), NodeIndex(1)),
   )
-  lazy val graph = Graph.fromEdges(edges).mkSimpleGraph
-end OvgSample
+  lazy val graph = Graph.fromEdges(edges).mkBasicGraph
+end Sample

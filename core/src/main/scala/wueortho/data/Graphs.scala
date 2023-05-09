@@ -25,9 +25,9 @@ sealed trait WeightedDiGraph extends Graph[WeightedDiLink, WeightedEdge]
 
 object Graph:
   case class fromEdges(edges: Seq[SimpleEdge], size: Int = -1):
-    def mkSimpleGraph: BasicGraph =
-      fromEdgesUndirected[SimpleEdge](e => (e.from, e.to, 0.0), edges, size).mkSimpleGraph
-    def mkDiGraph: DiGraph        =
+    def mkBasicGraph: BasicGraph =
+      fromEdgesUndirected[SimpleEdge](e => (e.from, e.to, 0.0), edges, size).mkBasicGraph
+    def mkDiGraph: DiGraph       =
       fromEdgesDirected[SimpleEdge](e => (e.from, e.to, 0.0), edges, size).mkDiGraph
 
   case class fromWeightedEdges(edges: Seq[WeightedEdge], size: Int = -1):
@@ -91,16 +91,20 @@ object Graph:
 
     def addEdge(from: NodeIndex, to: NodeIndex, weight: Double): Builder =
       ensureSize(from.toInt max to.toInt)
-      val toRev = lut(from.toInt).size
-      lut(from.toInt) += ((to, weight, lut(to.toInt).size))
-      lut(to.toInt) += ((from, weight, toRev))
+      if from == to then
+        lut(from.toInt) += ((to, weight, lut(from.toInt).size + 1))
+        lut(to.toInt) += ((from, weight, lut(from.toInt).size - 1))
+      else
+        lut(from.toInt) += ((to, weight, lut(to.toInt).size))
+        lut(to.toInt) += ((from, weight, lut(from.toInt).size - 1))
       this
+    end addEdge
 
     def addEdge(from: NodeIndex, to: NodeIndex): Builder = addEdge(from, to, 0.0)
 
     def size = lut.size
 
-    def mkSimpleGraph: BasicGraph      = SGImpl(
+    def mkBasicGraph: BasicGraph       = SGImpl(
       lut.map(links => Vertex(links.map((v, _, rl) => BasicLink(v, rl)).toIndexedSeq)).toIndexedSeq,
     )
     def mkWeightedGraph: WeightedGraph = WGImpl(

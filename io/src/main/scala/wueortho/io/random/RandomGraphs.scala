@@ -33,13 +33,13 @@ object RandomGraphs:
         else for i <- 1 until n yield SimpleEdge(NodeIndex(0), NodeIndex(i))
 
     def mkHull(rndm: Random, coreSize: Int): Either[String, Seq[SimpleEdge]] = Either.cond(
-      coreSize <= m,
-      for _ <- coreSize until m yield SimpleEdge.apply.tupled(nodePair(rndm)),
-      s"Core size was ${coreSize} but only ${m} edges expected",
+      test = coreSize <= m,
+      right = for _ <- coreSize until m yield SimpleEdge.apply.tupled(nodePair(rndm)),
+      left = s"Core size was ${coreSize} but only ${m} edges expected",
     )
 
     val rndm      = seed.newRandom
     val coreEdges = mkCore(rndm)
-    mkHull(rndm, coreEdges.size).map(hullEdges => Graph.fromEdges(coreEdges ++ hullEdges).mkSimpleGraph)
+    mkHull(rndm, coreEdges.size).map(hullEdges => Graph.fromEdges(coreEdges ++ hullEdges).mkBasicGraph)
   end mkSimpleGraph
 end RandomGraphs

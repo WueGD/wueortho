@@ -24,7 +24,7 @@ object Extractors:
       (u, v)     <- lut.get(uid) zip lut.get(vid)
     yield NodeIndex(u) -> NodeIndex(v)).toRight(s"edge $e is not simple or connects nonexistent nodes")
 
-    g.edges.traverse(mkEdge).map(_.foldLeft(Graph.builder())(_.addEdge.tupled(_)).mkSimpleGraph)
+    g.edges.traverse(mkEdge).map(_.foldLeft(Graph.builder())(_.addEdge.tupled(_)).mkBasicGraph)
   end simpleGraph
 
   def portsFlat(pc: List[Praline.PortComp]): List[Praline.PortComp.port] = pc.flatMap:

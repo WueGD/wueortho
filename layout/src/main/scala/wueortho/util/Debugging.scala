@@ -10,7 +10,7 @@ object Debugging:
     val layout      = VertexLayout((0 until graph.size).map(i => graph.locate(NodeIndex(i))))
     val adjacencies = Graph.fromEdges(
       (NodeIndex(0) until graph.size).flatMap(u => graph.neighbors(u).map((_, v) => SimpleEdge(u, v))),
-    ).mkSimpleGraph
+    ).mkBasicGraph
     adjacencies -> layout
 
   def showCTerm(t: Constraint.CTerm): String =
