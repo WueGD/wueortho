@@ -50,6 +50,9 @@ class LoopsSpec extends AnyFlatSpec, should.Matchers, Vec2DMatcher:
   it `should` "have a loop edge" in:
     graph.edges should contain(rawSE(2, 2))
 
+  it `should` "have the same number of edges as before" in:
+    graph.edges.length shouldBe 5
+
   "The octant heuristic" `should` "generate ports for graphs with loops" in:
     val barycenter = Vec2D(2, 2)
     val uut        = AngleHeuristic.octantHeuristic(obstacleAtNode2, neighborsOfNode2, barycenter)

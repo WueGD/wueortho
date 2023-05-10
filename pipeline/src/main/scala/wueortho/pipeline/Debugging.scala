@@ -1,15 +1,22 @@
-package drawings
+package wueortho.pipeline
 
 import wueortho.data.*
 import wueortho.io.svg.Svg
 import java.nio.file.Files
-import java.nio.file.Paths
+import java.nio.file.Path
 
 object Debugging:
   def rawE(u: Int, v: Int, w: Double) = WeightedEdge(NodeIndex(u), NodeIndex(v), w)
   def rawSE(u: Int, v: Int)           = SimpleEdge(NodeIndex(u), NodeIndex(v))
 
   def rawDV(nbrs: (Int, Double)*) = nbrs.map((v, w) => NodeIndex(v) -> w).toSeq
+
+  def debugProtoRG(obs: Obstacles, edges: List[(Vec2D, Vec2D)]) =
+    val svg      = Svg.withDefaults.copy(pixelsPerUnit = 1.0)
+    val rectsSvg = svg.drawObstacles(obs)
+    val linesSvg = svg.drawStraightSegments(edges)
+    Files.writeString(Path.of("debug-proto-rg.svg"), svg.make(rectsSvg ++ linesSvg))
+    ()
 
   def debugOVG(
       obstacles: Obstacles,
@@ -23,8 +30,8 @@ object Debugging:
     val nodesSvg = svg.drawNodes(layout)
     val edgesSvg = svg.drawStraightEdges(graph, layout)
     val portsSvg = svg.drawPorts(ports)
-    Files.writeString(Paths.get(s"$name.svg"), svg.make(edgesSvg ++ portsSvg ++ nodesSvg ++ rectsSvg))
-    Files.writeString(Paths.get(s"$name-input.svg"), svg.make(rectsSvg ++ svg.drawPorts(ports)))
+    Files.writeString(Path.of(s"$name.svg"), svg.make(edgesSvg ++ portsSvg ++ nodesSvg ++ rectsSvg))
+    Files.writeString(Path.of(s"$name-input.svg"), svg.make(rectsSvg ++ svg.drawPorts(ports)))
   end debugOVG
 
   def debugConnectivity(adj: BasicGraph, lay: VertexLayout) =

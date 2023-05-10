@@ -268,8 +268,13 @@ trait NudgingCommons:
 
   protected def mkConstraint(low: NodeData[CNodeAny], high: NodeData[CNodeAny], m: CTerm) =
     low.data.kind -> high.data.kind match
-      case (ak: Segment, bk: Segment) if ak.info.pathId == bk.info.pathId => (low.data.pos <= high.data.pos)     -> false
-      case _                                                              => (low.data.pos + m <= high.data.pos) -> true
+      case (ak: Segment.TermSeg, bk: Segment.TermSeg)
+          if ak.info.pathId == bk.info.pathId && ak.info.dir != bk.info.dir =>
+        (low.data.pos + m <= high.data.pos) -> true
+      case (ak: Segment, bk: Segment) if ak.info.pathId == bk.info.pathId =>
+        (low.data.pos <= high.data.pos) -> false
+      case _ =>
+        (low.data.pos + m <= high.data.pos) -> true
 
   protected def mkConstraintsForComponent(
       g: DiGraph,

@@ -81,6 +81,10 @@ case class Svg(
       lineFrag(vl(edge.from), vl(edge.to), color, edgeStrokeWidth)
     SvgFrag(bbox(vl.nodes), lines)
 
+  def drawStraightSegments(segs: List[(Vec2D, Vec2D)]) =
+    val lines = segs.map((u, v) => lineFrag(u, v, "black", edgeStrokeWidth))
+    SvgFrag(bbox(segs.map(_.toList).flatten), lines)
+
   def drawNodes(vl: VertexLayout) =
     SvgFrag(bbox(vl.nodes), vl.nodes.map(node => circleFrag(node, nodeSize / 2, nodeColor)))
 

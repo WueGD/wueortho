@@ -20,7 +20,7 @@ object RoutingGraph:
   enum QueueItem:
     case Init(pos: Double)
     case End(pos: Double, obsId: Int)
-    case Mid(pos: Double, beginOfObs: Double, dir: Direction, portId: Int)
+    case Mid(pos: Double, dir: Direction, portId: Int)
     case Begin(pos: Double, obsId: Int)
     def pos: Double
 
@@ -28,6 +28,7 @@ object RoutingGraph:
     given Ordering[QueueItem] = Ordering.by((it: QueueItem) => it.pos -> it.ordinal)
 
   case class ProtoSeg(at: Double, low: Double, high: Double, item: QueueItem):
+    require(at.isFinite && !low.isNaN && !high.isNaN, s"$at must be finite, $low and $high must not be NaN")
     def isMid = item match
       case _: QueueItem.End | _: QueueItem.Begin | _: QueueItem.Init => false
       case _: QueueItem.Mid                                          => true
@@ -78,17 +79,14 @@ object RoutingGraph:
           res       <- List(QueueItem.Begin(low(rect), i), QueueItem.End(high(rect), i))
         yield res
         val midItems = for
-          (edge, i)         <- edges.zipWithIndex
-          (obs, at, dir, j) <- List(
-                                 (obs(edge.from.toInt), ports(i).uTerm, ports(i).uDir, i * 2),
-                                 (obs(edge.to.toInt), ports(i).vTerm, ports(i).vDir, i * 2 + 1),
-                               )
+          (edge, i)    <- edges.zipWithIndex
+          (at, dir, j) <- List((ports(i).uTerm, ports(i).uDir, i * 2), (ports(i).vTerm, ports(i).vDir, i * 2 + 1))
           if !isDir(dir)
-        yield QueueItem.Mid(pos(at), low(obs), dir, j)
+        yield QueueItem.Mid(pos(at), dir, j)
         (start +: obsItems ++: midItems).sorted
       end mkQueue
 
-      def mkSegments(queue: Seq[QueueItem]) =
+      def mkSegments(queue: IndexedSeq[QueueItem]) =
         val activeObs = mutable.BitSet.empty
         val buffer    = mutable.ArrayBuffer.empty[ProtoSeg]
 
@@ -104,26 +102,32 @@ object RoutingGraph:
             here -> activeObs.map(i => low(obs(i))).filter(_ > here).minOption.getOrElse(PositiveInfinity),
           )
 
-        def seekBack(until: Double, low: Double, high: Double) =
+        def seekBack(slice: IndexedSeq[QueueItem], lb: Double, ub: Double) =
+          val prevItem = slice.reverseIterator.find:
+            case QueueItem.Begin(_, id) => low(obs(id)) >= lb && high(obs(id)) <= ub
+            case _                      => false
+          val until    = prevItem.fold(NegativeInfinity)(_.pos)
+
           var i = buffer.length - 1
           while i >= 0 && buffer(i).at > until do
-            if !buffer(i).isMid && buffer(i).isContainedIn(low, high) then buffer.remove(i).asInstanceOf[Unit]
+            if !buffer(i).isMid && buffer(i).isContainedIn(lb, ub) then buffer.remove(i).asInstanceOf[Unit]
             i -= 1
+        end seekBack
 
-        for item <- queue do
+        for (item, i) <- queue.zipWithIndex do
           item match
-            case QueueItem.Init(pos)                         =>
+            case QueueItem.Init(pos)             =>
               buffer += ProtoSeg(pos, NegativeInfinity, PositiveInfinity, item)
-            case QueueItem.End(pos, obsId)                   =>
+            case QueueItem.End(pos, obsId)       =>
               activeObs -= obsId
               val (lb, ub) = obsBounds(obsId)
-              seekBack(begin(obs(obsId)), lb, ub)
+              seekBack(queue.slice(0, i), lb, ub)
               buffer += ProtoSeg(pos, lb, ub, item)
-            case QueueItem.Mid(pos, beginOfObs, dir, portId) =>
+            case QueueItem.Mid(pos, dir, portId) =>
               val (lb, ub) = portBounds(dir, portId)
-              seekBack(beginOfObs, lb, ub)
+              seekBack(queue.slice(0, i), lb, ub)
               buffer += ProtoSeg(pos, lb, ub, item)
-            case QueueItem.Begin(_, obsId)                   =>
+            case QueueItem.Begin(_, obsId)       =>
               activeObs += obsId
         end for
 
@@ -166,11 +170,10 @@ object RoutingGraph:
         case North => pos
         case _     => sys.error(s"vertical port cannot have direction $dir")
 
-    val vSegs  = vBuilder.mkSegments(hBuilder.mkQueue)
-    val hSegs  = hBuilder.mkSegments(vBuilder.mkQueue)
-    val offset = ports.numberOfPorts
+    val vSegs = vBuilder.mkSegments(hBuilder.mkQueue)
+    val hSegs = hBuilder.mkSegments(vBuilder.mkQueue)
 
-    val nodes     = mutable.ArrayBuffer.fill(offset)(RGNode.empty)
+    val nodes     = mutable.ArrayBuffer.fill(ports.numberOfPorts)(RGNode.empty)
     val positions = mutable.ArrayBuffer.from(ports.toVertexLayout.nodes)
     val vLinks    = mutable.ArrayBuffer.fill(vSegs.length)(-1)
     val hLinks    = mutable.ArrayBuffer.fill(hSegs.length)(-1)
@@ -185,19 +188,20 @@ object RoutingGraph:
       val node = RGNode.empty
 
       vLinks(vi) -> vSeg.item match
-        case (-1, QueueItem.Mid(_, _, Direction.North, portId)) =>
+        case (-1, QueueItem.Mid(_, Direction.North, portId)) =>
           RGNode.addTop(nodes(portId), i)
           RGNode.addBottom(node, portId)
-        case (-1, _)                                            => // do nothing
-        case (vLink, _)                                         =>
+        case (-1, _)                                         => // do nothing
+        case (vLink, _)                                      =>
           RGNode.addTop(nodes(vLink), i)
           RGNode.addBottom(node, vLink)
+
       hLinks(hi) -> hSeg.item match
-        case (-1, QueueItem.Mid(_, _, Direction.East, portId)) =>
+        case (-1, QueueItem.Mid(_, Direction.East, portId)) =>
           RGNode.addRight(nodes(portId), i)
           RGNode.addLeft(node, portId)
-        case (-1, _)                                           => // do nothing
-        case (hLink, _)                                        =>
+        case (-1, _)                                        => // do nothing
+        case (hLink, _)                                     =>
           RGNode.addRight(nodes(hLink), i)
           RGNode.addLeft(node, hLink)
 
@@ -211,18 +215,18 @@ object RoutingGraph:
     for (linkTo, segNr) <- vLinks.zipWithIndex do
       assert(linkTo >= 0, s"no link for vertical segment #$segNr ${vSegs(segNr)}")
       vSegs(segNr).item match
-        case QueueItem.Mid(_, _, Direction.South, portId) =>
+        case QueueItem.Mid(_, Direction.South, portId) =>
           RGNode.addBottom(nodes(portId), linkTo)
           RGNode.addTop(nodes(linkTo), portId)
-        case _                                            =>
+        case _                                         =>
     end for
     for (linkTo, segNr) <- hLinks.zipWithIndex do
       assert(linkTo >= 0, s"no link for horizontal segment #$segNr ${hSegs(segNr)}")
       hSegs(segNr).item match
-        case QueueItem.Mid(_, _, Direction.West, portId) =>
+        case QueueItem.Mid(_, Direction.West, portId) =>
           RGNode.addLeft(nodes(portId), linkTo)
           RGNode.addRight(nodes(linkTo), portId)
-        case _                                           =>
+        case _                                        =>
     end for
 
     new RoutingGraph:

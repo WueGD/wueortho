@@ -3,8 +3,8 @@ package wueortho.data
 import scala.annotation.targetName
 
 case class Vec2D(x1: Double, x2: Double) derives CanEqual:
-  assert(!x1.isNaN, "x1 must not be NaN")
-  assert(!x2.isNaN, "x2 must not be NaN")
+  require(!x1.isNaN, "x1 must not be NaN")
+  require(!x2.isNaN, "x2 must not be NaN")
   @targetName("plus") def +(o: Vec2D)  = Vec2D(x1 + o.x1, x2 + o.x2)
   @targetName("minus") def -(o: Vec2D) = Vec2D(x1 - o.x1, x2 - o.x2)
   def unary_-                          = Vec2D(-x1, -x2)
@@ -17,7 +17,7 @@ object Vec2D:
   def angle(a: Vec2D, b: Vec2D) = Math.atan2(b.x2 * a.x1 - b.x1 * a.x2, b.x1 * a.x1 + b.x2 * a.x2)
 
 case class Rect2D(center: Vec2D, span: Vec2D) derives CanEqual:
-  assert(span.x1 >= 0 && span.x2 >= 0, s"span must be non-negative (but was: $span)")
+  require(span.x1 >= 0 && span.x2 >= 0, s"span must be non-negative (but was: $span)")
   def left   = center.x1 - span.x1
   def right  = center.x1 + span.x1
   def bottom = center.x2 - span.x2

@@ -98,7 +98,7 @@ object AngleHeuristic:
     PortLayout(for
       (tmp, u)             <- graph.vertices.zipWithIndex
       (BasicLink(v, j), i) <- tmp.neighbors.zipWithIndex
-      if u < v.toInt
+      if u < v.toInt || (u == v.toInt && j > i)
     yield
       val (posU, dirU) = vertices(u)(i)
       val (posV, dirV) = vertices(v.toInt)(j)

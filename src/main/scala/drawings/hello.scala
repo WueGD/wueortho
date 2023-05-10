@@ -11,7 +11,7 @@ import wueortho.layout.ForceDirected
 import wueortho.pipeline.{Pipeline, Stage}
 import GraphConversions.all.*
 
-import drawings.Debugging.*
+import wueortho.pipeline.Debugging.*
 
 @main def runPipeline =
   val res = Pipeline.run(Pipeline.load(Paths.get("config.json").nn).fold(throw _, identity))
