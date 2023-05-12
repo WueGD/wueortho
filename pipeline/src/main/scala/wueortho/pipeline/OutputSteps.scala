@@ -4,6 +4,7 @@ import wueortho.data.*
 import wueortho.io.svg.Svg
 import wueortho.metrics.*
 import wueortho.util.GraphProperties.*
+import wueortho.util.GraphSearch.Connectivity.isConnected
 
 import scala.util.Try
 import java.nio.file.Files
@@ -72,6 +73,7 @@ object OutputSteps:
       "EdgeLengthVariance",
       "HasLoops",
       "HasMultiEdges",
+      "IsConnected",
     )
 
   private def calcMetrics(g: BasicGraph, obs: Obstacles, r: IndexedSeq[EdgeRoute], ms: String*): Metadata = Metadata(
@@ -86,6 +88,7 @@ object OutputSteps:
           case "EdgeLengthVariance" => List(m -> EdgeLength.edgeLengthVariance(r).toString)
           case "HasLoops"           => List(m -> g.hasLoops.toString())
           case "HasMultiEdges"      => List(m -> g.hasMultiEdges.toString())
+          case "IsConnected"        => List(m -> g.isConnected.toString())
           case _                    => List(m -> "unknown metric")
       )
       .toMap,

@@ -13,6 +13,7 @@ object Experiments:
     "Edges",
     "HasLoops",
     "HasMultiEdges",
+    "IsConnected",
     "Crossings",
     "EdgeBends",
     "TotalEdgeLength",
@@ -27,14 +28,15 @@ object Experiments:
     def outPath: Path
 
     def run: Unit =
-      val (rts, metrics) = (for
-        file <- Files.list(inPath).nn.toScala(List)
-        if file.toString().endsWith(".json")
+      val files          = Files.list(inPath).nn.toScala(List).filter(_.toString().endsWith(".json"))
+      print("running... " + " ".repeat(11))
+      val (rts, metrics) = (for (file, i) <- files.zipWithIndex
       yield
+        print("\b".repeat(11).nn + f"(${i + 1}%4d/${files.size}%4d)")
         val res = Pipeline.run(mkPipeline(file))
         res.runningTime -> (res.getResult(Stage.Metadata, None).fold(sys.error, identity) + ("File", file.toString))
       ).unzip
-      println(s"Avg. runtime (ms): ${rts.map(_.totalTimeMs).sum / rts.size}")
+      println(s"\nAvg. runtime (ms): ${rts.map(_.totalTimeMs).sum / rts.size}")
       discard(Files.writeString(outPath, Metadata.mkCsv(Some(csvHeader), metrics)))
     end run
   end Experiment
@@ -50,21 +52,33 @@ object Experiments:
     )
   ).run
 
+  private def commonSteps(gTreeStretch: Stretch, portMode: PortMode) = Seq(
+    Step.ObstaclesFromLabels(VertexLabelConfig.PralineDefaults, None, None, None),
+    Step.GTreeOverlaps(gTreeStretch, None, None, None),
+    Step.PortsByAngle(portMode, None, None, None),
+    Step.SimplifiedRoutingGraph(Stretch.Original, None, None, None, None),
+    Step.EdgeRouting(None, None, None),
+    Step.FullNudging(Nudging.Config(padding = 10, use2ndHPass = true), None, None, None, None, None),
+    Step.Metrics(List("all"), None, None, None, None),
+  )
+
   @main def layoutFromPraline = (new Experiment:
     val outPath = Path.of("results", "compactify.csv").nn
 
     def mkPipeline(path: Path) = Pipeline(
-      Seq(
-        Step.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels, Use.VertexLayout), None),
-        Step.ObstaclesFromLabels(VertexLabelConfig.PralineDefaults, None, None, None),
-        Step.GTreeOverlaps(Stretch.Original, Some(Seed(0x99c0ffee)), None, None),
-        Step.PortsByAngle(PortMode.Octants, None, None, None),
-        Step.SimplifiedRoutingGraph(Stretch.Original, None, None, None, None),
-        Step.EdgeRouting(None, None, None),
-        Step.FullNudging(Nudging.Config(padding = 10, use2ndHPass = true), None, None, None, None, None),
-        Step.Metrics(List("all"), None, None, None, None),
-      ),
+      Step.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels, Use.VertexLayout), None)
+        +: commonSteps(Stretch.Original, PortMode.Octants),
     )
+  ).run
+
+  @main def fdLayout = (new Experiment:
+    val outPath = Path.of("results", "fdlayout.csv").nn
+
+    def mkPipeline(path: Path) = Pipeline(
+      Step.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels), None)
+        +: Step.ForceDirectedLayout(1000, Seed(0x99c0ffee), 1, None, None)
+        +: commonSteps(Stretch.Uniform(1.2), PortMode.Octants),
+    ),
   ).run
 
 end Experiments

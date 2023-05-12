@@ -28,6 +28,13 @@ object GraphSearch:
   lazy val bfs = new BFS:
     override def traverse(neighbors: NodeIndex => Seq[NodeIndex], start: NodeIndex) = bfsTraverse(neighbors, start)
 
+  object Connectivity:
+    import GraphProperties.*
+
+    extension [V](g: Graph[V, ?])
+      def isConnected(using f: LinkAsInt[V]) =
+        bfs.traverse(g(_).neighbors.map(v => NodeIndex(f.asInt(v))), NodeIndex(0)).size == g.numberOfVertices
+
   private def dijkstraShortestPath[C: Ordering, T](
       neighbors: DijNeighbors[T],
       s: NodeIndex,
