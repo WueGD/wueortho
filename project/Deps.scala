@@ -10,6 +10,5 @@ object Deps {
   val cats  = "org.typelevel" %% "cats-core" % "2.9.0"
 
   val scalatestVersion = "3.2.15"
-  val scalatest        = ("org.scalactic" %% "scalactic" % scalatestVersion) +:
-    Seq("scalatest", "scalatest-flatspec").map("org.scalatest" %% _ % scalatestVersion % "test")
+  val scalatest        = Seq("scalatest", "scalatest-flatspec").map("org.scalatest" %% _ % scalatestVersion % "test")
 }

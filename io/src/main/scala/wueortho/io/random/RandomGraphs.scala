@@ -34,7 +34,7 @@ object RandomGraphs:
 
     def mkHull(rndm: Random, coreSize: Int): Either[String, Seq[SimpleEdge]] = Either.cond(
       test = coreSize <= m,
-      right = for _ <- coreSize until m yield SimpleEdge.apply.tupled(nodePair(rndm)),
+      right = for _ <- coreSize until m yield (nodePair andThen SimpleEdge.apply)(rndm),
       left = s"Core size was ${coreSize} but only ${m} edges expected",
     )
 

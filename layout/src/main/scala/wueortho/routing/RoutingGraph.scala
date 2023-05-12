@@ -17,6 +17,8 @@ trait RoutingGraph:
 end RoutingGraph
 
 object RoutingGraph:
+  val eps = 1e-6
+
   enum QueueItem:
     case Init(pos: Double)
     case End(pos: Double, obsId: Int)
@@ -73,7 +75,7 @@ object RoutingGraph:
       def whenDir[R](dir: Direction)(neg: => R)(pos: => R): R
 
       def mkQueue =
-        val start    = QueueItem.Init((obs.nodes.map(low) ++ ports.toVertexLayout.nodes.map(pos)).min)
+        val start    = QueueItem.Init((obs.nodes.map(low) ++ ports.toVertexLayout.nodes.map(pos)).min - eps)
         val obsItems = for
           (rect, i) <- obs.nodes.zipWithIndex
           res       <- List(QueueItem.Begin(low(rect), i), QueueItem.End(high(rect), i))
@@ -109,7 +111,7 @@ object RoutingGraph:
           val until    = prevItem.fold(NegativeInfinity)(_.pos)
 
           var i = buffer.length - 1
-          while i >= 0 && buffer(i).at > until do
+          while i >= 0 && buffer(i).at >= until do
             if !buffer(i).isMid && buffer(i).isContainedIn(lb, ub) then buffer.remove(i).asInstanceOf[Unit]
             i -= 1
         end seekBack
