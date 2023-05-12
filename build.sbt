@@ -21,7 +21,7 @@ lazy val layout = project.settings(
 
 lazy val pipeline = project.settings(
   name := "wueortho-pipeline",
-  libraryDependencies ++= circe,
+  libraryDependencies ++= circe ++ scalatest,
 ).dependsOn(core, io, layout)
 
 lazy val root = (project in file(".")).aggregate(core, io, layout, pipeline).dependsOn(core, io, layout, pipeline)

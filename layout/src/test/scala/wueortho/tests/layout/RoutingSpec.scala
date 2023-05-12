@@ -46,11 +46,6 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
   it `should` "have a degree between 1 and 4" in:
     for v <- (NodeIndex(0) until routingGraph.size).map(routingGraph.neighbors) do v.size should (be > 0 and be < 5)
 
-  // TODO: Put these somewhere with access to writing SVGs
-  // it `should` "produce a debug file" in:
-  //   debugOVG(OvgSample.obstacles, rgAdj, rgLay, OvgSample.ports, "debug-rg")
-  //   Debugging.debugOVG(OvgSample.obstacles, adj.unweighted, lay, OvgSample.ports)
-
   lazy val adapter       = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, ovgGraph, ovgLayout, Sample.ports)
   lazy val ovgRouted     = Routing(adapter, Sample.ports)
   lazy val gridWithPaths = deprecated.PathOrder(adapter, Sample.ports, ovgRouted.paths)
@@ -80,12 +75,6 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
     routes should have size Sample.edges.size
     nudgedPorts.byEdge should have size Sample.edges.size
     nudgedObstacles.nodes should have size Sample.obstacles.nodes.size
-
-  // TODO: Put these somewhere with access to writing SVGs
-  // Files.writeString(Paths.get("ovg-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, ovgRouted.routes))
-  // Files.writeString(Paths.get("ovg-constrained-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, edgeRoutes))
-  // Files.writeString(Paths.get("ovg-geo-routing.svg"), debugSvg(OvgSample.obstacles, OvgSample.ports, geoRoutes))
-  // Files.writeString(Paths.get("ovg-fully-nudged-routing.svg"), debugSvg(fnObs, fnPorts, fnRoutes))
 
   lazy val routed = Routing(routingGraph, Sample.ports)
 

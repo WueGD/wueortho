@@ -130,6 +130,7 @@ enum Stretch derives CanEqual:
   case Original
   case Uniform(l: Double)
   case Scale(l: Vec2D)
+  case Padding(m: Vec2D)
   case Replace(width: Double, height: Double)
 
 object Stretch:
@@ -137,6 +138,7 @@ object Stretch:
     case Original               => rs
     case Uniform(l)             => rs.map(r => r.copy(span = r.span.scale(l)))
     case Scale(l)               => rs.map(r => Rect2D(r.center, Vec2D(r.span.x1 * l.x1, r.span.x2 * l.x2)))
+    case Padding(m)             => rs.map(r => Rect2D(r.center, r.span + m))
     case Replace(width, height) => rs.map(_.copy(span = Vec2D(width / 2, height / 2)))
 
 enum PortMode derives CanEqual, ConfiguredEnumCodec:

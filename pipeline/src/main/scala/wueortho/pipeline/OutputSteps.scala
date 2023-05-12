@@ -37,6 +37,16 @@ object OutputSteps:
     svg.make(rects ++ edges ++ ports ++ nLabels ++ pLabels)
   end drawAll
 
+  given Provider[Step.StraightLineDrawing] = (s: Step.StraightLineDrawing, cache: StageCache) =>
+    for
+      graph  <- cache.getStageResult(Stage.Graph, mk(s.graph))
+      layout <- cache.getStageResult(Stage.Layout, mk(s.layout))
+      _      <- cache.setStage(Stage.Svg, mk(s.tag), drawStraightEdges(s.config.svg, graph, layout))
+    yield Nil
+
+  def drawStraightEdges(svg: Svg, graph: BasicGraph, layout: VertexLayout) =
+    svg.make(svg.drawStraightEdges(graph, layout) ++ svg.drawNodes(layout))
+
   given Provider[Step.SvgToFile] = (s: Step.SvgToFile, cache: StageCache) =>
     for
       svg <- cache.getStageResult(Stage.Svg, mk(s.svg))
@@ -80,6 +90,10 @@ object OutputSteps:
       )
       .toMap,
   )
+
+  given Provider[Step.Debugging] = (s: Step.Debugging, cache: StageCache) =>
+    s.f.unwrap(cache)
+    Right(Nil).withLeft[String]
 end OutputSteps
 
 enum SvgConfig(val svg: Svg):

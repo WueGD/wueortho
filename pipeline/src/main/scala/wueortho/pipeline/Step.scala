@@ -39,6 +39,8 @@ enum Step derives ConfiguredCodec:
       portLabels: Tag,
       tag: Tag,
   )
+  case StraightLineDrawing(config: SvgConfig, graph: Tag, layout: Tag, tag: Tag)
+  case Debugging(f: wueortho.pipeline.Debugging.DebugStepWrapper, tag: Tag)
 
   def tag: Tag
   def show = s"${getClass.getSimpleName()}~${StepUtils.resolve(tag)}"

@@ -18,6 +18,10 @@ enum Stage[T]:
   case Terminal     extends Stage[Unit]
 end Stage
 
+object Stage:
+  given stageEqAB[A, B]: CanEqual[Stage[A], Stage[B]] = CanEqual.derived
+  given stageEqAX[A]: CanEqual[Stage[A], Stage[?]]    = CanEqual.derived
+
 trait Provider[S]:
   def run(s: S, cache: StageCache): Either[String, List[RunningTime]]
 

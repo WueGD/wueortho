@@ -23,7 +23,7 @@ object GraphConversions:
     extension (g: DiGraph) def undirected(using f: UndirectStrategy) = dg2sg(g, f)
     extension (g: WeightedDiGraph)
       def undirected(using f: UndirectStrategy) = wd2wg(g, f)
-      def simple(using f: UndirectStrategy)     = wd2sg(g, f)
+      def basic(using f: UndirectStrategy)      = wd2sg(g, f)
 
   def wg2sg(g: WeightedGraph)   = Graph.fromEdges(g.edges.map(_.unweighted), g.numberOfVertices).mkBasicGraph
   def wd2dg(g: WeightedDiGraph) = Graph.fromEdges(g.edges.map(_.unweighted), g.numberOfVertices).mkDiGraph
