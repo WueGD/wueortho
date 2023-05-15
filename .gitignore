@@ -8,9 +8,9 @@ out
 out.*
 tmp.*
 test.*
-*.svg
-*.json
-*.png
+/*.svg
+/*.json
+/*.png
 target
 project/project
 project/target
