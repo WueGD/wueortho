@@ -193,7 +193,6 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
   def calcAll(routing: Routed, ports: PortLayout, graph: BasicGraph, obstacles: Obstacles) = (for
     obsNodes <- obstacles.nodes.zipWithIndex.map(mkObsNodes.tupled).toVector.sequence
     paths    <- Segment.mkAll(routing.paths, routing, mkTerminals(ports, graph), i => segBuilder(i, routing, obsNodes))
-    // _         = paths.flatMap(_.toList).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_)) // DEBUG
     hGraph   <- mkHGraph(paths, obsNodes)
     xSols1   <- hGraph.mkConstraints.map(maximize)
     ySols    <- mkVGraph(paths, obsNodes, xSols1).flatMap(_.mkConstraints).map(maximize)

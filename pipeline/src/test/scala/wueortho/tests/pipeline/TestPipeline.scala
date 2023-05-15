@@ -7,6 +7,8 @@ import wueortho.tests.pipeline.TestPipeline.*
 import java.nio.file.{Path, Files}
 import java.time.ZonedDateTime
 import scala.annotation.targetName
+import scala.util.Using
+import scala.io.Source
 
 class TestPipeline private[TestPipeline] (steps: Seq[Step], name: String):
   def run(): Unit =
@@ -112,3 +114,16 @@ object Samples:
 
   def samplePLabels = Labels.enumerate(samplePorts.byEdge.size)
 end Samples
+
+object PralineSamples:
+  import wueortho.io.praline, praline.Extractors.*
+
+  private lazy val fromPraline =
+    Using.resource(getClass.getResourceAsStream("/sample.json").nn): stream =>
+      praline.parseGraph(Source.fromInputStream(stream).mkString).fold(throw _, identity)
+
+  lazy val graph        = fromPraline.getSimpleGraph.fold(sys.error, identity)
+  lazy val obstacles    = fromPraline.getObstacles.fold(sys.error, identity)
+  lazy val vertexLabels = fromPraline.getVertexLabels.fold(sys.error, identity)
+  lazy val layout       = fromPraline.getVertexLayout.fold(sys.error, identity)
+end PralineSamples

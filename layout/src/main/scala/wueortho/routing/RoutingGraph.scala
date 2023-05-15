@@ -231,6 +231,12 @@ object RoutingGraph:
         case _                                        =>
     end for
 
+    assert(nodes.zipWithIndex.find((v, i) => v.neighbors.exists(_._2.toInt == i)).isEmpty, "routing graph has loops")
+    assert(
+      nodes.find(v => v.neighbors.size != v.neighbors.distinctBy(_._2).size).isEmpty,
+      "routing graph has multi edges",
+    )
+
     new RoutingGraph:
       override def neighbors(node: NodeIndex): List[(Direction, NodeIndex)]     = nodes(node.toInt).neighbors
       override def neighbor(node: NodeIndex, dir: Direction): Option[NodeIndex] = nodes(node.toInt).neighbor(dir)

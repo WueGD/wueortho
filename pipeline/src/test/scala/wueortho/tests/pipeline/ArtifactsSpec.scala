@@ -2,6 +2,7 @@ package wueortho.tests.pipeline
 
 import wueortho.pipeline.{Debugging as _, *}
 import wueortho.routing.{RoutingGraph, Nudging}
+import wueortho.data.Seed
 
 import wueortho.util.Debugging.rg2adj
 
@@ -60,6 +61,20 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
       |> commonSteps
       |> use(Step.FullNudging(Nudging.Config(0.8, true), None, None, None, None, None), metrics)
       |> drawSvg
+      |> saveSvg
+    app.run()
+
+  "A sample from praline data" `should` "allow constructing a simplified routing graph" in:
+    val app = TestPipeline("praline-routing-graph")
+      |> (Stage.Graph        -> PralineSamples.graph)
+      |> (Stage.VertexLabels -> PralineSamples.vertexLabels)
+      |> use(
+        Step.ForceDirectedLayout(1000, Seed(0x99c0ffee), 1, None, None),
+        Step.ObstaclesFromLabels(VertexLabelConfig.PralineDefaults, None, None, None),
+        Step.GTreeOverlaps(Stretch.Uniform(1.2), None, None, None),
+        Step.PortsByAngle(PortMode.Octants, None, None, None),
+      )
+      |> use(mkRoutingGraph, drawEPVO)
       |> saveSvg
     app.run()
 

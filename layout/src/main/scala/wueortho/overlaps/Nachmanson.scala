@@ -33,8 +33,10 @@ object Nachmanson:
             go(j, disp + d)
           else go(j, disp)
       (i -> x) +: xs
+    end go
 
     go(NodeIndex(0), Vec2D(0, 0)).sortBy(_._1).map(_._2).toIndexedSeq
+  end grow
 
   def step(rects: IndexedSeq[Rect2D]): Option[IndexedSeq[Rect2D]] =
     val triangulated = Triangulation(rects.map(_.center))
@@ -56,11 +58,16 @@ object Nachmanson:
       val mst         = MinimumSpanningTree.create(adjacencies)
       grow(mst, rects),
     )
+  end step
 
-  @tailrec
-  def align(rects: IndexedSeq[Rect2D]): IndexedSeq[Rect2D] = step(rects) match
-    case Some(rs) => align(rs)
-    case None     => rects
+  def align(rects: IndexedSeq[Rect2D]) =
+    @tailrec def go(rects: IndexedSeq[Rect2D], count: Int): IndexedSeq[Rect2D] =
+      if count >= 256 then sys.error("stopped aligning after 256 steps")
+      else
+        step(rects) match
+          case Some(rs) => go(rs, count + 1)
+          case None     => rects
+    go(rects, 0)
 
 // def debugSvg(rects: IndexedSeq[Rect2D], mst: WeightedDiGraph) =
 //   java.nio.file.Files.writeString(

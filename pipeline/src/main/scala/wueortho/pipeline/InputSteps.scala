@@ -15,20 +15,18 @@ object InputSteps:
     (for
       raw   <- Try(Files.readString(s.path).nn).toEither
       graph <- praline.parseGraph(raw)
-      _     <- PralineExtractor.values.view
-                 .foldLeft(Right(()): Either[String, Unit])((u, ex) => u.flatMap(_ => maybeExtract(ex, graph, s, cache)))
+      _     <- s.use
+                 .foldLeft(Right(()).withLeft[String])((u, ex) => u.flatMap(_ => maybeExtract(ex, graph, mk(s.tag), cache)))
     yield Nil).left.map(_.toString)
 
-  private def maybeExtract(ex: PralineExtractor, g: Praline.Graph, s: Step.ReadPralineFile, cache: StageCache) =
+  private def maybeExtract(ex: PralineExtractor, g: Praline.Graph, tag: String, cache: StageCache) =
     import PralineExtractor.*
-    if !s.use.contains(ex) then Right(())
-    else
-      ex match
-        case Graph        => g.getSimpleGraph.flatMap(cache.setStage(Stage.Graph, mk(s.tag), _))
-        case VertexLabels => g.getVertexLabels.flatMap(cache.setStage(Stage.VertexLabels, mk(s.tag), _))
-        case VertexLayout => g.getVertexLayout.flatMap(cache.setStage(Stage.Layout, mk(s.tag), _))
-        case Obstacles    => g.getObstacles.flatMap(cache.setStage(Stage.Obstacles, mk(s.tag), _))
-        case EdgeRoutes   => g.getEdgeRoutes.flatMap(cache.setStage(Stage.Routes, mk(s.tag), _))
+    ex match
+      case Graph        => g.getSimpleGraph.flatMap(cache.setStage(Stage.Graph, tag, _))
+      case VertexLabels => g.getVertexLabels.flatMap(cache.setStage(Stage.VertexLabels, tag, _))
+      case VertexLayout => g.getVertexLayout.flatMap(cache.setStage(Stage.Layout, tag, _))
+      case Obstacles    => g.getObstacles.flatMap(cache.setStage(Stage.Obstacles, tag, _))
+      case EdgeRoutes   => g.getEdgeRoutes.flatMap(cache.setStage(Stage.Routes, tag, _))
   end maybeExtract
 
   given Provider[Step.RandomGraph] = (s: Step.RandomGraph, cache: StageCache) =>
