@@ -35,7 +35,7 @@ class TestPipeline private[TestPipeline] (steps: Seq[Step], name: String):
 end TestPipeline
 
 object TestPipeline:
-  private lazy val testArtifactsRoot = Files.createDirectories(Path.of("test-results")).nn
+  lazy val testArtifactsRoot = Files.createDirectories(Path.of("test-results")).nn
 
   def apply(name: String) = new TestPipeline(Nil, name)
 
@@ -78,7 +78,7 @@ object TestPipeline:
 end TestPipeline
 
 trait TestPipelineSyntax:
-  export TestPipeline.{drawSvg, saveSvg, use, useSamples, debuggingStep, defaultTag}
+  export TestPipeline.{drawSvg, saveSvg, use, useSamples, debuggingStep, defaultTag, testArtifactsRoot}
 
 object Samples:
   def sampleGraph = Graph.fromEdges(

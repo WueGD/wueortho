@@ -2,12 +2,16 @@ package wueortho.pipeline
 
 import wueortho.data.*
 import wueortho.io.svg.Svg
+import wueortho.io.praline
 import wueortho.metrics.*
 import wueortho.util.GraphProperties.*
 import wueortho.util.GraphSearch.Connectivity.isConnected
 
 import scala.util.Try
 import java.nio.file.Files
+import io.circe.syntax.*
+import io.circe.derivation.ConfiguredEnumCodec
+import wueortho.util.Codecs.given
 
 object OutputSteps:
   import StepUtils.{resolve as mk}
@@ -61,6 +65,17 @@ object OutputSteps:
       r   <- cache.getStageResult(Stage.Routes, mk(s.routes))
       m    = calcMetrics(g, obs, r, s.metrics*) + ("Vertices", s"${obs.nodes.size}") + ("Edges", s"${r.size}")
       _   <- cache.setStage(Stage.Metadata, mk(s.tag), m)
+    yield Nil
+
+  given Provider[Step.WritePralineFile] = (s: Step.WritePralineFile, cache: StageCache) =>
+    import praline.Writers.*
+
+    val pralineGraph = s.use match
+      case PralineWriter.GraphOnly => cache.getStageResult(Stage.Graph, mk(s.graph)).map(_.toPraline)
+
+    for
+      out <- pralineGraph
+      _   <- Try(Files.writeString(s.path, out.asJson.noSpaces)).toEither.left.map(_.toString)
     yield Nil
 
   private val allMetrics =
@@ -118,3 +133,6 @@ enum SvgConfig(val svg: Svg):
       )
   case Custom(override val svg: Svg) extends SvgConfig(svg)
 end SvgConfig
+
+enum PralineWriter derives CanEqual, ConfiguredEnumCodec:
+  case GraphOnly

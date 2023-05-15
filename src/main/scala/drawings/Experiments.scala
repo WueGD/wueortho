@@ -76,7 +76,7 @@ object Experiments:
 
     def mkPipeline(path: Path) = Pipeline(
       Step.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels), None)
-        +: Step.ForceDirectedLayout(1024, Seed(0x42c0ffee), 1, None, None)
+        +: Step.ForceDirectedLayout(1024, Seed(0xc0ffee), 1, None, None)
         +: commonSteps(Stretch.Uniform(1.2), PortMode.Octants),
     ),
   ).run

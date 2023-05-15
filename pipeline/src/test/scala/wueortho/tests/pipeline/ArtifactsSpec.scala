@@ -78,4 +78,14 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
       |> saveSvg
     app.run()
 
+  it `should` "allow writing it back" in:
+    val write = (name: String) =>
+      Seq(Step.WritePralineFile((testArtifactsRoot `resolve` s"$name.json").nn, PralineWriter.GraphOnly, None, None))
+
+    val app = TestPipeline("praline-writer")
+      |> (Stage.Graph -> PralineSamples.graph)
+      |> write
+
+    app.run()
+
 end ArtifactsSpec

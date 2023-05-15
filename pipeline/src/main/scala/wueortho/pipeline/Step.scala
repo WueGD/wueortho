@@ -30,6 +30,7 @@ enum Step derives ConfiguredCodec:
   case SvgToFile(path: Path, svg: Tag, tag: Tag)
   case Metrics(metrics: List[String], graph: Tag, obstacles: Tag, routes: Tag, tag: Tag)
   case ReadPralineFile(path: Path, use: List[PralineExtractor], tag: Tag)
+  case WritePralineFile(path: Path, use: PralineWriter, graph: Tag, tag: Tag)
   case SvgDrawing(
       config: SvgConfig,
       obstacles: Tag,
