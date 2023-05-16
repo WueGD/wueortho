@@ -50,6 +50,9 @@ object Praline:
           cursor.value.asNumber.map(n => Number(n.toDouble))
             .orElse(cursor.value.asString.filter(_ == "NaN").map(nan => Number(Double.NaN))).get
 
+    given Encoder[Number] = Encoder[Json]
+      .contramap(d => Json.fromDouble(d.asDouble).getOrElse(Json.fromString(d.asDouble.toString)))
+
     given Conversion[Number, Double] = _.asDouble
 
     val NaN = Number(Double.NaN)

@@ -11,4 +11,6 @@ object Deps {
 
   val scalatestVersion = "3.2.15"
   val scalatest        = Seq("scalatest", "scalatest-flatspec").map("org.scalatest" %% _ % scalatestVersion % "test")
+
+  val jackson = "com.fasterxml.jackson.core" % "jackson-databind" % "2.12.0"
 }

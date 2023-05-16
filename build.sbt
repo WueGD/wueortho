@@ -24,7 +24,13 @@ lazy val pipeline = project.settings(
   libraryDependencies ++= circe ++ scalatest,
 ).dependsOn(core, io, layout)
 
-lazy val root = (project in file(".")).aggregate(core, io, layout, pipeline).dependsOn(core, io, layout, pipeline)
+lazy val praline = project.settings(
+  name := "wueortho-praline",
+  libraryDependencies ++= jackson +: scalatest,
+).dependsOn(core)
+
+lazy val root = (project in file(".")).aggregate(core, io, layout, pipeline, praline)
+  .dependsOn(core, io, layout, pipeline)
 
 lazy val compilerOptions = Seq(
   "-source:future",

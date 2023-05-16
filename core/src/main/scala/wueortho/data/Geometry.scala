@@ -22,6 +22,8 @@ case class Rect2D(center: Vec2D, span: Vec2D) derives CanEqual:
   def right  = center.x1 + span.x1
   def bottom = center.x2 - span.x2
   def top    = center.x2 + span.x2
+  def width  = 2 * span.x1
+  def height = 2 * span.x2
 
   def scaled(factor: Double) = Rect2D(center.scale(factor), span.scale(factor))
 
