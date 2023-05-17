@@ -4,7 +4,7 @@
 .vscode/
 .bsp
 *.iml
-out
+/out
 out.*
 tmp.*
 test.*
@@ -12,12 +12,11 @@ test.*
 /*.json
 /*.png
 target
-project/project
-project/target
-project/metals.sbt
+/project/project
+/project/metals.sbt
 *.swp
-notes
-results
-data
-test-results
+/notes
+/results
+/data
+/test-results
 *.tar.*

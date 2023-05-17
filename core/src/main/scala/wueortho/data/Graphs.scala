@@ -1,6 +1,6 @@
 package wueortho.data
 
-sealed trait Graph[V, E]:
+trait Graph[V, E]:
   def numberOfVertices: Int
   def apply(i: NodeIndex): Vertex[V]
   def vertices: IndexedSeq[Vertex[V]]
