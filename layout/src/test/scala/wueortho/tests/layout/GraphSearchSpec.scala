@@ -4,8 +4,9 @@ import wueortho.data.{Graph, Path, NodeIndex}
 import wueortho.util.GraphSearch.*
 import wueortho.util.GraphConversions.simple.*
 import wueortho.util.DifferenceConstraints, DifferenceConstraints.DifferenceConstraint
+import wueortho.util.ConnectedComponents
 
-import wueortho.tests.layout.TestUtils.rawE
+import wueortho.tests.layout.TestUtils.{rawE, rawSE}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should
 
@@ -58,5 +59,19 @@ class GraphSearchSpec extends AnyFlatSpec, should.Matchers:
     DifferenceConstraints.solve(constraints) match
       case None           => fail("it should be solvable")
       case Some(solution) => solution shouldEqual Vector(-5.0, -3.0, 0.0, -1.0, -4.0)
+
+  lazy val disconnected = Graph.fromEdges(
+    Seq(
+      rawSE(0, 1),
+      rawSE(2, 2),
+      rawSE(3, 4),
+      rawSE(4, 5),
+      rawSE(5, 4),
+      rawSE(6, 6),
+    ),
+  ).mkBasicGraph
+
+  "A disconnected graph" `should` "have a largest component" in:
+    ConnectedComponents.largestComponent(disconnected) should contain allElementsOf (Seq(3, 4, 5))
 
 end GraphSearchSpec

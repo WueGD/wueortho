@@ -1,6 +1,6 @@
 import Deps._
 
-ThisBuild / scalaVersion := "3.3.0-RC4"
+ThisBuild / scalaVersion := "3.3.0-RC6"
 ThisBuild / organization := "de.uniwue.info1"
 ThisBuild / version      := "0.1.0"
 ThisBuild / scalacOptions ++= compilerOptions
