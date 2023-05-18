@@ -30,7 +30,7 @@ lazy val praline = project.settings(
 ).dependsOn(core)
 
 lazy val root = (project in file(".")).aggregate(core, io, layout, pipeline, praline)
-  .dependsOn(core, io, layout, pipeline)
+  .dependsOn(core, io, layout, pipeline, praline)
 
 lazy val compilerOptions = Seq(
   "-source:future",

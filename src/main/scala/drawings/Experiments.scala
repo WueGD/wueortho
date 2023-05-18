@@ -2,9 +2,13 @@ package drawings
 
 import wueortho.data.{Metadata, Seed}
 import wueortho.pipeline.{PralineExtractor as Use, *}
+import wueortho.routing.Nudging
+import wueortho.interop.{PralineReader, PralineWriter}, PralineReader.syntax.*, PralineWriter.syntax.*
+import wueortho.util.Solidify.*
 import java.nio.file.{Path, Files}
 import scala.jdk.StreamConverters.*
-import wueortho.routing.Nudging
+import wueortho.data.Labels
+import wueortho.util.ConnectedComponents
 
 object Experiments:
   val csvHeader = List(
@@ -21,7 +25,7 @@ object Experiments:
     "BoundingBoxArea",
     "ConvexHullArea",
   )
-  val inPath    = Path.of("data", "praline").nn
+  val inPath    = Path.of("data", "cleaned").nn
 
   trait Experiment:
     def mkPipeline(inPath: Path): Pipeline
@@ -30,11 +34,12 @@ object Experiments:
     def run: Unit =
       val files          = Files.list(inPath).nn.toScala(List).filter(_.toString().endsWith(".json"))
       print("running... " + " ".repeat(11))
-      val (rts, metrics) = (for (file, i) <- files.zipWithIndex
-      yield
-        print("\b".repeat(11).nn + f"(${i + 1}%4d/${files.size}%4d)")
-        val res = Pipeline.run(mkPipeline(file))
-        res.runningTime -> (res.getResult(Stage.Metadata, None).fold(sys.error, identity) + ("File", file.toString))
+      val (rts, metrics) = (
+        for (file, i) <- files.zipWithIndex
+        yield
+          print("\b".repeat(11).nn + f"(${i + 1}%4d/${files.size}%4d)")
+          val res = Pipeline.run(mkPipeline(file))
+          res.runningTime -> (res.getResult(Stage.Metadata, None).fold(sys.error, identity) + ("File", file.toString))
       ).unzip
       println(s"\nAvg. runtime (ms): ${rts.map(_.totalTimeMs).sum / rts.size}")
       discard(Files.writeString(outPath, Metadata.mkCsv(Some(csvHeader), metrics)))
@@ -80,6 +85,37 @@ object Experiments:
         +: commonSteps(Stretch.Uniform(1.2), PortMode.Octants),
     ),
   ).run
+
+  @main def cleanupGraphs =
+    val inPath  = Path.of("data", "praline").nn
+    val outPath = Path.of("data", "cleaned").nn
+
+    Files.createDirectories(outPath)
+    val files = Files.list(inPath).nn.toScala(List).filter(_.toString().endsWith(".json"))
+    print("running... " + " ".repeat(11))
+    for (file, i) <- files.zipWithIndex do
+      print("\b".repeat(11).nn + f"(${i + 1}%4d/${files.size}%4d)")
+      val res = for
+        raw <- PralineReader.fromFile(file).toEither.left.map(_.toString)
+        hg  <- raw.getHypergraph
+        vl  <- raw.getVertexLabels
+      yield
+        import ConnectedComponents.*
+        val graph   = hg.solidify
+        val largest = largestComponent(graph)
+        val labels  = reduceToComponent(
+          Labels.PlainText(vl.labels ++ Seq.fill(graph.numberOfVertices - hg.numberOfVertices)("")),
+          largest,
+        )
+        reduceToComponent(graph, largest).toPraline <~~ labels
+
+      Files.writeString(
+        outPath `resolve` file.getFileName(),
+        res.map(_.asJson.get).fold(sys.error, identity),
+      )
+    end for
+    println()
+  end cleanupGraphs
 
 end Experiments
 

@@ -12,14 +12,15 @@ import scala.annotation.targetName
 import java.util.List as JList
 
 object PralineWriter:
-  extension (g: BasicGraph) def toPraline = mutilate(g)
+  object syntax:
+    extension (g: BasicGraph) def toPraline = mutilate(g)
 
-  extension (g: P.Graph)
-    def asJson = Try(Serialization.writePretty(g).nn)
+    extension (g: P.Graph)
+      def asJson = Try(Serialization.writePretty(g).nn)
 
-    @targetName("engulfObs") def <~~(obs: Obstacles)         = engulf(g, obs)
-    @targetName("engulfVL") def <~~(vl: Labels)              = engulf(g, vl)
-    @targetName("engulfP") def <~~(r: IndexedSeq[EdgeRoute]) = ???
+      @targetName("engulfObs") def <~~(obs: Obstacles)         = engulf(g, obs)
+      @targetName("engulfVL") def <~~(vl: Labels)              = engulf(g, vl)
+      @targetName("engulfP") def <~~(r: IndexedSeq[EdgeRoute]) = ???
 
   def mutilate(g: BasicGraph) =
     val badVertices = IndexedSeq.fill(g.numberOfVertices)(new P.Vertex())
