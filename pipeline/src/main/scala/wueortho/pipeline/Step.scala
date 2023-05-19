@@ -16,7 +16,7 @@ enum Step derives ConfiguredCodec:
   case ForceDirectedLayout(iterations: Int, seed: Seed, repetitions: Int, graph: Tag, tag: Tag)
   case SyntheticVertexLabels(config: SyntheticLabels, graph: Tag, tag: Tag)
   case UniformObstacles(width: Double, height: Double, vertexLayout: Tag, tag: Tag)
-  case GTreeOverlaps(stretch: Stretch, forceGeneralPosition: Option[Seed], obstacles: Tag, tag: Tag)
+  case GTreeOverlaps(stretch: Stretch, seed: Seed, forceGeneralPosition: Boolean, obstacles: Tag, tag: Tag)
   case ObstaclesFromLabels(config: VertexLabelConfig, vertexLayout: Tag, vertexLabels: Tag, tag: Tag)
   case PortsByAngle(mode: PortMode, obstacles: Tag, graph: Tag, tag: Tag)
   case SyntheticPortLabels(config: SyntheticLabels, ports: Tag, tag: Tag)

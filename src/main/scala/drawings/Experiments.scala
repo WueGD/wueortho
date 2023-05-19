@@ -1,14 +1,13 @@
 package drawings
 
-import wueortho.data.{Metadata, Seed}
+import wueortho.data.{Metadata, Seed, Labels}
 import wueortho.pipeline.{PralineExtractor as Use, *}
 import wueortho.routing.Nudging
 import wueortho.interop.{PralineReader, PralineWriter}, PralineReader.syntax.*, PralineWriter.syntax.*
 import wueortho.util.Solidify.*
+import wueortho.util.ConnectedComponents
 import java.nio.file.{Path, Files}
 import scala.jdk.StreamConverters.*
-import wueortho.data.Labels
-import wueortho.util.ConnectedComponents
 
 object Experiments:
   val csvHeader = List(
@@ -25,7 +24,7 @@ object Experiments:
     "BoundingBoxArea",
     "ConvexHullArea",
   )
-  val inPath    = Path.of("data", "cleaned").nn
+  val inPath    = Path.of("data", "cleaned-praline").nn
 
   trait Experiment:
     def mkPipeline(inPath: Path): Pipeline
@@ -38,7 +37,13 @@ object Experiments:
         for (file, i) <- files.zipWithIndex
         yield
           print("\b".repeat(11).nn + f"(${i + 1}%4d/${files.size}%4d)")
-          val res = Pipeline.run(mkPipeline(file))
+          val res =
+            try Pipeline.run(mkPipeline(file))
+            catch
+              case throwable =>
+                println(s"\nFAILED at file $file")
+                throw throwable
+
           res.runningTime -> (res.getResult(Stage.Metadata, None).fold(sys.error, identity) + ("File", file.toString))
       ).unzip
       println(s"\nAvg. runtime (ms): ${rts.map(_.totalTimeMs).sum / rts.size}")
@@ -59,7 +64,7 @@ object Experiments:
 
   private def commonSteps(gTreeStretch: Stretch, portMode: PortMode) = Seq(
     Step.ObstaclesFromLabels(VertexLabelConfig.PralineDefaults, None, None, None),
-    Step.GTreeOverlaps(gTreeStretch, None, None, None),
+    Step.GTreeOverlaps(gTreeStretch, Seed(0x99c0ffee), false, None, None),
     Step.PortsByAngle(portMode, None, None, None),
     Step.SimplifiedRoutingGraph(Stretch.Original, None, None, None, None),
     Step.EdgeRouting(None, None, None),

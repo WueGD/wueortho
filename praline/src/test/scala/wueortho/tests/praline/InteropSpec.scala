@@ -1,15 +1,16 @@
 package wueortho.tests.praline
 
 import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should
 
 import wueortho.data.*
-import wueortho.interop.PralineReader
-import wueortho.interop.PralineWriter.*
+import wueortho.interop.PralineReader, PralineReader.syntax.*
+import wueortho.interop.PralineWriter.syntax.*
 
 import scala.util.Using
 import java.nio.file.{Files, Path}
 
-class InteropSpec extends AnyFlatSpec:
+class InteropSpec extends AnyFlatSpec, should.Matchers:
   lazy val input = Using.resource(getClass.getResourceAsStream("/sample.json").nn): stream =>
     PralineReader.fromInputStream(stream).get
 
@@ -19,6 +20,17 @@ class InteropSpec extends AnyFlatSpec:
   "A sample graph" `should` "be writable in praline format" in:
     val g = Sample.graph.toPraline <~~ Sample.obstacles <~~ Labels.PlainText(IndexedSeq("a", "b", "c"))
     Files.writeString(Path.of("test-results", "praline-interop-sample.json"), g.asJson.get)
+
+  it `should` "be the same graph after writing and reading again" in:
+    val g  = Sample.graph.toPraline <~~ Sample.obstacles <~~ Labels.PlainText(IndexedSeq("a", "b", "c"))
+    val s  = g.asJson.get
+    val g2 = PralineReader.fromString(s).get
+    val bg = g2.getBasicGraph.fold(sys.error, identity)
+    // todo obs
+    val l  = g2.getVertexLabels.fold(sys.error, identity)
+    bg.vertices.map(_.neighbors.map(_.toNode).sorted) shouldEqual
+      Sample.graph.vertices.map(_.neighbors.map(_.toNode).sorted)
+    l.labels shouldEqual IndexedSeq("a", "b", "c")
 end InteropSpec
 
 object Sample:

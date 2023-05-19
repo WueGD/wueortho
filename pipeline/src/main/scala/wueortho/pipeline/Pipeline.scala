@@ -49,7 +49,7 @@ object Pipeline:
         Step.RandomGraph(RandomGraphConfig(20, 60, seed, GraphCore.Tree, allowLoops = false), None),
         Step.ForceDirectedLayout(1000, seed, 1, None, None),
         Step.UniformObstacles(4.0, 2.0, None, Some("raw")),
-        Step.GTreeOverlaps(Stretch.Scale(Vec2D(1.5, 2.0)), Some(seed), Some("raw"), None),
+        Step.GTreeOverlaps(Stretch.Scale(Vec2D(1.5, 2.0)), seed, true, Some("raw"), None),
         Step.PortsByAngle(PortMode.Octants, None, None, None),
         Step.SimplifiedRoutingGraph(Stretch.Scale(Vec2D(1.1, 1.2)), None, None, None, None),
         Step.EdgeRouting(None, None, None),

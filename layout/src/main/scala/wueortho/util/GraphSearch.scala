@@ -47,11 +47,14 @@ object GraphSearch:
 
     def bestPath =
       @tailrec def go(node: NodeIndex, path: List[NodeIndex]): Either[DijkstraError, List[NodeIndex]] =
-        ptrs.get(node) match
-          case None       => Left(DijkstraError.LostTrack(node))
-          case Some(-1)   => Right(node :: path)
-          case Some(next) => go(NodeIndex(next), node :: path)
+        if path.size > ptrs.size then Left(DijkstraError.InfiniteLoop)
+        else
+          ptrs.get(node) match
+            case None       => Left(DijkstraError.LostTrack(node))
+            case Some(-1)   => Right(node :: path)
+            case Some(next) => go(NodeIndex(next), node :: path)
       go(t, Nil).map(l => Path(l.toIndexedSeq))
+    end bestPath
 
     while queue.nonEmpty do
       val (pathCost, u) = queue.dequeue
@@ -78,6 +81,7 @@ object GraphSearch:
   enum DijkstraError:
     case NoShortestPath
     case LostTrack(after: NodeIndex)
+    case InfiniteLoop
 
   trait DijkstraCost[C, T]:
     def calc(t: T, c0: C): C

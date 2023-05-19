@@ -2,6 +2,8 @@ package wueortho.pipeline
 
 import wueortho.data.*
 import wueortho.io.svg.Svg
+import wueortho.util.GraphConversions, GraphConversions.all.*, GraphConversions.UndirectStrategy
+
 import java.nio.file.Files
 import java.nio.file.Path
 import io.circe.{Encoder, Decoder}
@@ -15,12 +17,16 @@ object Debugging:
 
   def rawDV(nbrs: (Int, Double)*) = nbrs.map((v, w) => NodeIndex(v) -> w).toSeq
 
+  def debugAlign(g: WeightedDiGraph, rs: IndexedSeq[Rect2D]): Unit =
+    val filename = s"${System.nanoTime}_dbg-mst.svg"
+    val svg      = debugSvg(g.basic(using UndirectStrategy.AllEdges), Obstacles(rs), 1)
+    discard(Files.writeString(Path.of(filename), svg))
+
   def debugProtoRG(obs: Obstacles, edges: List[(Vec2D, Vec2D)]) =
     val svg      = Svg.withDefaults.copy(pixelsPerUnit = 1.0)
     val rectsSvg = svg.drawObstacles(obs)
     val linesSvg = svg.drawStraightSegments(edges)
-    Files.writeString(Path.of("debug-proto-rg.svg"), svg.make(rectsSvg ++ linesSvg))
-    ()
+    discard(Files.writeString(Path.of("debug-proto-rg.svg"), svg.make(rectsSvg ++ linesSvg)))
 
   def debugOVG(
       obstacles: Obstacles,
@@ -54,8 +60,9 @@ object Debugging:
     val edgesSvg = svg.drawStraightEdges(ewg, vl)
     svg.make(edgesSvg ++ nodesSvg)
 
-  def debugSvg(adj: BasicGraph, obs: Obstacles) =
-    val svg      = Svg.withDefaults.copy(edgeBends = Svg.EdgeBends.Straight, edgeColor = Svg.EdgeColor.Single("gray"))
+  def debugSvg(adj: BasicGraph, obs: Obstacles, ppu: Double = 50) =
+    val svg      = Svg.withDefaults
+      .copy(edgeBends = Svg.EdgeBends.Straight, edgeColor = Svg.EdgeColor.Single("gray"), pixelsPerUnit = ppu)
     val vl       = VertexLayout(obs.nodes.map(_.center))
     val rectsSvg = svg.drawObstacles(obs)
     val nodesSvg = svg.drawNodes(vl)
@@ -73,4 +80,6 @@ object Debugging:
   object DebugStepWrapper:
     given Encoder[DebugStepWrapper] = Encoder.AsObject.instance(_ => sys.error("Debug steps must not be serialized"))
     given Decoder[DebugStepWrapper] = Decoder.failedWithMessage("Debug steps must not be serialized")
+
+  def discard[T](t: T): Unit = ()
 end Debugging

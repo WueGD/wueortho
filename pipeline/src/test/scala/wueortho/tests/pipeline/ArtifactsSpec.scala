@@ -71,7 +71,7 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
       |> use(
         Step.ForceDirectedLayout(1000, Seed(0x99c0ffee), 1, None, None),
         Step.ObstaclesFromLabels(VertexLabelConfig.PralineDefaults, None, None, None),
-        Step.GTreeOverlaps(Stretch.Uniform(1.2), None, None, None),
+        Step.GTreeOverlaps(Stretch.Uniform(1.2), Seed(0x99c0ffee), false, None, None),
         Step.PortsByAngle(PortMode.Octants, None, None, None),
       )
       |> use(mkRoutingGraph, drawEPVO)

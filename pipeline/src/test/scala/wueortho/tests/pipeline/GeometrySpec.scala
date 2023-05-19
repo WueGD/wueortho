@@ -16,7 +16,7 @@ class GeometrySpec extends AnyFlatSpec, TestPipelineSyntax:
     case Seq(center, Vec2D(w, h)) => Rect2D(center, Vec2D(w.abs / 2, h.abs / 2)),
   )
 
-  lazy val gTree = Step.GTreeOverlaps(Stretch.Padding(Vec2D(0.5, 0.5)), None, None, None)
+  lazy val gTree = Step.GTreeOverlaps(Stretch.Padding(Vec2D(0.5, 0.5)), Seed(0x99c0ffee), false, None, None)
   lazy val draw  = Step.StraightLineDrawing(SvgConfig.StraightEdges, None, None, None)
 
   lazy val layout = debuggingStep: cache =>

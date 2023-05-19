@@ -41,9 +41,9 @@ object AlgorithmicSteps:
     yield Nil
 
   private def align(in: Step.GTreeOverlaps, obs: Obstacles) =
-    val aligned = Nachmanson.align(Stretch(in.stretch, obs.nodes))
+    val aligned = Nachmanson.align(Stretch(in.stretch, obs.nodes), in.seed.newRandom)
     val result  = Obstacles((aligned zip obs.nodes).map((r, o) => Rect2D(r.center, o.span)))
-    in.forceGeneralPosition.fold(result)(seed => result.forceGeneralPosition(seed.newRandom))
+    if in.forceGeneralPosition then result.forceGeneralPosition(in.seed.newRandom) else result
 
   given Provider[Step.PortsByAngle] = (s: Step.PortsByAngle, cache: StageCache) =>
     for
