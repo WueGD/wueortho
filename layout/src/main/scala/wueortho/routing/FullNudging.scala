@@ -84,7 +84,7 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
       val (oCs, oObj) = obstacleConstraints
       val (lObj, w1)  = pathLength
       for (sCs, sObj, w2) <- homogeneityConstraints
-      yield (bCs ++ pCs ++ oCs ++ sCs) -> ((w1 + w2 + 1.0) * (bObj + oObj) + sObj - lObj)
+      yield (bCs ++ pCs ++ oCs ++ sCs) -> (2.0 * (w1 + w2 + 1.0) * (bObj + oObj) + sObj - 2.0 * lObj)
 
   end CGraph
 
