@@ -1,7 +1,7 @@
 package wueortho.overlaps
 
 import wueortho.data.*
-import wueortho.util.{Triangulation, MinimumSpanningTree}
+import wueortho.util.{Triangulation, MinimumSpanningTree, WhenSyntax}, WhenSyntax.when
 import scala.annotation.tailrec
 import scala.util.Random
 
@@ -48,7 +48,8 @@ object Nachmanson:
       dbg: (WeightedDiGraph, IndexedSeq[Rect2D]) => Unit,
   ): Option[IndexedSeq[Rect2D]] =
     val triangulated = Triangulation(rects.map(_.center))
-    val edges        = triangulated.map(se => se.withWeight(overlapCost(rects(se.from.toInt), rects(se.to.toInt))))
+    val edges        = (triangulated when (_.nonEmpty) otherwise mkPath(rects))
+      .map(se => se.withWeight(overlapCost(rects(se.from.toInt), rects(se.to.toInt))))
 
     val augmented = if edges.forall(_.weight >= -eps) then
       val augments = for
@@ -69,6 +70,9 @@ object Nachmanson:
       grow(mst, rects, random),
     )
   end step
+
+  private def mkPath(rects: IndexedSeq[Rect2D]) =
+    for Seq((a, i), (b, j)) <- rects.zipWithIndex.sliding(2).toSeq yield SimpleEdge(NodeIndex(i), NodeIndex(j))
 
   def align(
       rects: IndexedSeq[Rect2D],

@@ -24,11 +24,13 @@ object Experiments:
     "BoundingBoxArea",
     "ConvexHullArea",
   )
-  val inPath    = Path.of("data", "cleaned-praline").nn
 
-  trait Experiment:
+  val inPath  = Path.of("data", "topozoo").nn
+  val outPath = Path.of("results").nn
+  val batch   = "tz"
+
+  trait Experiment(name: String):
     def mkPipeline(inPath: Path): Pipeline
-    def outPath: Path
 
     def run: Unit =
       val files          = Files.list(inPath).nn.toScala(List).filter(_.toString().endsWith(".json"))
@@ -44,16 +46,18 @@ object Experiments:
                 println(s"\nFAILED at file $file")
                 throw throwable
 
-          res.runningTime -> (res.getResult(Stage.Metadata, None).fold(sys.error, identity) + ("File", file.toString))
+          (res.runningTime.toMetadata + ("File", file.toString)) ->
+            (res.getResult(Stage.Metadata, None).fold(sys.error, identity) + ("File", file.toString))
       ).unzip
-      println(s"\nAvg. runtime (ms): ${rts.map(_.totalTimeMs).sum / rts.size}")
-      discard(Files.writeString(outPath, Metadata.mkCsv(Some(csvHeader), metrics)))
+      println()
+      discard(Files.writeString(outPath `resolve` s"${batch}_$name.csv", Metadata.mkCsv(metrics, Some(csvHeader))))
+      discard(
+        Files.writeString(outPath `resolve` s"${batch}_${name}_rt.csv", Metadata.mkCsv(rts, None, sortHeaders = true)),
+      )
     end run
   end Experiment
 
-  @main def calcPralineMetrics = (new Experiment:
-    val outPath = Path.of("results", "praline.csv").nn
-
+  @main def calcPralineMetrics = (new Experiment("praline"):
     def mkPipeline(path: Path) = Pipeline(
       Seq(
         Step.ReadPralineFile(path, List(Use.Graph, Use.Obstacles, Use.EdgeRoutes), None),
@@ -64,7 +68,7 @@ object Experiments:
 
   private def commonSteps(gTreeStretch: Stretch, portMode: PortMode) = Seq(
     Step.ObstaclesFromLabels(VertexLabelConfig.PralineDefaults, None, None, None),
-    Step.GTreeOverlaps(gTreeStretch, Seed(0x99c0ffee), false, None, None),
+    Step.GTreeOverlaps(gTreeStretch, Seed(0x99c0ffee), true, None, None),
     Step.PortsByAngle(portMode, None, None, None),
     Step.SimplifiedRoutingGraph(Stretch.Original, None, None, None, None),
     Step.EdgeRouting(None, None, None),
@@ -72,27 +76,23 @@ object Experiments:
     Step.Metrics(List("all"), None, None, None, None),
   )
 
-  @main def layoutFromPraline = (new Experiment:
-    val outPath = Path.of("results", "compactify.csv").nn
-
+  @main def layoutFromPraline = (new Experiment("compactify"):
     def mkPipeline(path: Path) = Pipeline(
       Step.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels, Use.VertexLayout), None)
         +: commonSteps(Stretch.Original, PortMode.Octants),
     )
   ).run
 
-  @main def fdLayout = (new Experiment:
-    val outPath = Path.of("results", "fdlayout.csv").nn
-
+  @main def fdLayout = (new Experiment("fdlayout"):
     def mkPipeline(path: Path) = Pipeline(
       Step.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels), None)
-        +: Step.ForceDirectedLayout(1024, Seed(0xc0ffee), 1, None, None)
+        +: Step.ForceDirectedLayout(1024, Seed(0x99c0ffee), 1, None, None)
         +: commonSteps(Stretch.Uniform(1.2), PortMode.Octants),
     ),
   ).run
 
   @main def cleanupGraphs =
-    val inPath  = Path.of("data", "praline").nn
+    val inPath  = Path.of("data", "pseudo-plans").nn
     val outPath = Path.of("data", "cleaned").nn
 
     Files.createDirectories(outPath)

@@ -1,7 +1,11 @@
 package wueortho.pipeline
 
+import wueortho.data.Metadata
+import wueortho.util.WhenSyntax.when
+
 case class RunningTime(title: String, start: Long, end: Long, parts: List[RunningTime]):
-  def totalTimeMs  = (end - start) / 1e6
+  def totalTimeMs = (end - start) / 1e6
+
   def show: String =
     def prefixLines(text: String, firstPrefix: String, otherPrefix: String) = text.linesIterator.toList match
       case Nil          => sys.error(s"$text should not give an empty lines iterator")
@@ -15,6 +19,12 @@ case class RunningTime(title: String, start: Long, end: Long, parts: List[Runnin
           .mkString("\n")
     )
   end show
+
+  def toMetadata =
+    def go(rt: RunningTime, path: String): List[(String, String)] =
+      val subPath = rt.title when (_ => path.isEmpty) otherwiseDo (path + "." + _)
+      (subPath -> rt.totalTimeMs.toString) :: rt.parts.flatMap(rt => go(rt, subPath))
+    Metadata(go(this, "").toMap)
 end RunningTime
 
 object RunningTime:
