@@ -19,21 +19,20 @@ object OutputSteps:
   given Provider[Step.SvgDrawing] = (s: Step.SvgDrawing, cache: StageCache) =>
     for
       obs <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
-      pl  <- cache.getStageResult(Stage.Ports, mk(s.ports))
       r   <- cache.getStageResult(Stage.Routes, mk(s.routes))
       vls <- cache.getStageResult(Stage.VertexLabels, mk(s.vertexLabels))
       pls <- cache.getStageResult(Stage.PortLabels, mk(s.portLabels))
-      _   <- cache.setStage(Stage.Svg, mk(s.tag), drawAll(s.config.svg, obs, pl, r, vls, pls))
+      _   <- cache.setStage(Stage.Svg, mk(s.tag), drawAll(s.config.svg, obs, r, vls, pls))
     yield Nil
 
   private def drawAll(
       svg: Svg,
       obs: Obstacles,
-      pl: PortLayout,
       r: IndexedSeq[EdgeRoute],
       vertexLabels: Labels,
       portLabels: Labels,
   ) =
+    val pl      = PortLayout(r.map(_.terminals))
     val rects   = svg.drawObstacles(obs)
     val nLabels = svg.drawNodeLabels(VertexLayout(obs.nodes.map(_.center)), vertexLabels)
     val ports   = svg.drawPorts(pl)

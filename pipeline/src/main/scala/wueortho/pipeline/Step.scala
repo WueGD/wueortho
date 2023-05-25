@@ -29,17 +29,10 @@ enum Step derives ConfiguredCodec:
   case FullNudging(config: Nudging.Config, routing: Tag, ports: Tag, obstacles: Tag, graph: Tag, tag: Tag)
   case SvgToFile(path: Path, svg: Tag, tag: Tag)
   case Metrics(metrics: List[String], graph: Tag, obstacles: Tag, routes: Tag, tag: Tag)
-  case ReadPralineFile(path: Path, use: List[PralineExtractor], tag: Tag)
+  case ReadPralineFile(path: Path, use: List[Extractor], tag: Tag)
+  case ReadTglfFile(path: Path, use: List[Extractor], tag: Tag)
   case WritePralineFile(path: Path, use: PralineWriter, graph: Tag, tag: Tag)
-  case SvgDrawing(
-      config: SvgConfig,
-      obstacles: Tag,
-      ports: Tag,
-      routes: Tag,
-      vertexLabels: Tag,
-      portLabels: Tag,
-      tag: Tag,
-  )
+  case SvgDrawing(config: SvgConfig, obstacles: Tag, routes: Tag, vertexLabels: Tag, portLabels: Tag, tag: Tag)
   case StraightLineDrawing(config: SvgConfig, graph: Tag, layout: Tag, tag: Tag)
   case Debugging(f: wueortho.pipeline.Debugging.DebugStepWrapper, tag: Tag)
 

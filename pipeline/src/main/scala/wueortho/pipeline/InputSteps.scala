@@ -3,10 +3,13 @@ package wueortho.pipeline
 import wueortho.data.*
 import wueortho.io.{praline, random}, praline.Praline, praline.Extractors.*
 import wueortho.util.Codecs.given
+import wueortho.util.TextUtils
+import Extractor as Use
 
 import io.circe.derivation.ConfiguredEnumCodec
 import scala.util.Try
 import java.nio.file.Files
+import wueortho.io.tglf.TglfReader
 
 object InputSteps:
   import StepUtils.{resolve as mk, *}
@@ -15,19 +18,33 @@ object InputSteps:
     (for
       raw   <- Try(Files.readString(s.path).nn).toEither
       graph <- praline.parseGraph(raw)
-      _     <- s.use
-                 .foldLeft(Right(()).withLeft[String])((u, ex) => u.flatMap(_ => maybeExtract(ex, graph, mk(s.tag), cache)))
+      _     <- s.use.foldLeft(Right(()).withLeft[String]): (u, ex) =>
+                 u.flatMap(_ => maybeExtractPraline(ex, graph, mk(s.tag), cache))
     yield Nil).left.map(_.toString)
 
-  private def maybeExtract(ex: PralineExtractor, g: Praline.Graph, tag: String, cache: StageCache) =
-    import PralineExtractor.*
+  private def maybeExtractPraline(ex: Extractor, g: Praline.Graph, tag: String, cache: StageCache) =
     ex match
-      case Graph        => g.getSimpleGraph.flatMap(cache.setStage(Stage.Graph, tag, _))
-      case VertexLabels => g.getVertexLabels.flatMap(cache.setStage(Stage.VertexLabels, tag, _))
-      case VertexLayout => g.getVertexLayout.flatMap(cache.setStage(Stage.Layout, tag, _))
-      case Obstacles    => g.getObstacles.flatMap(cache.setStage(Stage.Obstacles, tag, _))
-      case EdgeRoutes   => g.getEdgeRoutes.flatMap(cache.setStage(Stage.Routes, tag, _))
-  end maybeExtract
+      case Use.Graph        => g.getSimpleGraph.flatMap(cache.setStage(Stage.Graph, tag, _))
+      case Use.VertexLabels => g.getVertexLabels.flatMap(cache.setStage(Stage.VertexLabels, tag, _))
+      case Use.VertexLayout => g.getVertexLayout.flatMap(cache.setStage(Stage.Layout, tag, _))
+      case Use.Obstacles    => g.getObstacles.flatMap(cache.setStage(Stage.Obstacles, tag, _))
+      case Use.EdgeRoutes   => g.getEdgeRoutes.flatMap(cache.setStage(Stage.Routes, tag, _))
+
+  given Provider[Step.ReadTglfFile] = (s: Step.ReadTglfFile, cache: StageCache) =>
+    (for
+      raw <- Try(Files.readString(s.path).nn).toEither
+      in  <- TglfReader.fromString(raw)
+      _   <- s.use.foldLeft(Right(()).withLeft[String]): (u, ex) =>
+               u.flatMap(_ => maybeExtractTglf(ex, in, mk(s.tag), cache))
+    yield Nil).left.map(_.toString)
+
+  private def maybeExtractTglf(ex: Extractor, in: TglfReader.TglfRepr, tag: String, cache: StageCache) =
+    ex match
+      case Use.Graph        => cache.setStage(Stage.Graph, tag, in.getBasicGraph)
+      case Use.VertexLabels => Left("cannot extract vertex labels from tglf")
+      case Use.VertexLayout => cache.setStage(Stage.Layout, tag, VertexLayout(in.getObstacles.nodes.map(_.center)))
+      case Use.Obstacles    => cache.setStage(Stage.Obstacles, tag, in.getObstacles)
+      case Use.EdgeRoutes   => in.getPaths.flatMap(cache.setStage(Stage.Routes, tag, _))
 
   given Provider[Step.RandomGraph] = (s: Step.RandomGraph, cache: StageCache) =>
     cache.updateStage(Stage.Graph, mk(s.tag), _ => random.RandomGraphs.mkSimpleGraph(s.config)).nil
@@ -90,5 +107,5 @@ enum VertexLabelConfig(val minWidth: Double, val minHeight: Double, val padding:
 enum SyntheticLabels derives CanEqual, ConfiguredEnumCodec:
   case Hide, Enumerate
 
-enum PralineExtractor derives CanEqual, ConfiguredEnumCodec:
+enum Extractor derives CanEqual, ConfiguredEnumCodec:
   case Graph, VertexLabels, VertexLayout, Obstacles, EdgeRoutes

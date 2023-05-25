@@ -72,10 +72,10 @@ object ForceDirected:
   )
 
   val defaultConfig = Config(
-    startingTemp = 10.0,
+    startingTemp = 15.0,
     iterCap = 1000,
     // cooling = x => (x - 0.1) * 0.995 + 0.1,
-    cooling = x => (x - 0.01) max 0.1,
+    cooling = x => (x - 0.02) max 0.1,
     repulsive = 1.0 / _,
     attractive = x => x * x,
   )

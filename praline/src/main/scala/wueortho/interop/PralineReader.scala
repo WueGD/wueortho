@@ -1,6 +1,7 @@
 package wueortho.interop
 
 import wueortho.data.*
+import wueortho.util.Traverse.traverse
 
 import de.uniwue.informatik.praline.datastructure.{graphs as P, labels as L}
 import de.uniwue.informatik.praline.datastructure.oldUnstyledObjects as old
@@ -59,11 +60,26 @@ object PralineReader:
     def mkHyperedge(e: P.Edge) = e.getPorts.nn.asScala.toSeq
       .traverse(v => lut.get(v.getVertex.nn).map(NodeIndex(_)).toRight(s"could not find vertex $v"))
 
+    def edgeFromPortPairing(pp: P.PortPairing) = for
+      u <- lut.get(pp.getPort0.nn.getVertex.nn).map(NodeIndex(_))
+      v <- lut.get(pp.getPort1.nn.getVertex.nn).map(NodeIndex(_))
+      if u != v
+    yield Seq(u, v)
+
+    val ppEdges = for
+      vg <- g.getVertexGroups().nn.asScala.toSeq
+      pp <- vg.getPortPairings().nn.asScala
+      e  <- edgeFromPortPairing(pp).orElse:
+              Console.err.println(s"WARN could not resolve $pp")
+              None
+    yield e
+
     g.getEdges.nn.asScala.toSeq.traverse(mkHyperedge)
-      .map(_.foldLeft(Hypergraph.Builder.empty)(_.addEdge(_)).mkHypergraph)
+      .map(edges => (edges ++ ppEdges).foldLeft(Hypergraph.Builder.empty)(_.addEdge(_)).mkHypergraph)
+  end mkHypergraph
 
   def mkVertexLabels(g: P.Graph): Either[String, Labels.PlainText] =
-    @nowarn("name=PatternMatchExhaustivity") // try to MWE this and report it
+    @nowarn("name=PatternMatchExhaustivity") // todo: try to MWE this and report it
     val plain = g.getVertices.nn.asScala.toSeq.traverse: v =>
       v.getLabelManager.nn.getMainLabel.nn match
         case (l: old.OldUnstyledTextLabel) => Right(l.getInputText.nn)
@@ -71,8 +87,4 @@ object PralineReader:
         case err                           => Left(s"unsupported label type: ${err.getClass}")
     plain.map(ls => Labels.PlainText(ls.toIndexedSeq))
   end mkVertexLabels
-
-  extension [A0, E, A](s: Seq[A0])
-    def traverse(f: A0 => Either[E, A]): Either[E, Seq[A]] =
-      s.foldRight(Right(Seq.empty[A]).withLeft[E])((a0, acc) => acc.flatMap(as => f(a0).map(_ +: as)))
 end PralineReader

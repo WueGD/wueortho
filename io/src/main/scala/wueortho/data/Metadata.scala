@@ -10,4 +10,4 @@ case class Metadata(entries: Map[String, String]):
 object Metadata:
   def mkCsv(rows: List[Metadata], header: Option[List[String]] = None, sortHeaders: Boolean = false) =
     val head = header.getOrElse(rows.flatMap(_.entries.keySet).distinct) when (_ => !sortHeaders) otherwiseDo (_.sorted)
-    (head +: rows.map(r => head.map(r.entries(_)))).map(_.mkString(";")).mkString("\n")
+    (head +: rows.map(r => head.map(r.entries.get(_).getOrElse("not found")))).map(_.mkString(";")).mkString("\n")

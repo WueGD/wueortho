@@ -1,10 +1,12 @@
 package wueortho.pipeline
 
+import wueortho.data.Metadata
 import wueortho.util.Codecs.given
 
 import io.circe.parser.parse
 import io.circe.derivation.ConfiguredCodec
 import io.circe.syntax.*
+
 import scala.util.Try
 import java.nio.file.{Path, Paths, Files}
 
@@ -54,7 +56,7 @@ object Pipeline:
         Step.SimplifiedRoutingGraph(Stretch.Scale(Vec2D(1.1, 1.2)), None, None, None, None),
         Step.EdgeRouting(None, None, None),
         Step.GeoNudging(None, None, None, None),
-        Step.SvgDrawing(SvgConfig.SmoothEdges, None, None, None, None, None, None),
+        Step.SvgDrawing(SvgConfig.SmoothEdges, None, None, None, None, None),
         Step.SvgToFile(Paths.get("pipeline-out.svg").nn, None, None),
       ),
     )
@@ -70,3 +72,10 @@ object PipelineResult:
   def empty = new PipelineResult:
     override def getResult[T](s: Stage[T], tag: Option[String]) = Left("not available")
     override def runningTime: RunningTime                       = RunningTime("empty pipeline", 0, 0, Nil)
+
+  def error = new PipelineResult:
+    override def getResult[T](s: Stage[T], tag: Option[String]) = s match
+      case Stage.Metadata => Right(Metadata(Map.empty))
+      case _              => Left("not available - pipeline failed")
+    override def runningTime: RunningTime                       = RunningTime("pipeline failed", 999_999_999, 0, Nil)
+end PipelineResult
