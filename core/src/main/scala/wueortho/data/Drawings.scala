@@ -2,6 +2,7 @@ package wueortho.data
 
 import scala.util.Random
 import Direction.*
+import scala.annotation.nowarn
 
 case class EdgeTerminals(uTerm: Vec2D, uDir: Direction, vTerm: Vec2D, vDir: Direction) derives CanEqual
 
@@ -25,9 +26,51 @@ object Obstacles:
   def lift(f: IndexedSeq[Rect2D] => IndexedSeq[Rect2D])             = (in: Obstacles) => Obstacles(f(in.nodes))
 
 case class EdgeRoute(terminals: EdgeTerminals, route: Seq[EdgeRoute.OrthoSeg]):
-  import wueortho.data.EdgeRoute.OrthoSeg.*
+  import EdgeRoute.OrthoSeg, OrthoSeg.*, Direction.*
+
   assert(route.nonEmpty, "route must not be empty")
+
   def points = route.scanLeft(terminals.uTerm)(_.moveBy(_))
+
+  def refined =
+    def needsPseudoSegment(dir: Direction, elem: OrthoSeg) = (dir, elem) match
+      case (East | West, VSeg(_))   => Some(HSeg(0))
+      case (North | South, HSeg(_)) => Some(VSeg(0))
+      case _                        => None
+
+    val prefix = needsPseudoSegment(terminals.uDir, route.head)
+    val suffix = needsPseudoSegment(terminals.vDir, route.last)
+
+    val segs    = (prefix ++ route ++ suffix).toList
+    @nowarn("name=PatternMatchExhaustivity")
+    val compact =
+      if segs.length == 1 then segs
+      else
+        segs.init.foldRight(segs.last :: Nil):
+          case (next, head :: tail) =>
+            (head, next) match
+              case (HSeg(a), HSeg(b)) => HSeg(a + b) +: tail
+              case (VSeg(a), VSeg(b)) => VSeg(a + b) +: tail
+              case _                  => next :: head :: tail
+
+    EdgeRoute(terminals, compact)
+  end refined
+
+  def withoutInnerZeroSegs(eps: Double = 1e-8) =
+    @nowarn("name=PatternMatchExhaustivity")
+    val res =
+      if route.size < 3 then route
+      else
+        (null +: route).sliding(3).foldRight(route.last :: Nil):
+          case (Seq(a, b, _), c :: tail) =>
+            (a, b, c) match
+              case (_, _: HSeg, _: HSeg) | (_, _: VSeg, _: VSeg)    => c :: tail
+              case (HSeg(x1), b: OrthoSeg, HSeg(x2)) if b.len < eps => HSeg(x1 + x2) :: tail
+              case (VSeg(y1), b: OrthoSeg, VSeg(y2)) if b.len < eps => VSeg(y1 + y2) :: tail
+              case (_, b: OrthoSeg, _)                              => b :: c :: tail
+    EdgeRoute(terminals, res)
+  end withoutInnerZeroSegs
+end EdgeRoute
 
 object EdgeRoute:
   enum OrthoSeg derives CanEqual:

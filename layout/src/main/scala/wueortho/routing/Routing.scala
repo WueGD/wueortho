@@ -4,8 +4,6 @@ import wueortho.data.*
 import EdgeRoute.OrthoSeg, OrthoSeg.*
 import wueortho.util.GraphSearch.*
 
-import scala.annotation.nowarn
-
 trait Routing:
   def paths: IndexedSeq[Path]
   def routes: IndexedSeq[EdgeRoute]
@@ -40,8 +38,7 @@ object Routing:
       for (EdgeTerminals(uPos, dir, vPos, _), i) <- ports.byEdge.zipWithIndex
       yield
         val (u, v) = routing.resolveEdge(i)
-        dijkstra
-          .shortestPath(transactions, u, v, DijState(0, 0, 0, dir))
+        dijkstra.shortestPath(transactions, u, v, DijState(0, 0, 0, dir))
           .fold(err => sys.error(s"cannot find shortest path between $u and $v: $err"), identity),
     )
 
@@ -52,7 +49,8 @@ object Routing:
       export orderedRG.*
       override def paths       = routedPaths
       override lazy val routes =
-        for (path, terminals) <- paths zip ports.byEdge yield refineRoute(pathToOrthoSegs(terminals, path, routing))
+        for (path, terminals) <- paths zip ports.byEdge yield pathToOrthoSegs(terminals, path, routing).refined
+  end apply
 
   private def pathToOrthoSegs(terminals: EdgeTerminals, path: Path, routing: RoutingGraph) =
     assert(
@@ -69,6 +67,7 @@ object Routing:
       else if uPos.x2 == vPos.x2 then HSeg(vPos.x1 - uPos.x1)
       else sys.error(s"grid graph not orthogonal at $uPos -- $vPos")
     EdgeRoute(terminals, route.toSeq)
+  end pathToOrthoSegs
 
   def removeEyes(paths: IndexedSeq[Path]): IndexedSeq[Path] =
     def intersect(pa: Path, pb: Path) =
@@ -94,47 +93,9 @@ object Routing:
         pathBuf(j) =
           if b0 < b1 then Path(b.take(b0 + 1) ++ patch ++ b.drop(b1 + 1))
           else Path(b.take(b1) ++ patch.reverse ++ b.drop(b0))
+    end for
 
     pathBuf.toIndexedSeq
   end removeEyes
 
-  def refineRoute(r: EdgeRoute) =
-    import Direction.*, OrthoSeg.*
-
-    def needsPseudoSegment(dir: Direction, elem: OrthoSeg) = (dir, elem) match
-      case (East | West, VSeg(_))   => Some(HSeg(0))
-      case (North | South, HSeg(_)) => Some(VSeg(0))
-      case _                        => None
-
-    val prefix = needsPseudoSegment(r.terminals.uDir, r.route.head)
-    val suffix = needsPseudoSegment(r.terminals.vDir, r.route.last)
-
-    val segs = (prefix ++ r.route ++ suffix).toList
-    @nowarn("name=PatternMatchExhaustivity")
-    val compact =
-      if segs.length == 1 then segs
-      else
-        segs.init.foldRight(segs.last :: Nil) { case (next, head :: tail) =>
-          (head, next) match
-            case (HSeg(a), HSeg(b)) => HSeg(a + b) +: tail
-            case (VSeg(a), VSeg(b)) => VSeg(a + b) +: tail
-            case _                  => next :: head :: tail
-        }
-
-    EdgeRoute(r.terminals, compact)
-  end refineRoute
-
-  def removeInnerZeroSegs(edgeRoute: EdgeRoute) =
-    val r = edgeRoute.route
-    @nowarn("name=PatternMatchExhaustivity")
-    val res =
-      if r.size < 3 then r
-      else
-        (null +: r).sliding(3).foldRight(r.last :: Nil) { case (Seq(a, b, _), c :: tail) =>
-          (a, b, c) match
-            case (_, _: HSeg, _: HSeg) | (_, _: VSeg, _: VSeg)    => c :: tail
-            case (HSeg(x1), b: OrthoSeg, HSeg(x2)) if b.len < EPS => HSeg(x1 + x2) :: tail
-            case (VSeg(y1), b: OrthoSeg, VSeg(y2)) if b.len < EPS => VSeg(y1 + y2) :: tail
-            case (_, b: OrthoSeg, _)                              => b :: c :: tail
-        }
-    edgeRoute.copy(route = res)
+end Routing

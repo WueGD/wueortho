@@ -329,7 +329,7 @@ trait NudgingCommons:
 
     for (path, i) <- segments.zipWithIndex yield
       val terms = EdgeTerminals(at(path.u), path.u.kind.info.dir, at(path.v), path.v.kind.info.dir.reverse)
-      Routing.removeInnerZeroSegs(EdgeRoute(terms, go(Nil, terms.uTerm, path.toList)))
+      EdgeRoute(terms, go(Nil, terms.uTerm, path.toList)).withoutInnerZeroSegs()
   end mkRoutes
 
   protected def setY(node: CNode[Segment], start: Double, at: Double, ySols: LPResult) =

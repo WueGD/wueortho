@@ -1,6 +1,6 @@
 package wueortho.io.tglf
 
-import wueortho.data.*, Direction.*, EdgeRoute.OrthoSeg.*
+import wueortho.data.*, Direction.*, EdgeRoute.OrthoSeg, EdgeRoute.OrthoSeg.*
 import wueortho.util.Traverse.traverse
 
 object TglfReader:
@@ -42,7 +42,7 @@ object TglfReader:
               (uPos, uDir) <- getTerminal(edge.from, edge.path.head, edge.path.tail.head)
               (vPos, vDir) <- getTerminal(edge.to, edge.path.last, edge.path.init.last)
               route        <- getPath(uPos +: edge.path.tail.init :+ vPos)
-            yield EdgeRoute(EdgeTerminals(uPos, uDir, vPos, vDir), route)
+            yield EdgeRoute(EdgeTerminals(uPos, uDir, vPos, vDir), route).refined
         )
         .map(_.toIndexedSeq)
     end getPaths
@@ -59,7 +59,7 @@ object TglfReader:
         y  <- sy.toDoubleOption.toRight(s"invalid y coordinate: $sy")
         w  <- sw.toDoubleOption.toRight(s"invalid w coordinate: $sw")
         h  <- sh.toDoubleOption.toRight(s"invalid h coordinate: $sh")
-      yield TglfNode(id, Vec2D(x, y), Vec2D(w, h))
+      yield TglfNode(id, Vec2D(x, -y), Vec2D(w, h))
     case err                     => None.toRight(s"invalid node line: $err")
 
   private def parseEdge(s: String) = s match
@@ -67,7 +67,8 @@ object TglfReader:
       val maybePath = spath.split(" ").nn.toSeq.grouped(2).toSeq.traverse:
         case Seq(_)      => None.toRight("odd number of path coordinate floats")
         case Seq(sx, sy) =>
-          (sx.nn.toDoubleOption zip sy.nn.toDoubleOption).map(Vec2D.apply).toRight(s"invalid coordinate: ($sx, $sy)")
+          (sx.nn.toDoubleOption zip sy.nn.toDoubleOption).map((x, y) => Vec2D(x, -y))
+            .toRight(s"invalid coordinate: ($sx, $sy)")
       for
         path <- maybePath
         from <- sfrom.toIntOption.toRight(s"invalid from ref: $sfrom")

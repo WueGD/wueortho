@@ -39,7 +39,9 @@ object TestPipeline:
 
   def apply(name: String) = new TestPipeline(Nil, name)
 
-  val drawSvg = (name: String) => List(Step.SvgDrawing(SvgConfig.SmoothEdges, None, None, None, None, None, None))
+  val drawSvg = Step.SvgDrawing(SvgConfig.SmoothEdges, None, None, None, None, None)
+  val metrics = Step.Metrics(List("all"), None, None, None, None)
+
   val saveSvg = (name: String) => List(Step.SvgToFile((testArtifactsRoot `resolve` s"${name}.svg").nn, None, None))
 
   val defaultTag = StepUtils.resolve(None)
@@ -47,7 +49,7 @@ object TestPipeline:
   def debuggingStep(f: StageCache => Either[String, Unit]) =
     Step.Debugging(DebugStepWrapper(f.andThen(_.fold[Unit](sys.error, identity))), None)
 
-  private[TestPipeline] def setStage[T](stage: Stage[T], value: T) =
+  def setStage[T](stage: Stage[T], value: T) =
     debuggingStep(_.setStage(stage, defaultTag, value))
 
   def use(steps: Step*) = (_: String) => steps
@@ -78,7 +80,7 @@ object TestPipeline:
 end TestPipeline
 
 trait TestPipelineSyntax:
-  export TestPipeline.{drawSvg, saveSvg, use, useSamples, debuggingStep, defaultTag, testArtifactsRoot}
+  export TestPipeline.{apply as pipeline, *}
 
 object Samples:
   def sampleGraph = Graph.fromEdges(

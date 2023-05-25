@@ -28,9 +28,9 @@ object Experiments:
     "ConvexHullArea",
   )
 
-  val inPath  = Path.of("data", "tz_tglf").nn
+  val inPath  = Path.of("data", "topozoo").nn
   val outPath = Path.of("results").nn
-  val batch   = "tz"
+  val batch   = "tz-q"
 
   trait Experiment(val name: String):
     def mkPipeline(inPath: Path): Pipeline
@@ -106,7 +106,7 @@ object Experiments:
   @main def layoutFromPraline = (new Experiment("compactify"):
     def mkPipeline(path: Path) = Pipeline(
       Step.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels, Use.VertexLayout), None)
-        +: commonSteps(gTreeStretch = Stretch.Original, portMode = PortMode.Octants)
+        +: commonSteps(gTreeStretch = Stretch.Original, portMode = PortMode.Quadrants)
         :+ Step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` json2svg(path), None, None),
     )
   ).run
@@ -115,7 +115,7 @@ object Experiments:
     def mkPipeline(path: Path) = Pipeline(
       Step.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels), None)
         +: Step.ForceDirectedLayout(800, Seed(0x98c0ffee), 1, None, None)
-        +: commonSteps(gTreeStretch = Stretch.Uniform(1.2), portMode = PortMode.Octants)
+        +: commonSteps(gTreeStretch = Stretch.Uniform(1.2), portMode = PortMode.Quadrants)
         :+ Step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` json2svg(path), None, None),
     ),
   ).run
