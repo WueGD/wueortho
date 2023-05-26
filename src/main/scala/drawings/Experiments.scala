@@ -3,10 +3,10 @@ package drawings
 import wueortho.data.*
 import wueortho.pipeline.{Extractor as Use, *}
 import wueortho.routing.Nudging
-import wueortho.layout.ForceDirected
 import wueortho.interop.{PralineReader, PralineWriter}, PralineReader.syntax.*, PralineWriter.syntax.*
 import wueortho.io.tglf.TglfWriter
 import wueortho.util.{Solidify, ConnectedComponents, TextUtils}, Solidify.*
+import wueortho.util.GraphConversions.simple.withoutLoops
 
 import java.nio.file.{Path, Files}
 import scala.jdk.StreamConverters.*
@@ -30,7 +30,7 @@ object Experiments:
 
   val inPath  = Path.of("data", "topozoo").nn
   val outPath = Path.of("results").nn
-  val batch   = "tz-q"
+  val batch   = "xxx"
 
   trait Experiment(val name: String):
     def mkPipeline(inPath: Path): Pipeline
@@ -141,7 +141,7 @@ object Experiments:
           Labels.PlainText(vl.labels ++ Seq.fill(graph.numberOfVertices - hg.numberOfVertices)("")),
           largest,
         )
-        reduceToComponent(graph, largest).toPraline <~~ labels
+        reduceToComponent(graph, largest).withoutLoops.toPraline <~~ labels
 
       Files.writeString(
         outPath `resolve` file.getFileName(),
@@ -157,32 +157,34 @@ object Experiments:
 
     val tmp = Vec2D(textWidth max minWidth, textHeight max minHeight)
 
-    if tmp.x1 * 2 + tmp.x2 * 2 < degree * 12.0 then tmp.copy(x1 = 12.0 * degree / 2 - tmp.x2)
+    if tmp.x1 * 2 + tmp.x2 * 2 < degree * 18.0 then tmp.copy(x1 = 18.0 * degree / 2 - tmp.x2)
     else tmp
 
   @main def convertToTglf =
     val outPath = Path.of("data", "cleaned").nn
     Files.createDirectories(outPath)
-    val files   = Files.list(inPath).nn.toScala(List).filter(_.toString().endsWith(".json"))
-    val random  = Seed(0x99c0ffee).newRandom
-    val vSize   = estimatedVertexSize(TextUtils.TextSize(12))
-    for file <- files do
+
+    val files = Files.list(inPath).nn.toScala(List).filter(_.toString().endsWith(".json"))
+    val vSize = estimatedVertexSize(TextUtils.TextSize(12))
+    print("running... " + " ".repeat(11))
+    for (file, i) <- files.zipWithIndex do
+      print("\b".repeat(11).nn + f"(${i + 1}%4d/${files.size}%4d)")
       val res = for
         raw <- PralineReader.fromFile(file).toEither.left.map(_.toString)
         g   <- raw.getBasicGraph
         vl  <- raw.getVertexLabels
+        obs <- raw.getObstacles
       yield
         val boxes = vl.labels.zipWithIndex.map((s, i) => vSize(s, g(NodeIndex(i)).neighbors.size))
-        val obs   = Obstacles.fromVertexLayout((pos, i) => Rect2D(pos, boxes(i).scale(0.5)))(
-          ForceDirected.initLayout(random, g.numberOfVertices),
-        )
-        TglfWriter.writeGraph(g, obs)
+        val fixed = Obstacles(obs.nodes.zipWithIndex.map((r, i) => r.copy(span = boxes(i).scale(0.5))))
+        TglfWriter.writeGraph(g, fixed)
 
       Files.writeString(
         outPath `resolve` file.getFileName().toString().replaceAll(".json$", ".tglf"),
         res.fold(sys.error, identity),
       )
     end for
+    println()
   end convertToTglf
 
 end Experiments

@@ -9,7 +9,9 @@ object GraphConversions:
   object undirected extends UndirectMixin
 
   trait SimpleMixin:
-    extension (g: BasicGraph) def directed: DiGraph        = sg2dg(g)
+    extension (g: BasicGraph)
+      def directed: DiGraph        = sg2dg(g)
+      def withoutLoops: BasicGraph = noLoops(g)
     extension (g: WeightedDiGraph) def unweighted: DiGraph = wd2dg(g)
     extension (g: WeightedGraph)
       def unweighted: BasicGraph    = wg2sg(g)
@@ -80,6 +82,7 @@ object GraphConversions:
     .fromEdges(extractEdges(g, v => v.toNode -> v.weight, s, (u, v, _) => SimpleEdge(u, v)), g.numberOfVertices)
     .mkBasicGraph
 
+  def noLoops(g: BasicGraph) = Graph.fromEdges(g.edges.filter(e => e.from != e.to)).mkBasicGraph
 end GraphConversions
 
 object GraphProperties:
