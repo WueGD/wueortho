@@ -2,6 +2,7 @@ package wueortho.io.tglf
 
 import wueortho.data.*, Direction.*, EdgeRoute.OrthoSeg, EdgeRoute.OrthoSeg.*
 import wueortho.util.Traverse.traverse
+import scala.annotation.tailrec
 
 object TglfReader:
   class TglfRepr private[TglfReader] (private val nodes: IndexedSeq[TglfNode], private val edges: IndexedSeq[TglfEdge]):
@@ -9,7 +10,10 @@ object TglfReader:
       .foldLeft(Graph.Builder.reserve(nodes.size))((bld, e) => bld.addEdge(NodeIndex(e.from), NodeIndex(e.to)))
       .mkBasicGraph
 
-    def getObstacles = Obstacles(nodes.map(n => Rect2D(n.pos, n.size.scale(0.5))))
+    def getObstacles =
+      val res = Obstacles(nodes.map(n => Rect2D(n.pos, n.size.scale(0.5))))
+      if Overlaps.hasOverlaps(res.nodes) then Left("drawing has overlapping obstacles")
+      else Right(res)
 
     def getPaths =
       def getTerminal(nodeId: Int, termPos: Vec2D, nextPos: Vec2D) =
@@ -85,4 +89,29 @@ object TglfReader:
           edges <- edgeRows.nn.linesIterator.toSeq.traverse(parseEdge)
         yield new TglfRepr(nodes.toIndexedSeq, edges.toIndexedSeq)
       case _                        => sys.error("could not find # delimiter in tglf file")
+
+  object Overlaps:
+    private enum QueueItem:
+      case Start(y: Double, idx: Int)
+      case End(y: Double, idx: Int)
+      def y: Double
+
+    def hasOverlaps(rects: IndexedSeq[Rect2D]) =
+      import QueueItem.*
+
+      @tailrec def go(state: Set[Int], queue: IndexedSeq[QueueItem]): Boolean = queue match
+        case IndexedSeq() => false
+        case item +: next =>
+          item match
+            case End(_, i)   => go(state - i, next)
+            case Start(_, i) =>
+              val rect = rects(i)
+              if state.exists(j => rects(j) overlaps rect) then true else go(state + i, next)
+
+      val queue = rects.zipWithIndex
+        .flatMap((r, i) => List(Start(r.center.x2 - r.span.x2, i), End(r.center.x2 + r.span.x2, i))).sortBy(_.y)
+
+      go(Set.empty, queue)
+    end hasOverlaps
+  end Overlaps
 end TglfReader

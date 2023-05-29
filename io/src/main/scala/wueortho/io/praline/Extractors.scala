@@ -33,7 +33,7 @@ object Extractors:
 
   def shape2rect(s: Praline.Shape): Either[String, Rect2D] = s match
     case Praline.Shape.rect(x, y, w, h) if isFinite(x, y, w, h) =>
-      Right(Rect2D(Vec2D(x + w / 2, -y + h / 2), Vec2D(w / 2, h / 2)))
+      Right(Rect2D(Vec2D(x + w / 2, -y - h / 2), Vec2D(w / 2, h / 2)))
     case Praline.Shape.circle(x, y, r) if isFinite(x, y, r)     => Right(Rect2D(Vec2D(x, -y), Vec2D(r, r)))
     case rect: Praline.Shape.rectangle                          => shape2rect(rect2rect(rect))
     case _                                                      => Left(s"unrecognized shape $s")

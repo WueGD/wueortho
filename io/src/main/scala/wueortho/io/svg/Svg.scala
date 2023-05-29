@@ -168,7 +168,13 @@ object Svg:
 
   case class SvgFrag(bbox: Rect2D, frags: Seq[Frag]):
     @targetName("join")
-    def ++(other: SvgFrag) = SvgFrag(Rect2D.boundingBoxOfRects(bbox, other.bbox), frags ++ other.frags)
+    def ++(other: SvgFrag) = SvgFrag(
+      if frags.isEmpty then other.bbox
+      else if other.frags.isEmpty then bbox
+      else Rect2D.boundingBoxOfRects(bbox, other.bbox),
+      frags ++ other.frags,
+    )
+  end SvgFrag
 
   object SvgFrag:
     def empty = SvgFrag(Rect2D(Vec2D(0, 0), Vec2D(0, 0)), Seq.empty)

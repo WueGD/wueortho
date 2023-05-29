@@ -26,11 +26,13 @@ object Experiments:
     "EdgeLengthVariance",
     "BoundingBoxArea",
     "ConvexHullArea",
+    "AspectRatio",
+    "InterEdgeDistance",
   )
 
   val inPath  = Path.of("data", "topozoo").nn
   val outPath = Path.of("results").nn
-  val batch   = "xxx"
+  val batch   = "tz2"
 
   trait Experiment(val name: String):
     def mkPipeline(inPath: Path): Pipeline
@@ -70,6 +72,10 @@ object Experiments:
       Seq(
         Step.ReadPralineFile(path, List(Use.Graph, Use.Obstacles, Use.EdgeRoutes), None),
         Step.Metrics(List("all"), None, None, None, None),
+        Step.SyntheticVertexLabels(SyntheticLabels.Enumerate, None, None),
+        Step.SyntheticPortLabels(SyntheticLabels.Hide, None, None),
+        Step.SvgDrawing(SvgConfig.Praline, None, None, None, None, None),
+        Step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` json2svg(path), None, None),
       ),
     )
   ).run
@@ -186,6 +192,23 @@ object Experiments:
     end for
     println()
   end convertToTglf
+
+  def median(s: Seq[Int]) =
+    val (lower, upper) = s.sorted.splitAt(s.size / 2)
+    if s.size % 2 == 0 then (lower.last + upper.head) / 2.0 else upper.head.toDouble
+
+  def iqr(s: Seq[Int]) =
+    val (lower, upper) = s.sorted.splitAt(s.size / 2)
+    if s.size % 2 == 0 then median(upper) - median(lower) else median(upper.tail) - median(lower)
+
+  @main def calcNodeMetrics =
+    val degs = Files.list(inPath).nn.toScala(List).filter(_.toString().endsWith(".json")).flatMap: file =>
+      PralineReader.fromFile(file).fold(throw _, _.getBasicGraph.fold(sys.error, _.vertices.map(_.neighbors.size)))
+
+    println(s"avg: ${degs.sum.toDouble / degs.size}")
+    println(s"median: ${median(degs)}")
+    println(s"iqr: ${iqr(degs)}")
+  end calcNodeMetrics
 
 end Experiments
 

@@ -42,8 +42,9 @@ object InputSteps:
     ex match
       case Use.Graph        => cache.setStage(Stage.Graph, tag, in.getBasicGraph)
       case Use.VertexLabels => Left("cannot extract vertex labels from tglf")
-      case Use.VertexLayout => cache.setStage(Stage.Layout, tag, VertexLayout(in.getObstacles.nodes.map(_.center)))
-      case Use.Obstacles    => cache.setStage(Stage.Obstacles, tag, in.getObstacles)
+      case Use.VertexLayout =>
+        in.getObstacles.flatMap(obs => cache.setStage(Stage.Layout, tag, VertexLayout(obs.nodes.map(_.center))))
+      case Use.Obstacles    => in.getObstacles.flatMap(cache.setStage(Stage.Obstacles, tag, _))
       case Use.EdgeRoutes   => in.getPaths.flatMap(cache.setStage(Stage.Routes, tag, _))
 
   given Provider[Step.RandomGraph] = (s: Step.RandomGraph, cache: StageCache) =>

@@ -88,6 +88,8 @@ object OutputSteps:
       "HasLoops",
       "HasMultiEdges",
       "IsConnected",
+      "AspectRatio",
+      "InterEdgeDistance",
     )
 
   private def calcMetrics(g: BasicGraph, obs: Obstacles, r: IndexedSeq[EdgeRoute], ms: String*): Metadata = Metadata(
@@ -103,6 +105,8 @@ object OutputSteps:
           case "HasLoops"           => List(m -> g.hasLoops.toString())
           case "HasMultiEdges"      => List(m -> g.hasMultiEdges.toString())
           case "IsConnected"        => List(m -> g.isConnected.toString())
+          case "AspectRatio"        => List(m -> Area.aspectRatio(obs, r).toString)
+          case "InterEdgeDistance"  => List(m -> Crossings.interEdgeDist(obs, r).toString)
           case _                    => List(m -> "unknown metric")
       )
       .toMap,

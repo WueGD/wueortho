@@ -11,3 +11,8 @@ object Area:
   def convexHullArea(obstacles: Obstacles, routes: Seq[EdgeRoute]) =
     val points = obstacles.nodes.flatMap(_.corners.toList) ++ routes.flatMap(_.points)
     Triangulation.convexHullArea(points)
+
+  def aspectRatio(obstacles: Obstacles, routes: Seq[EdgeRoute]) =
+    val r = Rect2D.boundingBoxOfRects((routes.map(e => Rect2D.boundingBox(e.points)) ++ obstacles.nodes)*)
+    r.width / r.height
+end Area
