@@ -5,6 +5,7 @@ import wueortho.data.*
 
 import io.circe.derivation.*
 import scala.util.Random
+import scala.math.sqrt
 
 object RandomGraphs:
   case class RandomGraphConfig(n: Int, m: Int, seed: Seed, core: GraphCore, allowLoops: Boolean)
@@ -12,7 +13,7 @@ object RandomGraphs:
   enum GraphCore derives CanEqual, ConfiguredEnumCodec:
     case Empty, Path, Tree, Star
 
-  def mkSimpleGraph(config: RandomGraphConfig): Either[String, BasicGraph] =
+  def mkBasicGraph(config: RandomGraphConfig): Either[String, BasicGraph] =
     import config.*
 
     def nodePair(rndm: Random): (NodeIndex, NodeIndex) =
@@ -41,5 +42,14 @@ object RandomGraphs:
     val rndm      = seed.newRandom
     val coreEdges = mkCore(rndm)
     mkHull(rndm, coreEdges.size).map(hullEdges => Graph.fromEdges(coreEdges ++ hullEdges).mkBasicGraph)
-  end mkSimpleGraph
+  end mkBasicGraph
+
+  def mkObstacles(n: Int, minSpan: Vec2D, maxSpan: Vec2D, seed: Seed) = Obstacles:
+      val (w, h) = (maxSpan.x1 - minSpan.x1, maxSpan.x2 - minSpan.x2)
+      val rndm   = seed.newRandom
+      for _ <- 1 to n yield
+        val pos  = Vec2D(rndm.nextGaussian() * maxSpan.x1 * sqrt(n), rndm.nextGaussian() * maxSpan.x2 * sqrt(n))
+        val span = Vec2D(rndm.nextDouble() * w + minSpan.x1, rndm.nextDouble() * h + minSpan.x2)
+        Rect2D(pos, span)
+
 end RandomGraphs

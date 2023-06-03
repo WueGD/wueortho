@@ -48,7 +48,7 @@ object InputSteps:
       case Use.EdgeRoutes   => in.getPaths.flatMap(cache.setStage(Stage.Routes, tag, _))
 
   given Provider[Step.RandomGraph] = (s: Step.RandomGraph, cache: StageCache) =>
-    cache.updateStage(Stage.Graph, mk(s.tag), _ => random.RandomGraphs.mkSimpleGraph(s.config)).nil
+    cache.updateStage(Stage.Graph, mk(s.tag), _ => random.RandomGraphs.mkBasicGraph(s.config)).nil
 
   given Provider[Step.UniformObstacles] = (s: Step.UniformObstacles, cache: StageCache) =>
     for

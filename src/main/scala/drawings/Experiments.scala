@@ -5,6 +5,7 @@ import wueortho.pipeline.{Extractor as Use, *}
 import wueortho.routing.Nudging
 import wueortho.interop.{PralineReader, PralineWriter}, PralineReader.syntax.*, PralineWriter.syntax.*
 import wueortho.io.tglf.TglfWriter
+import wueortho.io.random.RandomGraphs
 import wueortho.util.{Solidify, ConnectedComponents, TextUtils}, Solidify.*
 import wueortho.util.GraphConversions.simple.withoutLoops
 
@@ -30,9 +31,9 @@ object Experiments:
     "InterEdgeDistance",
   )
 
-  val inPath  = Path.of("data", "topozoo").nn
+  val inPath  = Path.of("data", "random").nn
   val outPath = Path.of("results").nn
-  val batch   = "tz2"
+  val batch   = "runtime"
 
   trait Experiment(val name: String):
     def mkPipeline(inPath: Path): Pipeline
@@ -40,7 +41,9 @@ object Experiments:
     val fileType = ".json"
 
     def run: Unit =
-      val files          = Files.list(inPath).nn.toScala(List).filter(_.toString().endsWith(fileType))
+      val files = Files.list(inPath).nn.toScala(List).filter(_.toString().endsWith(fileType))
+        .sortBy(_.getFileName().nn.toString())
+
       Files.createDirectories(outPath `resolve` s"${batch}_${name}_svgs")
       print("running... " + " ".repeat(11))
       val (rts, metrics) = (
@@ -95,7 +98,6 @@ object Experiments:
   ).run
 
   private def commonSteps(gTreeStretch: Stretch, portMode: PortMode) = Seq(
-    Step.ObstaclesFromLabels(VertexLabelConfig.PralineDefaults, None, None, None),
     Step.GTreeOverlaps(gTreeStretch, Seed(0x99c0ffee), true, None, None),
     Step.PortsByAngle(portMode, None, None, None),
     Step.SimplifiedRoutingGraph(Stretch.Original, None, None, None, None),
@@ -110,21 +112,55 @@ object Experiments:
   private def tglf2svg(path: Path) = path.getFileName().nn.toString().replaceAll(".tglf$", ".svg")
 
   @main def layoutFromPraline = (new Experiment("compactify"):
-    def mkPipeline(path: Path) = Pipeline(
-      Step.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels, Use.VertexLayout), None)
-        +: commonSteps(gTreeStretch = Stretch.Original, portMode = PortMode.Quadrants)
-        :+ Step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` json2svg(path), None, None),
-    )
+    def mkPipeline(path: Path) = Pipeline:
+        Step.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels, Use.VertexLayout), None)
+          +: Step.ObstaclesFromLabels(VertexLabelConfig.PralineDefaults, None, None, None)
+          +: commonSteps(gTreeStretch = Stretch.Original, portMode = PortMode.Quadrants)
+          :+ Step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` json2svg(path), None, None),
   ).run
 
   @main def fdLayout = (new Experiment("fdlayout"):
-    def mkPipeline(path: Path) = Pipeline(
-      Step.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels), None)
-        +: Step.ForceDirectedLayout(800, Seed(0x98c0ffee), 1, None, None)
-        +: commonSteps(gTreeStretch = Stretch.Uniform(1.2), portMode = PortMode.Quadrants)
-        :+ Step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` json2svg(path), None, None),
-    ),
+    def mkPipeline(path: Path) = Pipeline:
+        Step.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels), None)
+          +: Step.ForceDirectedLayout(800, Seed(0x98c0ffee), 1, None, None)
+          +: Step.ObstaclesFromLabels(VertexLabelConfig.PralineDefaults, None, None, None)
+          +: commonSteps(gTreeStretch = Stretch.Uniform(1.2), portMode = PortMode.Quadrants)
+          :+ Step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` json2svg(path), None, None),
   ).run
+
+  @main def benchmark = (new Experiment("benchmark"):
+    def mkPipeline(path: Path) = Pipeline:
+        Step.ReadPralineFile(path, List(Use.Graph, Use.Obstacles), None)
+          :: Step.ForceDirectedLayout(800, Seed(0x98c0ffee), 1, None, None)
+          :: Step.GTreeOverlaps(Stretch.Uniform(1.2), Seed(0x99c0ffee), true, None, None)
+          :: Step.PortsByAngle(PortMode.Octants, None, None, None)
+          :: Step.SimplifiedRoutingGraph(Stretch.Original, None, None, None, None)
+          :: Step.EdgeRouting(None, None, None)
+          :: Step.FullNudging(Nudging.Config(padding = 12, use2ndHPass = true), None, None, None, None, None)
+          :: Step.Metrics(List("all"), None, None, None, None)
+          :: Nil
+  ).run
+
+  @main def randomGraphs =
+    import RandomGraphs.*
+    val outPath            = Path.of("data", "random")
+    val seed               = Seed(0x99c0ffee)
+    val density            = 2.0
+    val (minN, maxN, step) = (5, 150, 5)
+    val (minSpan, maxSpan) = (Vec2D(12, 12), Vec2D(240, 48))
+    val instancesPerSize   = 10
+
+    val rndm = seed.newRandom
+    Files.createDirectories(outPath)
+
+    for n <- minN to maxN by step do
+      val conf =
+        RandomGraphConfig(n, (n * density).round.toInt, Seed(rndm.nextLong), GraphCore.Tree, allowLoops = false)
+      for i <- 1 to instancesPerSize do
+        val g   = mkBasicGraph(conf).fold(sys.error, identity)
+        val res = g.toPraline <~~ mkObstacles(n, minSpan, maxSpan, Seed(rndm.nextLong()))
+        Files.writeString(outPath `resolve` s"rndm_n$n#$i.json", res.asJson.get)
+  end randomGraphs
 
   @main def cleanupGraphs =
     val inPath  = Path.of("data", "raw-pseudo-plans").nn
