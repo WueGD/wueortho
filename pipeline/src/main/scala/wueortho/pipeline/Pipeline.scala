@@ -3,9 +3,7 @@ package wueortho.pipeline
 import wueortho.data.Metadata
 import wueortho.util.Codecs.given
 
-import io.circe.parser.parse
-import io.circe.derivation.ConfiguredCodec
-import io.circe.syntax.*
+import io.circe.*, syntax.*, parser.parse, derivation.{ConfiguredCodec, ConfiguredEncoder}
 
 import scala.util.Try
 import java.nio.file.{Path, Paths, Files}
@@ -40,6 +38,28 @@ object Pipeline:
         override def runningTime = rt
     end if
   end run
+
+  case class Dummy(steps: Seq[WithTags[? <: Tuple, PipelineStep]])
+
+  class Builder(impls: Seq[StepImpl[?]]):
+    private lazy val lut = impls.map(impl => impl.stepName -> impl).toMap
+
+    private given enc: Encoder[WithTags[? <: Tuple, PipelineStep]] =
+      Encoder.instance[WithTags[? <: Tuple, PipelineStep]]: swt =>
+        val impl = lut.get(swt.step.getClass().getSimpleName().nn)
+          .getOrElse(sys.error(s"unsupported pipeline step ${swt.step.getClass().getSimpleName()}"))
+          .asInstanceOf[StepImpl[PipelineStep]]
+        impl.codec(swt.asInstanceOf[WithTags[impl.ITags, PipelineStep]])
+
+    private given dec: Decoder[WithTags[? <: Tuple, PipelineStep]] = for
+      tpe  <- Decoder[String].at("type")
+      impl <- lut.get(tpe).fold(Decoder.failedWithMessage(s"unsupported pipeline step $tpe"))(Decoder.const)
+      res  <- Decoder.decodeJson.emapTry(impl.codec.decodeJson(_).toTry)
+    yield res.asInstanceOf[WithTags[? <: Tuple, PipelineStep]]
+
+    def asJson(p: Dummy)  = Encoder.forProduct1("steps")((_: Dummy).steps)(Encoder.encodeSeq(enc))(p)
+    def fromJson(j: Json) = Decoder.forProduct1("steps")(Dummy.apply)(Decoder.decodeSeq(dec)).decodeJson(j)
+  end Builder
 
   import wueortho.io.random.RandomGraphs.{RandomGraphConfig, GraphCore}
   import wueortho.data.{Path as _, *}

@@ -12,9 +12,12 @@ import wueortho.util.Codecs.given
 import io.circe.derivation.ConfiguredEnumCodec
 
 import scala.util.Random
+import io.circe.Codec
 
 object AlgorithmicSteps:
   import StepUtils.{resolve as mk, *}
+
+  val all = List(FullNudgingImpl)
 
   given Provider[Step.ForceDirectedLayout] = (s: Step.ForceDirectedLayout, cache: StageCache) =>
     for
@@ -124,6 +127,30 @@ object AlgorithmicSteps:
   given Provider[Step.NoNudging] = (s: Step.NoNudging, cache: StageCache) =>
     cache.getStageResult(Stage.EdgeRouting, mk(s.routing))
       .flatMap(r => cache.setStage(Stage.Routes, mk(s.tag), r.routes)).nil
+
+  case object FullNudgingImpl extends StepImpl[step.FullNudging]:
+    type ITags = ("arg", "obstacles", "ports", "graph")
+    override def codec    = Codec.from(taggedDec, taggedEnc)
+    override def tags     = deriveTags[ITags]
+    override def helpText = """Perform full nudging (moves edge segments, ports, and vertex boxes).
+                              |A minimum object distance of `padding` units is maintained.
+                              |`use2ndHPass` enables an additional horizontal pass of full nudging.""".stripMargin
+
+    override def runToStage(s: WithTags[ITags, step.FullNudging], cache: StageCache) =
+      for
+        rIn         <- cache.getStageResult(Stage.EdgeRouting, s.mkITag("arg"))
+        plIn        <- cache.getStageResult(Stage.Ports, s.mkITag("ports"))
+        obsIn       <- cache.getStageResult(Stage.Obstacles, s.mkITag("obstacles"))
+        g           <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
+        (r, pl, obs) = FullNudging(Nudging.Config(s.step.padding, s.step.use2ndHPass), rIn, plIn, g, obsIn)
+        _           <- cache.setStage(Stage.Routes, s.mkTag, r)
+        _           <- cache.setStage(Stage.Ports, s.mkTag, pl)
+        _           <- cache.setStage(Stage.Obstacles, s.mkTag, obs)
+      yield Nil
+      end for
+    end runToStage
+
+  end FullNudgingImpl
 end AlgorithmicSteps
 
 enum Stretch derives CanEqual:

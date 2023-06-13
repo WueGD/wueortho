@@ -1,18 +1,43 @@
 package wueortho.pipeline
 
 import wueortho.data.*
-import wueortho.io.{praline, random}, praline.Praline, praline.Extractors.*
+import wueortho.io.{praline, random, tglf}, praline.Praline, praline.Extractors.*, tglf.TglfReader,
+  random.RandomGraphs.RandomGraphConfig
 import wueortho.util.Codecs.given
 import wueortho.util.TextUtils
+
 import Extractor as Use
 
 import io.circe.derivation.ConfiguredEnumCodec
+import io.circe.Codec
+
 import scala.util.Try
 import java.nio.file.Files
-import wueortho.io.tglf.TglfReader
 
 object InputSteps:
   import StepUtils.{resolve as mk, *}
+
+  val all = List(RandomGraphImpl)
+
+  case object RandomGraphImpl extends StepImpl[step.RandomGraph]:
+    type ITags = EmptyTuple
+
+    override def tags     = Nil
+    override def codec    = Codec.from(taggedDec, taggedEnc)
+    override def helpText =
+      """Create graphs at random.
+        |The PRNG is generated using `seed`. The graph will have `n` vertices and `m` edges.
+        |`core` allows to specify a graph structure for connectivity. Possible cores are `Empty`, `Path`, `Tree`, and `Star`.
+        |Set `allowLoops` to enable self-edges.""".stripMargin
+
+    override def runToStage(s: WithTags[ITags, step.RandomGraph], cache: StageCache) =
+      import s.step.*
+      def mkBg = random.RandomGraphs.mkBasicGraph(RandomGraphConfig(n, m, seed, core, allowLoops))
+      cache.updateStage(Stage.Graph, s.mkTag, _ => mkBg).nil
+  end RandomGraphImpl
+
+  given Provider[Step.RandomGraph] = (s: Step.RandomGraph, cache: StageCache) =>
+    cache.updateStage(Stage.Graph, mk(s.tag), _ => random.RandomGraphs.mkBasicGraph(s.config)).nil
 
   given Provider[Step.ReadPralineFile] = (s: Step.ReadPralineFile, cache: StageCache) =>
     (for
@@ -46,9 +71,6 @@ object InputSteps:
         in.getObstacles.flatMap(obs => cache.setStage(Stage.Layout, tag, VertexLayout(obs.nodes.map(_.center))))
       case Use.Obstacles    => in.getObstacles.flatMap(cache.setStage(Stage.Obstacles, tag, _))
       case Use.EdgeRoutes   => in.getPaths.flatMap(cache.setStage(Stage.Routes, tag, _))
-
-  given Provider[Step.RandomGraph] = (s: Step.RandomGraph, cache: StageCache) =>
-    cache.updateStage(Stage.Graph, mk(s.tag), _ => random.RandomGraphs.mkBasicGraph(s.config)).nil
 
   given Provider[Step.UniformObstacles] = (s: Step.UniformObstacles, cache: StageCache) =>
     for
