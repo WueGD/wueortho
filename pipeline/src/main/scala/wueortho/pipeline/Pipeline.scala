@@ -7,6 +7,7 @@ import io.circe.*, syntax.*, parser.parse, derivation.{ConfiguredCodec, Configur
 
 import scala.util.Try
 import java.nio.file.{Path, Paths, Files}
+import wueortho.util.RunningTime
 
 case class Pipeline(
     steps: Seq[Step],
@@ -24,14 +25,14 @@ object Pipeline:
     else
       val cache = StageCache()
       val res   = RunningTime.of("total"):
-        p.steps.zipWithIndex.foldLeft(Some(List.empty[RunningTime]).toRight("")):
+        p.steps.zipWithIndex.foldLeft(Some(RunningTime.unit).toRight("")):
           case (eth, (st, i)) =>
             eth.flatMap: rts =>
-              val rt = RunningTime.of(s"$i: ${st.show}"):
+              val res = rts *> RunningTime.of(s"$i: ${st.show}"):
                 Step.nextStep(st, cache)
-              rt.map(rts :+ _)
+              res.get.map(_ => res.map(_ => ()))
 
-      val (cacheView, rt) = cache.view -> res.fold(sys.error, identity)
+      val (cacheView, rt) = cache.view -> res.get.fold(sys.error, _ => res.runtimes.head)
 
       new PipelineResult:
         export cacheView.*

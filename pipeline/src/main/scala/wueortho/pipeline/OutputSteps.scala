@@ -15,6 +15,7 @@ import wueortho.util.Codecs.given
 
 object OutputSteps:
   import StepUtils.{resolve as mk}
+  import wueortho.util.RunningTime.unit as noRt
 
   given Provider[Step.SvgDrawing] = (s: Step.SvgDrawing, cache: StageCache) =>
     for
@@ -23,7 +24,7 @@ object OutputSteps:
       vls <- cache.getStageResult(Stage.VertexLabels, mk(s.vertexLabels))
       pls <- cache.getStageResult(Stage.PortLabels, mk(s.portLabels))
       _   <- cache.setStage(Stage.Svg, mk(s.tag), drawAll(s.config.svg, obs, r, vls, pls))
-    yield Nil
+    yield noRt
 
   private def drawAll(
       svg: Svg,
@@ -46,7 +47,7 @@ object OutputSteps:
       graph  <- cache.getStageResult(Stage.Graph, mk(s.graph))
       layout <- cache.getStageResult(Stage.Layout, mk(s.layout))
       _      <- cache.setStage(Stage.Svg, mk(s.tag), drawStraightEdges(s.config.svg, graph, layout))
-    yield Nil
+    yield noRt
 
   def drawStraightEdges(svg: Svg, graph: BasicGraph, layout: VertexLayout) =
     svg.make(svg.drawStraightEdges(graph, layout) ++ svg.drawNodes(layout))
@@ -55,7 +56,7 @@ object OutputSteps:
     for
       svg <- cache.getStageResult(Stage.Svg, mk(s.svg))
       _   <- Try(Files.writeString(s.path, svg)).toEither.left.map(_.toString)
-    yield Nil
+    yield noRt
 
   given Provider[Step.Metrics] = (s: Step.Metrics, cache: StageCache) =>
     for
@@ -64,7 +65,7 @@ object OutputSteps:
       r   <- cache.getStageResult(Stage.Routes, mk(s.routes))
       m    = calcMetrics(g, obs, r, s.metrics*) + ("Vertices", s"${obs.nodes.size}") + ("Edges", s"${r.size}")
       _   <- cache.setStage(Stage.Metadata, mk(s.tag), m)
-    yield Nil
+    yield noRt
 
   given Provider[Step.WritePralineFile] = (s: Step.WritePralineFile, cache: StageCache) =>
     import praline.Writers.*
@@ -75,7 +76,7 @@ object OutputSteps:
     for
       out <- pralineGraph
       _   <- Try(Files.writeString(s.path, out.asJson.noSpaces)).toEither.left.map(_.toString)
-    yield Nil
+    yield noRt
 
   private val allMetrics =
     List(
@@ -114,7 +115,7 @@ object OutputSteps:
 
   given Provider[Step.Debugging] = (s: Step.Debugging, cache: StageCache) =>
     s.f.unwrap(cache)
-    Right(Nil).withLeft[String]
+    Right(noRt).withLeft[String]
 end OutputSteps
 
 enum SvgConfig(val svg: Svg):

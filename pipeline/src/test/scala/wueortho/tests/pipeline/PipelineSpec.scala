@@ -12,6 +12,7 @@ class PipelineSpec extends AnyFlatSpec:
       List(
         WithTags.only(step.RandomGraph(12, 24, Seed(0x123), RandomGraphs.GraphCore.Tree, false)),
         WithTags.only(step.FullNudging(0.2, true)),
+        WithTags.only(step.EdgeRouting()),
       ),
     )
 

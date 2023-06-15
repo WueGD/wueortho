@@ -3,6 +3,7 @@ package wueortho.routing
 import wueortho.data.*
 import EdgeRoute.OrthoSeg, OrthoSeg.*
 import wueortho.util.GraphSearch.*
+import wueortho.util.RunningTime
 
 trait Routing:
   def paths: IndexedSeq[Path]
@@ -28,28 +29,30 @@ object Routing:
 
   case class DijTrans(dir: Direction, dist: Double)
 
-  def apply(routing: RoutingGraph, ports: PortLayout): Routed =
+  def apply(routing: RoutingGraph, ports: PortLayout): RunningTime.Measured[Routed] =
     def transactions(u: NodeIndex) =
       routing.neighbors(u).map((dir, v) => v -> DijTrans(dir, (routing.locate(v) - routing.locate(u)).len))
 
     given dc: DijkstraCost[DijState, DijTrans] = (t, s0) => s0.transitionCost(t)
 
-    val routedPaths = removeEyes(
+    val routedPaths = RunningTime.of("route-paths"):
       for (EdgeTerminals(uPos, dir, vPos, _), i) <- ports.byEdge.zipWithIndex
       yield
         val (u, v) = routing.resolveEdge(i)
         dijkstra.shortestPath(transactions, u, v, DijState(0, 0, 0, dir))
-          .fold(err => sys.error(s"cannot find shortest path between $u and $v: $err"), identity),
-    )
+          .fold[Path](err => sys.error(s"cannot find shortest path between $u and $v: $err"), identity)
 
-    val orderedRG = PathOrder(routing, routedPaths)
+    val withoutEyes = routedPaths andThen (paths => RunningTime.of("remove-eyes")(removeEyes(paths)))
+
+    val orderedRG = withoutEyes andThen (paths => RunningTime.of("order-paths")(PathOrder(routing, paths)))
     // println(order.zipWithIndex.map((n, i) => s"$i: $n").mkString("\n"))
 
-    new RoutingGraph with PathOrder with Routing:
-      export orderedRG.*
-      override def paths       = routedPaths
-      override lazy val routes =
-        for (path, terminals) <- paths zip ports.byEdge yield pathToOrthoSegs(terminals, path, routing).refined
+    orderedRG.as:
+      new RoutingGraph with PathOrder with Routing:
+        export orderedRG.get.*
+        override def paths       = withoutEyes.get
+        override lazy val routes =
+          for (path, terminals) <- paths zip ports.byEdge yield pathToOrthoSegs(terminals, path, routing).refined
   end apply
 
   private def pathToOrthoSegs(terminals: EdgeTerminals, path: Path, routing: RoutingGraph) =

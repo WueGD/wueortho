@@ -18,6 +18,7 @@ import cats.syntax.traverse.*
 
 import scala.compiletime.*
 import scala.reflect.ClassTag
+import wueortho.util.RunningTime
 
 case class WithTags[ITags <: Tuple, S](step: S, tag: Option[String], iTags: Map[Tuple.Union[ITags], String]):
   def mkTag                                 = StepUtils.resolve(tag)
@@ -33,28 +34,29 @@ object WithTags:
   *   - the encoding of S must not have fields that are also tags in ITags
   *   - the fields `type` and `tag` are reserved
   */
-trait StepImpl[S <: PipelineStep](using ct: ClassTag[S]):
+trait StepImpl[S <: PipelineStep: Encoder.AsObject: Decoder](using ct: ClassTag[S]):
   type ITags <: Tuple
 
-  def codec: Codec[WithTags[ITags, S]]
   def tags: List[String]
 
-  def runToStage(s: WithTags[ITags, S], cache: StageCache): Either[String, List[RunningTime]]
+  def runToStage(s: WithTags[ITags, S], cache: StageCache): Either[String, RunningTime.Measured[?]]
 
   def helpText: String
 
   def stepName: String = ct.runtimeClass.getSimpleName().nn
 
+  def codec: Codec[WithTags[ITags, S]] = Codec.from(taggedDec, taggedEnc)
+
   def taggedEnc(using enc: Encoder.AsObject[S]): Encoder[WithTags[ITags, S]] =
     Encoder.AsObject.instance[WithTags[ITags, S]]: swt =>
-      val more = List("type" -> swt.step.getClass.getSimpleName.nn.asJson, "tag" -> StepUtils.resolve(swt.tag).asJson)
+      val more = List("type" -> swt.step.getClass.getSimpleName.nn.asJson, "tag" -> swt.tag.asJson)
         ++ swt.iTags.map((tag, value) => tag.toString -> value.asJson)
       more.foldLeft(enc.encodeObject(swt.step))(_.add.tupled(_))
 
   def taggedDec(using Decoder[S]): Decoder[WithTags[ITags, S]] =
     def decodeTags(json: JsonObject) =
-      tags.traverse(tag => json(tag).traverse(_.as[String]).map(opt => tag -> StepUtils.resolve(opt)))
-        .map(_.toMap.asInstanceOf[Map[Tuple.Union[ITags], String]]).toTry
+      tags.traverse(tag => json(tag).traverse(_.as[String]).map(_.map(tag -> _)))
+        .map(_.flatten.toMap.asInstanceOf[Map[Tuple.Union[ITags], String]]).toTry
 
     for
       s    <- Decoder[S]
@@ -124,4 +126,5 @@ end Step
 object StepUtils:
   def resolve(t: Tag) = t.getOrElse("default")
 
-  extension [T, R](eth: Either[T, Unit]) def nil: Either[T, List[R]] = eth.map(_ => Nil)
+  extension [T, R](eth: Either[T, Unit])
+    def unit: Either[T, RunningTime.Measured[Unit]] = eth.map(_ => RunningTime.unit)

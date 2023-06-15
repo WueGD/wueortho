@@ -2,6 +2,7 @@ package wueortho.pipeline
 
 import wueortho.data.*
 import wueortho.routing.{RoutingGraph, Routed}
+import wueortho.util.RunningTime
 
 enum Stage[T]:
   case Graph        extends Stage[BasicGraph]
@@ -23,7 +24,7 @@ object Stage:
   given stageEqAX[A]: CanEqual[Stage[A], Stage[?]]    = CanEqual.derived
 
 trait Provider[S]:
-  def run(s: S, cache: StageCache): Either[String, List[RunningTime]]
+  def run(s: S, cache: StageCache): Either[String, RunningTime.Measured[?]]
 
 object Provider:
   def apply[S](using p: Provider[S]) = p

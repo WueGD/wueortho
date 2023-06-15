@@ -1,7 +1,4 @@
-package wueortho.pipeline
-
-import wueortho.data.Metadata
-import wueortho.util.WhenSyntax.when
+package wueortho.util
 
 case class RunningTime(title: String, start: Long, end: Long, parts: List[RunningTime]):
   def totalTimeMs = (end - start) / 1e6
@@ -19,25 +16,22 @@ case class RunningTime(title: String, start: Long, end: Long, parts: List[Runnin
           .mkString("\n")
     )
   end show
-
-  def toMetadata =
-    def go(rt: RunningTime, path: String): List[(String, String)] =
-      val subPath = rt.title when (_ => path.isEmpty) otherwiseDo (path + "." + _)
-      (subPath -> rt.totalTimeMs.toString) :: rt.parts.flatMap(rt => go(rt, subPath))
-    Metadata(go(this, "").toMap)
 end RunningTime
 
 object RunningTime:
-  trait InjectRunningTime[T]:
-    type R
-    def apply(t: T, rt: RunningTime): R
+  case class Measured[+T](runtimes: List[RunningTime], get: T):
+    @annotation.targetName("productRight")
+    def *>[S](other: Measured[S]) = Measured(runtimes ++ other.runtimes, other.get)
+    @annotation.targetName("productLeft")
+    def <*[S](other: Measured[S]) = Measured(runtimes ++ other.runtimes, get)
 
-  object InjectRunningTime:
-    type Aux[T, R0] = InjectRunningTime[T] { type R = R0 }
+    def as[S](s: S)       = copy(get = s)
+    def map[S](f: T => S) = copy(get = f(get))
 
-    given intoEitherStringOr[T]: InjectRunningTime[Either[String, T]] with
-      type R = Either[String, RunningTime]
-      override def apply(t: Either[String, T], rt: RunningTime): R = t.map(_ => rt)
+    def map2[S, Z](other: Measured[S])(f: (T, S) => Z) = Measured(runtimes ++ other.runtimes, f(get, other.get))
+
+    infix def andThen[S](f: T => Measured[S]) = *>(f(get))
+  end Measured
 
   trait RetrieveRunningTimes[T]:
     def apply(t: T): List[RunningTime]
@@ -46,24 +40,24 @@ object RunningTime:
     given fromEitherStringOr[T](using rt: RetrieveRunningTimes[T]): RetrieveRunningTimes[Either[String, T]] =
       (e: Either[String, T]) => e.fold(_ => Nil, rt(_))
 
-    given RetrieveRunningTimes[Unit]              = (_: Unit) => Nil
+    given fromMeasured[T]: RetrieveRunningTimes[Measured[T]] = _.runtimes
+
     given RetrieveRunningTimes[RunningTime]       = (rt: RunningTime) => List(rt)
     given RetrieveRunningTimes[List[RunningTime]] = (l: List[RunningTime]) => l
 
   trait LowPriorityGivens:
     given catchAll[T]: RetrieveRunningTimes[T] = (_: T) => Nil
 
-  private def measure[T](title: String, run: => T)(using retrieve: RetrieveRunningTimes[T]): (T, RunningTime) =
+  private def measure[T](title: String, run: => T)(using retrieve: RetrieveRunningTimes[T]) =
     val start = System.nanoTime()
     val res   = run
     val end   = System.nanoTime()
-    res -> RunningTime(title, start, end, retrieve(res))
+    Measured(List(RunningTime(title, start, end, retrieve(res))), res)
 
-  def of[T](title: String)(run: => T)(using inject: InjectRunningTime[T], retrieve: RetrieveRunningTimes[T]) =
-    val (res, rt) = measure(title, run)
-    inject(res, rt)
+  def of[T: RetrieveRunningTimes](title: String)(run: => T) = measure(title, run)
 
   def ofAll[S, T: RetrieveRunningTimes](l: List[S], mkTitle: S => String)(run: S => T) =
-    l.map(s => measure(mkTitle(s), run(s))).unzip
+    l.foldLeft[Measured[List[T]]](Measured(Nil, Nil))((m, s) => m.map2(measure(mkTitle(s), List(run(s))))(_ ++ _))
 
+  def unit = Measured(Nil, ())
 end RunningTime
