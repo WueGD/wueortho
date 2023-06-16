@@ -208,8 +208,30 @@ object AlgorithmicSteps:
     yield res
   end EdgeRouting
 
+  case object ConstrainedNudgingImpl extends StepImpl[step.ConstrainedNudging]:
+    type ITags = ("routing", "ports", "vertexBoxes")
+    override def tags     = deriveTags[ITags]
+    override def helpText = "Perform constrained nudging."
+
+    override def runToStage(s: WithTags[ITags, step.ConstrainedNudging], cache: StageCache) = for
+      r   <- cache.getStageResult(Stage.EdgeRouting, s.mkITag("routing"))
+      pl  <- cache.getStageResult(Stage.Ports, s.mkITag("ports"))
+      obs <- cache.getStageResult(Stage.Obstacles, s.mkITag("vertexBoxes"))
+      _   <- cache.setStage(Stage.Routes, s.mkTag, EdgeNudging.calcEdgeRoutes(r, pl, obs))
+    yield noRt
+  end ConstrainedNudgingImpl
+
+  case object NoNudgingImpl extends StepImpl[step.NoNudging]:
+    type ITags = "routing" *: EmptyTuple
+    override def tags     = deriveTags[ITags]
+    override def helpText = "Perform no nudging."
+
+    override def runToStage(s: WithTags[ITags, step.NoNudging], cache: StageCache) =
+      cache.getStageResult(Stage.EdgeRouting, s.mkITag("routing"))
+        .flatMap(r => cache.setStage(Stage.Routes, s.mkTag, r.routes)).unit
+
   case object FullNudgingImpl extends StepImpl[step.FullNudging]:
-    type ITags = ("arg", "obstacles", "ports", "graph")
+    type ITags = ("routing", "vertexBoxes", "ports", "graph")
     override def tags     = deriveTags[ITags]
     override def helpText = """Perform full nudging (moves edge segments, ports, and vertex boxes).
                               | * `padding` - A minimum object distance is maintained.
@@ -217,9 +239,9 @@ object AlgorithmicSteps:
 
     override def runToStage(s: WithTags[ITags, step.FullNudging], cache: StageCache) =
       for
-        rIn         <- cache.getStageResult(Stage.EdgeRouting, s.mkITag("arg"))
+        rIn         <- cache.getStageResult(Stage.EdgeRouting, s.mkITag("routing"))
         plIn        <- cache.getStageResult(Stage.Ports, s.mkITag("ports"))
-        obsIn       <- cache.getStageResult(Stage.Obstacles, s.mkITag("obstacles"))
+        obsIn       <- cache.getStageResult(Stage.Obstacles, s.mkITag("vertexBoxes"))
         g           <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
         (r, pl, obs) = FullNudging(Nudging.Config(s.step.padding, s.step.use2ndHPass), rIn, plIn, g, obsIn)
         _           <- cache.setStage(Stage.Routes, s.mkTag, r)

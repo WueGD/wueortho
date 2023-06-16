@@ -47,7 +47,7 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
     for v <- (NodeIndex(0) until routingGraph.size).map(routingGraph.neighbors) do v.size should (be > 0 and be < 5)
 
   lazy val adapter       = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, ovgGraph, ovgLayout, Sample.ports)
-  lazy val ovgRouted     = Routing(adapter, Sample.ports)
+  lazy val ovgRouted     = Routing(adapter, Sample.ports).get
   lazy val gridWithPaths = deprecated.PathOrder(adapter, Sample.ports, ovgRouted.paths)
 
   "Routes on the orthogonal visibility graph" `should` "be given paths" in:
@@ -76,7 +76,7 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
     nudgedPorts.byEdge should have size Sample.edges.size
     nudgedObstacles.nodes should have size Sample.obstacles.nodes.size
 
-  lazy val routed = Routing(routingGraph, Sample.ports)
+  lazy val routed = Routing(routingGraph, Sample.ports).get
 
   "Edge nudging of routes on the simplified routing graph" `should` "complete without errors" in:
     val routes = EdgeNudging.calcEdgeRoutes(routed, Sample.ports, Sample.obstacles)

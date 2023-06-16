@@ -17,6 +17,56 @@ object OutputSteps:
   import StepUtils.{resolve as mk}
   import wueortho.util.RunningTime.unit as noRt
 
+  case object MetricsImpl extends StepImpl[step.Metrics]:
+    type ITags = ("routes", "graph", "vertexBoxes")
+    override def tags     = deriveTags[ITags]
+    override def helpText = """Calculate metrics.
+                              | * `use` - select a list of metrics. Use `["all"]` to select all metrics.""".stripMargin
+
+    override def runToStage(s: WithTags[ITags, step.Metrics], cache: StageCache) = for
+      g   <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
+      obs <- cache.getStageResult(Stage.Obstacles, s.mkITag("vertexBoxes"))
+      r   <- cache.getStageResult(Stage.Routes, s.mkITag("routes"))
+      m    =
+        calcMetrics(g, obs, r, s.step.use*) + ("Vertices", s"${obs.nodes.size}") + ("Edges", s"${r.size}") // move here
+      _   <- cache.setStage(Stage.Metadata, s.mkTag, m)
+    yield noRt
+  end MetricsImpl
+
+  case object DrawSvgImpl extends StepImpl[step.SvgDrawing]:
+    type ITags = ("routes", "vertexBoxes", "vertexLabels", "portLabels")
+    override def tags     = deriveTags[ITags]
+    override def helpText = """Draw as SVG.
+                              | * `config` - use a predefined config:
+                              |
+                              |   - `SmoothEdges` colorful smooth edges (ppu=50).
+                              |   - `StraightEdges` colorful straight edges (ppu=50).
+                              |   - `Praline` close to Praline but with colorful edges (ppu=1).
+                              |   - `Custom` full custom (see wueortho.io.svg.Svg for details).
+                              |
+                              | * `overridePpu` - override the pixels per unit setting [optional]""".stripMargin
+
+    override def runToStage(s: WithTags[ITags, step.SvgDrawing], cache: StageCache) = for
+      obs <- cache.getStageResult(Stage.Obstacles, s.mkITag("vertexBoxes"))
+      r   <- cache.getStageResult(Stage.Routes, s.iTags("routes"))
+      vls <- cache.getStageResult(Stage.VertexLabels, s.mkITag("vertexLabels"))
+      pls <- cache.getStageResult(Stage.PortLabels, s.mkITag("portLabels"))
+      svg  = s.step.overridePpu.fold(s.step.config.svg)(ppu => s.step.config.svg.copy(pixelsPerUnit = ppu))
+      _   <- cache.setStage(Stage.Svg, mk(s.tag), drawAll(svg, obs, r, vls, pls))
+    yield noRt
+  end DrawSvgImpl
+
+  case object SvgToFileImpl extends StepImpl[step.SvgToFile]:
+    type ITags = "svg" *: EmptyTuple
+    override def tags     = deriveTags[ITags]
+    override def helpText = "Save the SVG as `path`"
+
+    override def runToStage(s: WithTags[ITags, step.SvgToFile], cache: StageCache) = for
+      svg <- cache.getStageResult(Stage.Svg, s.mkITag("svg"))
+      _   <- Try(Files.writeString(s.step.path, svg)).toEither.left.map(_.toString)
+    yield noRt
+  end SvgToFileImpl
+
   given Provider[Step.SvgDrawing] = (s: Step.SvgDrawing, cache: StageCache) =>
     for
       obs <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
@@ -78,20 +128,19 @@ object OutputSteps:
       _   <- Try(Files.writeString(s.path, out.asJson.noSpaces)).toEither.left.map(_.toString)
     yield noRt
 
-  private val allMetrics =
-    List(
-      "Crossings",
-      "BoundingBoxArea",
-      "ConvexHullArea",
-      "TotalEdgeLength",
-      "EdgeBends",
-      "EdgeLengthVariance",
-      "HasLoops",
-      "HasMultiEdges",
-      "IsConnected",
-      "AspectRatio",
-      "InterEdgeDistance",
-    )
+  private val allMetrics = List(
+    "Crossings",
+    "BoundingBoxArea",
+    "ConvexHullArea",
+    "TotalEdgeLength",
+    "EdgeBends",
+    "EdgeLengthVariance",
+    "HasLoops",
+    "HasMultiEdges",
+    "IsConnected",
+    "AspectRatio",
+    "InterEdgeDistance",
+  )
 
   private def calcMetrics(g: BasicGraph, obs: Obstacles, r: IndexedSeq[EdgeRoute], ms: String*): Metadata = Metadata(
     (ms.flatMap: m =>

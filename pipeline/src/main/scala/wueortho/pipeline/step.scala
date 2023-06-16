@@ -4,7 +4,9 @@ import wueortho.data.*
 import wueortho.io.random.RandomGraphs.GraphCore
 import wueortho.util.Codecs.given
 
-import io.circe.derivation.{ConfiguredCodec as CC}
+import io.circe.derivation.ConfiguredCodec as CC
+
+import java.nio.file.Path as FSPath
 
 /** Marker trait for pipeline steps */
 trait PipelineStep
@@ -20,12 +22,20 @@ object step:
   case class SyntheticVertexLabels(config: SyntheticLabels)                                extends PStep derives CC
   case class SyntheticPortLabels(config: SyntheticLabels)                                  extends PStep derives CC
   case class BoxesFromLabels(config: VertexLabelConfig)                                    extends PStep derives CC
+  case class ReadTglfFile(path: FSPath, use: List[Extractor])                              extends PStep derives CC
 
   // algo steps
   case class ForceDirectedLayout(iterations: Int, seed: Seed, repetitions: Int)         extends PStep derives CC
   case class GTreeOverlaps(stretch: Stretch, seed: Seed, forceGeneralPosition: Boolean) extends PStep derives CC
   case class PortsByAngle(mode: PortMode)                                               extends PStep derives CC
   case class SimplifiedRoutingGraph(stretch: Stretch)                                   extends PStep derives CC
-  case class FullNudging(padding: Double, use2ndHPass: Boolean)                         extends PStep derives CC
   case class EdgeRouting()                                                              extends PStep derives CC
+  case class NoNudging()                                                                extends PStep derives CC
+  case class ConstrainedNudging()                                                       extends PStep derives CC
+  case class FullNudging(padding: Double, use2ndHPass: Boolean)                         extends PStep derives CC
+
+  // output steps
+  case class Metrics(use: List[String])                                 extends PStep derives CC
+  case class SvgDrawing(config: SvgConfig, overridePpu: Option[Double]) extends PStep derives CC
+  case class SvgToFile(path: FSPath)                                    extends PStep derives CC
 end step

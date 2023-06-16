@@ -12,6 +12,7 @@ import io.circe.derivation.ConfiguredEnumCodec
 
 import scala.util.Try
 import java.nio.file.Files
+import wueortho.util.EnumUtils
 
 object InputSteps:
   import StepUtils.{resolve as mk, *}
@@ -110,6 +111,24 @@ object InputSteps:
       _  <- cache.setStage(Stage.Obstacles, mk(s.tag), labels2obs(s.step.config, vl, l))
     yield noRt
   end BoxesFromLabelsImpl
+
+  case object TglfReadImpl extends StepImpl[step.ReadTglfFile]:
+    type ITags = EmptyTuple
+    override def tags     = deriveTags[ITags]
+    override def helpText =
+      val extractors = EnumUtils.enumNames[Extractor].map(name => s"`$name`").mkString(", ")
+      s"""Read imputs in Trivial Graph Layout Format.
+         |`path` - read from this file.
+         |`use` - select a list of extractors. Possible values: $extractors
+         |Note: TGLF does not support certain extractors (e.g. vertex labels)""".stripMargin
+
+    override def runToStage(s: WithTags[ITags, step.ReadTglfFile], cache: StageCache) = (for
+      raw <- Try(Files.readString(s.step.path).nn).toEither
+      in  <- TglfReader.fromString(raw)
+      _   <- s.step.use.foldLeft(Right(()).withLeft[String]): (u, ex) =>
+               u.flatMap(_ => maybeExtractTglf(ex, in, s.mkTag, cache))
+    yield noRt).left.map(_.toString)
+  end TglfReadImpl
 
   given Provider[Step.RandomGraph] = (s: Step.RandomGraph, cache: StageCache) =>
     cache.updateStage(Stage.Graph, mk(s.tag), _ => random.RandomGraphs.mkBasicGraph(s.config)).unit
