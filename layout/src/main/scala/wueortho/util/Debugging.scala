@@ -1,6 +1,6 @@
 package wueortho.util
 
-import wueortho.data.*
+import wueortho.data.*, Direction.*
 import wueortho.routing.RoutingGraph
 
 object Debugging:
@@ -9,7 +9,8 @@ object Debugging:
   def rg2adj(graph: RoutingGraph) =
     val layout      = VertexLayout((0 until graph.size).map(i => graph.locate(NodeIndex(i))))
     val adjacencies = Graph.fromEdges(
-      (NodeIndex(0) until graph.size).flatMap(u => graph.neighbors(u).map((_, v) => SimpleEdge(u, v))),
+      (NodeIndex(0) until graph.size)
+        .flatMap(u => (graph.neighbor(u, North) ++ graph.neighbor(u, East)).map(SimpleEdge(u, _))),
     ).mkBasicGraph
     adjacencies -> layout
 

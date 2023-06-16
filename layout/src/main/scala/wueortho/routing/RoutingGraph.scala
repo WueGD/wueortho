@@ -65,7 +65,7 @@ object RoutingGraph:
       node.adj(0) = left
   end RGNode
 
-  def create(obs: Obstacles, edges: IndexedSeq[SimpleEdge], ports: PortLayout) =
+  def create(obs: Obstacles, ports: PortLayout) =
     trait Builder:
       def low(obs: Rect2D): Double
       def high(obs: Rect2D): Double
@@ -81,7 +81,7 @@ object RoutingGraph:
           res       <- List(QueueItem.Begin(low(rect), i), QueueItem.End(high(rect), i))
         yield res
         val midItems = for
-          (edge, i)    <- edges.zipWithIndex
+          i            <- 0 until ports.byEdge.size
           (at, dir, j) <- List((ports(i).uTerm, ports(i).uDir, i * 2), (ports(i).vTerm, ports(i).vDir, i * 2 + 1))
           if !isDir(dir)
         yield QueueItem.Mid(pos(at), dir, j)
@@ -231,11 +231,8 @@ object RoutingGraph:
         case _                                        =>
     end for
 
-    assert(nodes.zipWithIndex.find((v, i) => v.neighbors.exists(_._2.toInt == i)).isEmpty, "routing graph has loops")
-    assert(
-      nodes.find(v => v.neighbors.size != v.neighbors.distinctBy(_._2).size).isEmpty,
-      "routing graph has multi edges",
-    )
+    assert(!nodes.zipWithIndex.exists((v, i) => v.neighbors.exists(_._2.toInt == i)), "routing graph has loops")
+    assert(!nodes.exists(v => v.neighbors.size != v.neighbors.distinctBy(_._2).size), "routing graph has multi edges")
 
     new RoutingGraph:
       override def neighbors(node: NodeIndex): List[(Direction, NodeIndex)]     = nodes(node.toInt).neighbors

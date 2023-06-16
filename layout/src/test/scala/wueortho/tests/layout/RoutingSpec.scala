@@ -13,7 +13,7 @@ import org.scalatest.matchers.should
 
 class RoutingSpec extends AnyFlatSpec, should.Matchers:
   lazy val (ovgGraph, ovgLayout, _, ovg) = OrthogonalVisibilityGraph.create(Sample.obstacles.nodes, Sample.ports)
-  lazy val routingGraph                  = RoutingGraph.create(Sample.obstacles, Sample.edges, Sample.ports)
+  lazy val routingGraph                  = RoutingGraph.create(Sample.obstacles, Sample.ports)
   lazy val (rgAsBasicGraph, _)           = Debugging.rg2adj(routingGraph)
 
   "The orthogonal visibility graph" `should` "not have loops" in:

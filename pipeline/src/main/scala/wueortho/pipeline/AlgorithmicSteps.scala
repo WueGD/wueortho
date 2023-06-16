@@ -75,7 +75,7 @@ object AlgorithmicSteps:
       obs  <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
       pl   <- cache.getStageResult(Stage.Ports, mk(s.ports))
       large = Obstacles.lift(Stretch(s.stretch, _))(obs)
-      _    <- cache.setStage(Stage.RoutingGraph, mk(s.tag), RoutingGraph.create(large, g.edges.toIndexedSeq, pl))
+      _    <- cache.setStage(Stage.RoutingGraph, mk(s.tag), RoutingGraph.create(large, pl))
     yield noRt
 
   given Provider[Step.OVGRoutingGraph] = (s: Step.OVGRoutingGraph, cache: StageCache) =>
@@ -181,17 +181,16 @@ object AlgorithmicSteps:
   end PortsByAngleImpl
 
   case object SimplifiedRoutingGraphImpl extends StepImpl[step.SimplifiedRoutingGraph]:
-    type ITags = ("vertexBoxes", "graph", "ports")
+    type ITags = ("vertexBoxes", "ports")
     override def tags     = deriveTags[ITags]
     override def helpText = """Create a routing graph.
                               | * `stretch` - manipulate the boxes before routing""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.SimplifiedRoutingGraph], cache: StageCache) = for
-      g    <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
       obs  <- cache.getStageResult(Stage.Obstacles, s.mkITag("vertexBoxes"))
       pl   <- cache.getStageResult(Stage.Ports, s.mkITag("ports"))
       large = Obstacles.lift(Stretch(s.step.stretch, _))(obs)
-      _    <- cache.setStage(Stage.RoutingGraph, s.mkTag, RoutingGraph.create(large, g.edges.toIndexedSeq, pl))
+      _    <- cache.setStage(Stage.RoutingGraph, s.mkTag, RoutingGraph.create(large, pl))
     yield noRt
   end SimplifiedRoutingGraphImpl
 
