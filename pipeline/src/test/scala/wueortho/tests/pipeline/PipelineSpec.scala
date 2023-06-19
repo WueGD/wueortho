@@ -16,7 +16,7 @@ class PipelineSpec extends AnyFlatSpec:
       ),
     )
 
-    val p    = Pipeline.Builder(InputSteps.all ++ AlgorithmicSteps.all)
+    val p    = Pipeline.Builder(CoreStep.allImpls)
     val json = p.asJson(dummy)
     println(json.noSpaces)
     val p2   = p.fromJson(json).getOrElse(fail("failed to decode pipeline"))

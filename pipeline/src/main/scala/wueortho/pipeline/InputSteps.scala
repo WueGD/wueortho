@@ -1,12 +1,11 @@
 package wueortho.pipeline
 
 import wueortho.data.*
-import wueortho.io.{praline, random, tglf}, praline.Praline, praline.Extractors.*, tglf.TglfReader,
-  random.RandomGraphs.RandomGraphConfig
+import wueortho.io.{random, tglf}, tglf.TglfReader, random.RandomGraphs.RandomGraphConfig
 import wueortho.util.Codecs.given
 import wueortho.util.TextUtils
 
-import Extractor as Use
+import TglfExtractor as Use
 
 import io.circe.derivation.ConfiguredEnumCodec
 
@@ -15,12 +14,9 @@ import java.nio.file.Files
 import wueortho.util.EnumUtils
 
 object InputSteps:
-  import StepUtils.{resolve as mk, *}
-  import wueortho.util.RunningTime.unit as noRt
+  import wueortho.util.RunningTime.unit as noRt, StepUtils.unit
 
-  val all = List(RandomGraphImpl)
-
-  case object RandomGraphImpl extends StepImpl[step.RandomGraph]:
+  given StepImpl[step.RandomGraph] with
     type ITags = EmptyTuple
     override def tags     = Nil
     override def helpText =
@@ -33,9 +29,9 @@ object InputSteps:
       import s.step.*
       def mkBg = random.RandomGraphs.mkBasicGraph(RandomGraphConfig(n, m, seed, core, allowLoops))
       cache.updateStage(Stage.Graph, s.mkTag, _ => mkBg).unit
-  end RandomGraphImpl
+  end given
 
-  case object RandomVertexBoxImpl extends StepImpl[step.RandomVertexBoxes]:
+  given StepImpl[step.RandomVertexBoxes] with
     type ITags = "graph" *: EmptyTuple
     override def tags     = deriveTags[ITags]
     override def helpText =
@@ -51,9 +47,9 @@ object InputSteps:
         _     <- cache.setStage(Stage.Obstacles, s.mkTag, boxes)
       yield noRt
     end runToStage
-  end RandomVertexBoxImpl
+  end given
 
-  case object UniformVertexBoxImpl extends StepImpl[step.UniformVertexBoxes]:
+  given StepImpl[step.UniformVertexBoxes] with
     type ITags = "vertexLayout" *: EmptyTuple
     override def tags     = deriveTags[ITags]
     override def helpText = """Create vertex boxes of uniform size.
@@ -64,9 +60,9 @@ object InputSteps:
       obs = Obstacles.fromVertexLayout((c, _) => Rect2D(c, s.step.span))(vl)
       _  <- cache.setStage(Stage.Obstacles, s.mkTag, obs)
     yield noRt
-  end UniformVertexBoxImpl
+  end given
 
-  case object SyntheticVertexLabelsImpl extends StepImpl[step.SyntheticVertexLabels]:
+  given StepImpl[step.SyntheticVertexLabels] with
     type ITags = "graph" *: EmptyTuple
     override def tags     = deriveTags[ITags]
     override def helpText = """Create artificial vertex labels.
@@ -79,9 +75,9 @@ object InputSteps:
           graph <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
           _     <- cache.setStage(Stage.VertexLabels, s.mkTag, Labels.enumerate(graph.numberOfVertices))
         yield noRt
-  end SyntheticVertexLabelsImpl
+  end given
 
-  case object SyntheticPortLabelsImpl extends StepImpl[step.SyntheticPortLabels]:
+  given StepImpl[step.SyntheticPortLabels] with
     type ITags = "ports" *: EmptyTuple
     override def tags     = deriveTags[ITags]
     override def helpText = """Create artificial port labels.
@@ -94,9 +90,9 @@ object InputSteps:
           pl <- cache.getStageResult(Stage.Ports, s.mkITag("ports"))
           _  <- cache.setStage(Stage.PortLabels, s.mkTag, Labels.enumerate(pl.numberOfPorts))
         yield noRt
-  end SyntheticPortLabelsImpl
+  end given
 
-  case object BoxesFromLabelsImpl extends StepImpl[step.BoxesFromLabels]:
+  given StepImpl[step.BoxesFromLabels] with
     type ITags = ("vertexLayout", "vertexLabels")
     override def tags     = deriveTags[ITags]
     override def helpText = """Create vertex boxes to host text labels
@@ -108,19 +104,31 @@ object InputSteps:
     override def runToStage(s: WithTags[ITags, step.BoxesFromLabels], cache: StageCache) = for
       vl <- cache.getStageResult(Stage.Layout, s.mkITag("vertexLayout"))
       l  <- cache.getStageResult(Stage.VertexLabels, s.mkITag("vertexLabels"))
-      _  <- cache.setStage(Stage.Obstacles, mk(s.tag), labels2obs(s.step.config, vl, l))
+      _  <- cache.setStage(Stage.Obstacles, s.mkTag, labels2obs(s.step.config, vl, l))
     yield noRt
-  end BoxesFromLabelsImpl
 
-  case object TglfReadImpl extends StepImpl[step.ReadTglfFile]:
+    private def labels2obs(c: VertexLabelConfig, vl: VertexLayout, l: Labels) =
+      extension (s: Vec2D) def withPadding = Vec2D(s.x1 + c.padding, s.x2 + c.padding)
+      l match
+        case Labels.Hide              =>
+          Obstacles.fromVertexLayout((pos, _) => Rect2D(pos, Vec2D(c.minWidth, c.minHeight).scale(0.5).withPadding))(vl)
+        case Labels.PlainText(labels) =>
+          val textSize = TextUtils.TextSize(c.fontSize)
+          Obstacles:
+              for (pos, label) <- vl.nodes zip labels yield
+                val Vec2D(textWidth, textHeight) = textSize(label)
+                Rect2D(pos, Vec2D(textWidth max c.minWidth, textHeight max c.minHeight).scale(0.5).withPadding)
+    end labels2obs
+  end given
+
+  given StepImpl[step.ReadTglfFile] with
     type ITags = EmptyTuple
     override def tags     = deriveTags[ITags]
     override def helpText =
-      val extractors = EnumUtils.enumNames[Extractor].map(name => s"`$name`").mkString(", ")
+      val extractors = EnumUtils.enumNames[Use].map(name => s"`$name`").mkString(", ")
       s"""Read imputs in Trivial Graph Layout Format.
          |`path` - read from this file.
-         |`use` - select a list of extractors. Possible values: $extractors
-         |Note: TGLF does not support certain extractors (e.g. vertex labels)""".stripMargin
+         |`use` - select a list of extractors. Possible values: $extractors""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.ReadTglfFile], cache: StageCache) = (for
       raw <- Try(Files.readString(s.step.path).nn).toEither
@@ -128,88 +136,15 @@ object InputSteps:
       _   <- s.step.use.foldLeft(Right(()).withLeft[String]): (u, ex) =>
                u.flatMap(_ => maybeExtractTglf(ex, in, s.mkTag, cache))
     yield noRt).left.map(_.toString)
-  end TglfReadImpl
 
-  given Provider[Step.RandomGraph] = (s: Step.RandomGraph, cache: StageCache) =>
-    cache.updateStage(Stage.Graph, mk(s.tag), _ => random.RandomGraphs.mkBasicGraph(s.config)).unit
-
-  given Provider[Step.ReadPralineFile] = (s: Step.ReadPralineFile, cache: StageCache) =>
-    (for
-      raw   <- Try(Files.readString(s.path).nn).toEither
-      graph <- praline.parseGraph(raw)
-      _     <- s.use.foldLeft(Right(()).withLeft[String]): (u, ex) =>
-                 u.flatMap(_ => maybeExtractPraline(ex, graph, mk(s.tag), cache))
-    yield noRt).left.map(_.toString)
-
-  private def maybeExtractPraline(ex: Extractor, g: Praline.Graph, tag: String, cache: StageCache) =
-    ex match
-      case Use.Graph        => g.getSimpleGraph.flatMap(cache.setStage(Stage.Graph, tag, _))
-      case Use.VertexLabels => g.getVertexLabels.flatMap(cache.setStage(Stage.VertexLabels, tag, _))
-      case Use.VertexLayout => g.getVertexLayout.flatMap(cache.setStage(Stage.Layout, tag, _))
-      case Use.Obstacles    => g.getObstacles.flatMap(cache.setStage(Stage.Obstacles, tag, _))
-      case Use.EdgeRoutes   => g.getEdgeRoutes.flatMap(cache.setStage(Stage.Routes, tag, _))
-
-  given Provider[Step.ReadTglfFile] = (s: Step.ReadTglfFile, cache: StageCache) =>
-    (for
-      raw <- Try(Files.readString(s.path).nn).toEither
-      in  <- TglfReader.fromString(raw)
-      _   <- s.use.foldLeft(Right(()).withLeft[String]): (u, ex) =>
-               u.flatMap(_ => maybeExtractTglf(ex, in, mk(s.tag), cache))
-    yield noRt).left.map(_.toString)
-
-  private def maybeExtractTglf(ex: Extractor, in: TglfReader.TglfRepr, tag: String, cache: StageCache) =
-    ex match
-      case Use.Graph        => cache.setStage(Stage.Graph, tag, in.getBasicGraph)
-      case Use.VertexLabels => Left("cannot extract vertex labels from tglf")
-      case Use.VertexLayout =>
-        in.getObstacles.flatMap(obs => cache.setStage(Stage.Layout, tag, VertexLayout(obs.nodes.map(_.center))))
-      case Use.Obstacles    => in.getObstacles.flatMap(cache.setStage(Stage.Obstacles, tag, _))
-      case Use.EdgeRoutes   => in.getPaths.flatMap(cache.setStage(Stage.Routes, tag, _))
-
-  given Provider[Step.UniformObstacles] = (s: Step.UniformObstacles, cache: StageCache) =>
-    for
-      vl <- cache.getStageResult(Stage.Layout, mk(s.vertexLayout))
-      obs = Obstacles.fromVertexLayout((c, _) => Rect2D(c, Vec2D(s.width / 2, s.height / 2)))(vl)
-      _  <- cache.setStage(Stage.Obstacles, mk(s.tag), obs)
-    yield noRt
-
-  given Provider[Step.ObstaclesFromLabels] = (s: Step.ObstaclesFromLabels, cache: StageCache) =>
-    for
-      vl <- cache.getStageResult(Stage.Layout, mk(s.vertexLayout))
-      l  <- cache.getStageResult(Stage.VertexLabels, mk(s.vertexLabels))
-      _  <- cache.setStage(Stage.Obstacles, mk(s.tag), labels2obs(s.config, vl, l))
-    yield noRt
-
-  private def labels2obs(c: VertexLabelConfig, vl: VertexLayout, l: Labels) =
-    extension (s: Vec2D) def withPadding = Vec2D(s.x1 + c.padding, s.x2 + c.padding)
-    l match
-      case Labels.Hide              =>
-        Obstacles.fromVertexLayout((pos, _) => Rect2D(pos, Vec2D(c.minWidth, c.minHeight).scale(0.5).withPadding))(vl)
-      case Labels.PlainText(labels) =>
-        val textSize = TextUtils.TextSize(c.fontSize)
-        Obstacles:
-            for (pos, label) <- vl.nodes zip labels yield
-              val Vec2D(textWidth, textHeight) = textSize(label)
-              Rect2D(pos, Vec2D(textWidth max c.minWidth, textHeight max c.minHeight).scale(0.5).withPadding)
-  end labels2obs
-
-  given Provider[Step.SyntheticVertexLabels] = (s: Step.SyntheticVertexLabels, cache: StageCache) =>
-    s.config match
-      case SyntheticLabels.Hide      => cache.updateStage(Stage.VertexLabels, mk(s.tag), _ => Right(Labels.Hide)).unit
-      case SyntheticLabels.Enumerate =>
-        for
-          graph <- cache.getStageResult(Stage.Graph, mk(s.graph))
-          _     <- cache.setStage(Stage.VertexLabels, mk(s.tag), Labels.enumerate(graph.numberOfVertices))
-        yield noRt
-
-  given Provider[Step.SyntheticPortLabels] = (s: Step.SyntheticPortLabels, cache: StageCache) =>
-    s.config match
-      case SyntheticLabels.Hide      => cache.updateStage(Stage.PortLabels, mk(s.tag), _ => Right(Labels.Hide)).unit
-      case SyntheticLabels.Enumerate =>
-        for
-          pl <- cache.getStageResult(Stage.Ports, mk(s.ports))
-          _  <- cache.setStage(Stage.PortLabels, mk(s.tag), Labels.enumerate(pl.numberOfPorts))
-        yield noRt
+    private def maybeExtractTglf(ex: TglfExtractor, in: TglfReader.TglfRepr, tag: String, cache: StageCache) =
+      ex match
+        case Use.Graph        => cache.setStage(Stage.Graph, tag, in.getBasicGraph)
+        case Use.VertexLayout =>
+          in.getObstacles.flatMap(obs => cache.setStage(Stage.Layout, tag, VertexLayout(obs.nodes.map(_.center))))
+        case Use.Obstacles    => in.getObstacles.flatMap(cache.setStage(Stage.Obstacles, tag, _))
+        case Use.EdgeRoutes   => in.getPaths.flatMap(cache.setStage(Stage.Routes, tag, _))
+  end given
 end InputSteps
 
 enum VertexLabelConfig(val minWidth: Double, val minHeight: Double, val padding: Double, val fontSize: Int):
@@ -224,5 +159,5 @@ enum VertexLabelConfig(val minWidth: Double, val minHeight: Double, val padding:
 enum SyntheticLabels derives CanEqual, ConfiguredEnumCodec:
   case Hide, Enumerate
 
-enum Extractor derives CanEqual, ConfiguredEnumCodec:
-  case Graph, VertexLabels, VertexLayout, Obstacles, EdgeRoutes
+enum TglfExtractor derives CanEqual, ConfiguredEnumCodec:
+  case Graph, VertexLayout, Obstacles, EdgeRoutes

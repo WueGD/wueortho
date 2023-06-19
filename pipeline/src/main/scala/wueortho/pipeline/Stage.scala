@@ -2,7 +2,7 @@ package wueortho.pipeline
 
 import wueortho.data.*
 import wueortho.routing.{RoutingGraph, Routed}
-import wueortho.util.RunningTime
+import java.util.concurrent.atomic.AtomicReference
 
 enum Stage[T]:
   case Graph        extends Stage[BasicGraph]
@@ -16,18 +16,12 @@ enum Stage[T]:
   case Routes       extends Stage[IndexedSeq[EdgeRoute]]
   case Svg          extends Stage[String]
   case Metadata     extends Stage[Metadata]
-  case Terminal     extends Stage[Unit]
+  case ForeignData  extends Stage[AtomicReference[Any]]
 end Stage
 
 object Stage:
   given stageEqAB[A, B]: CanEqual[Stage[A], Stage[B]] = CanEqual.derived
   given stageEqAX[A]: CanEqual[Stage[A], Stage[?]]    = CanEqual.derived
-
-trait Provider[S]:
-  def run(s: S, cache: StageCache): Either[String, RunningTime.Measured[?]]
-
-object Provider:
-  def apply[S](using p: Provider[S]) = p
 
 class StageCache:
   private val cache = scala.collection.mutable.Map.empty[(Stage[?], String), Any]

@@ -20,6 +20,7 @@ case class Obstacles(nodes: IndexedSeq[Rect2D]):
   def apply(idx: Int)                   = nodes(idx)
   def forceGeneralPosition(rnd: Random) =
     Obstacles(nodes.map(r => r.copy(center = r.center + Vec2D(rnd.nextGaussian, rnd.nextGaussian).scale(1e-8))))
+  def toVertexLayout                    = VertexLayout(nodes.map(_.center))
 
 object Obstacles:
   def fromVertexLayout(f: (Vec2D, Int) => Rect2D)(vl: VertexLayout) = Obstacles(vl.nodes.zipWithIndex.map(f.tupled))

@@ -27,16 +27,16 @@ lazy val pipeline = project.settings(
 lazy val praline = project.settings(
   name := "wueortho-praline",
   libraryDependencies ++= jackson +: scalatest,
-).dependsOn(core)
+).dependsOn(pipeline)
 
-lazy val root = (project in file(".")).aggregate(core, io, layout, pipeline, praline)
-  .dependsOn(core, io, layout, pipeline, praline)
+lazy val root = (project in file(".")).aggregate(core, io, layout, pipeline, praline).dependsOn(pipeline, praline)
 
 lazy val compilerOptions = Seq(
   "-source:future",
   "-release:17",
   "-Xmax-inlines:256",
   "-Yexplicit-nulls",
+  "-Ysafe-init",
   "-language:strictEquality",
   "-deprecation",
   "-feature",

@@ -13,10 +13,9 @@ import DebugSvgs.*
 class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
   lazy val mkRoutingGraph = debuggingStep: cache =>
     for
-      graph         <- cache.getStageResult(Stage.Graph, defaultTag)
       obs           <- cache.getStageResult(Stage.Obstacles, defaultTag)
       ports         <- cache.getStageResult(Stage.Ports, defaultTag)
-      srg            = RoutingGraph.create(obs, graph.edges.toIndexedSeq, ports)
+      srg            = RoutingGraph.create(obs, ports)
       (rgAdj, rgLay) = rg2adj(srg)
       _             <- cache.setStage(Stage.Graph, defaultTag, rgAdj)
       _             <- cache.setStage(Stage.Layout, defaultTag, rgLay)

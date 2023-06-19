@@ -8,34 +8,41 @@ import io.circe.derivation.ConfiguredCodec as CC
 
 import java.nio.file.Path as FSPath
 
-/** Marker trait for pipeline steps */
+/** Marker trait for all pipeline steps in any module */
 trait PipelineStep
 
+/** trait for the steps defined in the pipeline module */
+sealed trait CoreStep extends PipelineStep
+
 object step:
-  import PipelineStep as PStep
+  import CoreStep as CS
 
   // input steps
-  case class RandomGraph(n: Int, m: Int, seed: Seed, core: GraphCore, allowLoops: Boolean) extends PStep derives CC
-  case class RandomVertexBoxes(minSpan: Vec2D, maxSpan: Vec2D, seed: Seed)                 extends PStep derives CC
-  case class UniformVertexBoxes(span: Vec2D)                                               extends PStep derives CC
+  case class RandomGraph(n: Int, m: Int, seed: Seed, core: GraphCore, allowLoops: Boolean) extends CS derives CC
+  case class RandomVertexBoxes(minSpan: Vec2D, maxSpan: Vec2D, seed: Seed)                 extends CS derives CC
+  case class UniformVertexBoxes(span: Vec2D)                                               extends CS derives CC
   // todo ApplyLayout = move boxes to match Layout | LayoutFromBoxes = create layout from vertex boxes
-  case class SyntheticVertexLabels(config: SyntheticLabels)                                extends PStep derives CC
-  case class SyntheticPortLabels(config: SyntheticLabels)                                  extends PStep derives CC
-  case class BoxesFromLabels(config: VertexLabelConfig)                                    extends PStep derives CC
-  case class ReadTglfFile(path: FSPath, use: List[Extractor])                              extends PStep derives CC
+  case class SyntheticVertexLabels(config: SyntheticLabels)                                extends CS derives CC
+  case class SyntheticPortLabels(config: SyntheticLabels)                                  extends CS derives CC
+  case class BoxesFromLabels(config: VertexLabelConfig)                                    extends CS derives CC
+  case class ReadTglfFile(path: FSPath, use: List[TglfExtractor])                          extends CS derives CC
 
   // algo steps
-  case class ForceDirectedLayout(iterations: Int, seed: Seed, repetitions: Int)         extends PStep derives CC
-  case class GTreeOverlaps(stretch: Stretch, seed: Seed, forceGeneralPosition: Boolean) extends PStep derives CC
-  case class PortsByAngle(mode: PortMode)                                               extends PStep derives CC
-  case class SimplifiedRoutingGraph(stretch: Stretch)                                   extends PStep derives CC
-  case class EdgeRouting()                                                              extends PStep derives CC
-  case class NoNudging()                                                                extends PStep derives CC
-  case class ConstrainedNudging()                                                       extends PStep derives CC
-  case class FullNudging(padding: Double, use2ndHPass: Boolean)                         extends PStep derives CC
+  case class ForceDirectedLayout(iterations: Int, seed: Seed, repetitions: Int)         extends CS derives CC
+  case class GTreeOverlaps(stretch: Stretch, seed: Seed, forceGeneralPosition: Boolean) extends CS derives CC
+  case class PortsByAngle(mode: PortMode)                                               extends CS derives CC
+  case class SimplifiedRoutingGraph(stretch: Stretch)                                   extends CS derives CC
+  case class EdgeRouting()                                                              extends CS derives CC
+  case class NoNudging()                                                                extends CS derives CC
+  case class ConstrainedNudging()                                                       extends CS derives CC
+  case class FullNudging(padding: Double, use2ndHPass: Boolean)                         extends CS derives CC
 
   // output steps
-  case class Metrics(use: List[String])                                 extends PStep derives CC
-  case class SvgDrawing(config: SvgConfig, overridePpu: Option[Double]) extends PStep derives CC
-  case class SvgToFile(path: FSPath)                                    extends PStep derives CC
+  case class Metrics(use: List[String])                                 extends CS derives CC
+  case class SvgDrawing(config: SvgConfig, overridePpu: Option[Double]) extends CS derives CC
+  case class SvgToFile(path: FSPath)                                    extends CS derives CC
 end step
+
+object CoreStep:
+  import InputSteps.given, AlgorithmicSteps.given, OutputSteps.given
+  lazy val allImpls: List[StepImpl[?]] = StepImpl.allImpls[CoreStep]

@@ -3,11 +3,12 @@ package wueortho.interop
 import wueortho.data.*
 import wueortho.util.Traverse.traverse
 
-import de.uniwue.informatik.praline.datastructure.{graphs as P, labels as L}
+import de.uniwue.informatik.praline.datastructure.{graphs as P, labels as L, paths}
 import de.uniwue.informatik.praline.datastructure.oldUnstyledObjects as old
 import de.uniwue.informatik.praline.datastructure.utils.Serialization
 
 import java.nio.file.{Files, Path as NioPath}
+import java.awt.geom.Point2D.Double as AwtPoint
 import scala.util.Try
 import scala.jdk.CollectionConverters.*
 import scala.annotation.nowarn
@@ -96,4 +97,34 @@ object PralineReader:
       yield Rect2D(Vec2D(box.nn.getCenterX, box.nn.getCenterY), Vec2D(box.nn.getWidth / 2, box.nn.getHeight / 2))
     rects.map(rs => Obstacles(rs.toIndexedSeq))
 
+  def mkEdgeRouts(g: P.Graph) = g.getEdges().nn.asScala.toSeq.traverse(e =>
+    for
+      paths <- Option(e.getPaths()).toRight("path must not be null")
+      path  <- paths.nn.asScala.toSeq match
+                 case Seq(one) => Right(one)
+                 case err      => Left(s"expected edge with exactly one path but was $err")
+      res   <- path2route(path)
+    yield res,
+  ).map(_.toIndexedSeq)
+
+  private def path2route(path: paths.Path) = path match
+    case p: paths.PolygonalPath =>
+      for
+        (first, mid, last) <- Try((p.getStartPoint().nn, p.getBendPoints().nn.asScala.toSeq, p.getEndPoint().nn))
+                                .toEither.left.map(_.toString())
+        ortho              <- points2ortho(first +: mid :+ last)
+      yield EdgeRoute(EdgeTerminals(first.asVec2D, ortho.head.dir, last.asVec2D, ortho.last.dir.reverse), ortho)
+
+  private def points2ortho(ps: Seq[AwtPoint]) =
+    import EdgeRoute.OrthoSeg.*
+    ps.sliding(2).toSeq.traverse:
+      case Seq(aa, bb) =>
+        val (a, b) = aa.asVec2D -> bb.asVec2D
+        if a == b then Left("empty segments are unsupported")
+        else if a.x1 == b.x1 then Right(VSeg(b.x2 - a.x2))
+        else if a.x2 == b.x2 then Right(HSeg(b.x1 - a.x1))
+        else Left(s"segment from $a to $b is not orthogonal")
+  end points2ortho
+
+  extension (p: AwtPoint) private def asVec2D = Vec2D(p.x, -p.y)
 end PralineReader

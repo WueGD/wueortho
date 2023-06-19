@@ -6,130 +6,16 @@ import wueortho.overlaps.Nachmanson
 import wueortho.ports.AngleHeuristic
 import wueortho.routing.*
 import wueortho.metrics.Crossings
-import wueortho.deprecated
 import wueortho.util.GraphConversions, GraphConversions.toWeighted.*
 import wueortho.util.Codecs.given
+import wueortho.util.RunningTime, RunningTime.unit as noRt, StepUtils.unit
 import io.circe.derivation.ConfiguredEnumCodec
 
 import scala.util.Random
-import wueortho.util.RunningTime, RunningTime.unit as noRt
 
 object AlgorithmicSteps:
-  import StepUtils.{resolve as mk, *}
 
-  val all = List(FullNudgingImpl, EdgeRouting)
-
-  given Provider[Step.ForceDirectedLayout] = (s: Step.ForceDirectedLayout, cache: StageCache) =>
-    for
-      g  <- cache.getStageResult(Stage.Graph, mk(s.graph))
-      res = layout(s.iterations, s.seed, s.repetitions, g)
-      _  <- cache.setStage(Stage.Layout, mk(s.tag), res.get)
-    yield res
-
-  private def layout(iterations: Int, seed: Seed, repetitions: Int, graph: BasicGraph) =
-    val run        = FDLayout.layout(FDLayout.defaultConfig.copy(iterCap = iterations))
-    val weighted   = graph.withWeights(using GraphConversions.withUniformWeights(w = 1))
-    val baseRandom = seed.newRandom
-    val res        = RunningTime.ofAll((1 to repetitions).toList, i => s"run#$i"): _ =>
-      val layout    = run(weighted, FDLayout.initLayout(Random(baseRandom.nextLong()), graph.numberOfVertices))
-      val crossings = Crossings.numberOfCrossings(graph, layout)
-      layout -> crossings
-    res.map(_.minBy(_._2)._1)
-  end layout
-
-  given Provider[Step.GTreeOverlaps] = (s: Step.GTreeOverlaps, cache: StageCache) =>
-    for
-      obs <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
-      _   <- cache.setStage(Stage.Obstacles, mk(s.tag), align(s.stretch, s.seed, s.forceGeneralPosition, obs))
-    yield noRt
-
-  private def align(stretch: Stretch, seed: Seed, forceGP: Boolean, obs: Obstacles) =
-    val aligned = Nachmanson.align(Stretch(stretch, obs.nodes), seed.newRandom)
-    val result  = Obstacles((aligned zip obs.nodes).map((r, o) => Rect2D(r.center, o.span)))
-    if forceGP then result.forceGeneralPosition(seed.newRandom) else result
-
-  given Provider[Step.PortsByAngle] = (s: Step.PortsByAngle, cache: StageCache) =>
-    for
-      g   <- cache.getStageResult(Stage.Graph, mk(s.graph))
-      obs <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
-      _   <- cache.setStage(Stage.Ports, mk(s.tag), mkPorts(s.mode, obs, g))
-    yield noRt
-
-  private def mkPorts(mode: PortMode, obs: Obstacles, graph: BasicGraph) =
-    import AngleHeuristic.*
-
-    lazy val barycenter =
-      val sum = obs.nodes.map(_.center).reduce(_ + _)
-      Vec2D(sum.x1 / graph.numberOfVertices, sum.x2 / graph.numberOfVertices)
-
-    mode match
-      case PortMode.OnlyVertical   => makePorts(obs, graph, onlyVertical)
-      case PortMode.OnlyHorizontal => makePorts(obs, graph, onlyHorizontal)
-      case PortMode.Quadrants      => makePorts(obs, graph, quadrantHeuristic)
-      case PortMode.Octants        => makePorts(obs, graph, octantHeuristic(_, _, barycenter))
-  end mkPorts
-
-  given Provider[Step.SimplifiedRoutingGraph] = (s: Step.SimplifiedRoutingGraph, cache: StageCache) =>
-    for
-      g    <- cache.getStageResult(Stage.Graph, mk(s.graph))
-      obs  <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
-      pl   <- cache.getStageResult(Stage.Ports, mk(s.ports))
-      large = Obstacles.lift(Stretch(s.stretch, _))(obs)
-      _    <- cache.setStage(Stage.RoutingGraph, mk(s.tag), RoutingGraph.create(large, pl))
-    yield noRt
-
-  given Provider[Step.OVGRoutingGraph] = (s: Step.OVGRoutingGraph, cache: StageCache) =>
-    for
-      obs              <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
-      pl               <- cache.getStageResult(Stage.Ports, mk(s.ports))
-      (adj, vl, _, ovg) = OrthogonalVisibilityGraph.create(obs.nodes, pl)
-      res               = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, adj, vl, pl)
-      _                <- cache.setStage(Stage.RoutingGraph, mk(s.tag), res)
-    yield noRt
-
-  given Provider[Step.EdgeRouting] = (s: Step.EdgeRouting, cache: StageCache) =>
-    for
-      rg <- cache.getStageResult(Stage.RoutingGraph, mk(s.routingGraph))
-      pl <- cache.getStageResult(Stage.Ports, mk(s.ports))
-      res = Routing(rg, pl)
-      _  <- cache.setStage(Stage.EdgeRouting, mk(s.tag), res.get)
-    yield res
-
-  given Provider[Step.GeoNudging] = (s: Step.GeoNudging, cache: StageCache) =>
-    for
-      r   <- cache.getStageResult(Stage.EdgeRouting, mk(s.routing))
-      pl  <- cache.getStageResult(Stage.Ports, mk(s.ports))
-      obs <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
-      _   <- cache.setStage(Stage.Routes, mk(s.tag), EdgeNudging.calcEdgeRoutes(r, pl, obs))
-    yield noRt
-
-  given Provider[Step.OldNudging] = (s: Step.OldNudging, cache: StageCache) =>
-    for
-      r     <- cache.getStageResult(Stage.EdgeRouting, mk(s.routing))
-      pl    <- cache.getStageResult(Stage.Ports, mk(s.ports))
-      obs   <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
-      ovg    = OrthogonalVisibilityGraph.create(obs.nodes, pl)._4
-      onGrid = deprecated.PathOrder(r, pl, r.paths)
-      _     <- cache.setStage(Stage.Routes, mk(s.tag), deprecated.Nudging.calcEdgeRoutes(ovg, onGrid, r.paths, pl, obs))
-    yield noRt
-
-  given Provider[Step.FullNudging] = (s: Step.FullNudging, cache: StageCache) =>
-    for
-      rIn         <- cache.getStageResult(Stage.EdgeRouting, mk(s.routing))
-      plIn        <- cache.getStageResult(Stage.Ports, mk(s.ports))
-      obsIn       <- cache.getStageResult(Stage.Obstacles, mk(s.obstacles))
-      g           <- cache.getStageResult(Stage.Graph, mk(s.graph))
-      (r, pl, obs) = FullNudging(s.config, rIn, plIn, g, obsIn)
-      _           <- cache.setStage(Stage.Routes, mk(s.tag), r)
-      _           <- cache.setStage(Stage.Ports, mk(s.tag), pl)
-      _           <- cache.setStage(Stage.Obstacles, mk(s.tag), obs)
-    yield noRt
-
-  given Provider[Step.NoNudging] = (s: Step.NoNudging, cache: StageCache) =>
-    cache.getStageResult(Stage.EdgeRouting, mk(s.routing))
-      .flatMap(r => cache.setStage(Stage.Routes, mk(s.tag), r.routes)).unit
-
-  case object ForceDirectedLayoutImpl extends StepImpl[step.ForceDirectedLayout]:
+  given StepImpl[step.ForceDirectedLayout] with
     type ITags = "graph" *: EmptyTuple
     override def tags     = deriveTags[ITags]
     override def helpText =
@@ -145,9 +31,19 @@ object AlgorithmicSteps:
       _  <- cache.setStage(Stage.Layout, s.mkTag, res.get)
     yield res
 
-  end ForceDirectedLayoutImpl
+    private def layout(iterations: Int, seed: Seed, repetitions: Int, graph: BasicGraph) =
+      val run        = FDLayout.layout(FDLayout.defaultConfig.copy(iterCap = iterations))
+      val weighted   = graph.withWeights(using GraphConversions.withUniformWeights(w = 1))
+      val baseRandom = seed.newRandom
+      val res        = RunningTime.ofAll((1 to repetitions).toList, i => s"run#$i"): _ =>
+        val layout    = run(weighted, FDLayout.initLayout(Random(baseRandom.nextLong()), graph.numberOfVertices))
+        val crossings = Crossings.numberOfCrossings(graph, layout)
+        layout -> crossings
+      res.map(_.minBy(_._2)._1)
+    end layout
+  end given
 
-  case object GTreeImpl extends StepImpl[step.GTreeOverlaps]:
+  given StepImpl[step.GTreeOverlaps] with
     type ITags = "vertexBoxes" *: EmptyTuple
     override def tags     = deriveTags[ITags]
     override def helpText =
@@ -160,13 +56,16 @@ object AlgorithmicSteps:
       import s.step.*
       for
         obs <- cache.getStageResult(Stage.Obstacles, s.mkITag("vertexBoxes"))
-        _   <- cache
-                 .setStage(Stage.Obstacles, mk(s.tag), align(stretch, seed, forceGeneralPosition, obs)) // todo move here
+        _   <- cache.setStage(Stage.Obstacles, s.mkTag, align(stretch, seed, forceGeneralPosition, obs))
       yield noRt
-    end runToStage
-  end GTreeImpl
 
-  case object PortsByAngleImpl extends StepImpl[step.PortsByAngle]:
+    private def align(stretch: Stretch, seed: Seed, forceGP: Boolean, obs: Obstacles) =
+      val aligned = Nachmanson.align(Stretch(stretch, obs.nodes), seed.newRandom)
+      val result  = Obstacles((aligned zip obs.nodes).map((r, o) => Rect2D(r.center, o.span)))
+      if forceGP then result.forceGeneralPosition(seed.newRandom) else result
+  end given
+
+  given StepImpl[step.PortsByAngle] with
     type ITags = ("vertexBoxes", "graph")
     override def tags     = deriveTags[ITags]
     override def helpText =
@@ -176,11 +75,25 @@ object AlgorithmicSteps:
     override def runToStage(s: WithTags[ITags, step.PortsByAngle], cache: StageCache) = for
       g   <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
       obs <- cache.getStageResult(Stage.Obstacles, s.mkITag("vertexBoxes"))
-      _   <- cache.setStage(Stage.Ports, mk(s.tag), mkPorts(s.step.mode, obs, g))
+      _   <- cache.setStage(Stage.Ports, s.mkTag, mkPorts(s.step.mode, obs, g))
     yield noRt
-  end PortsByAngleImpl
 
-  case object SimplifiedRoutingGraphImpl extends StepImpl[step.SimplifiedRoutingGraph]:
+    private def mkPorts(mode: PortMode, obs: Obstacles, graph: BasicGraph) =
+      import AngleHeuristic.*
+
+      lazy val barycenter =
+        val sum = obs.nodes.map(_.center).reduce(_ + _)
+        Vec2D(sum.x1 / graph.numberOfVertices, sum.x2 / graph.numberOfVertices)
+
+      mode match
+        case PortMode.OnlyVertical   => makePorts(obs, graph, onlyVertical)
+        case PortMode.OnlyHorizontal => makePorts(obs, graph, onlyHorizontal)
+        case PortMode.Quadrants      => makePorts(obs, graph, quadrantHeuristic)
+        case PortMode.Octants        => makePorts(obs, graph, octantHeuristic(_, _, barycenter))
+    end mkPorts
+  end given
+
+  given StepImpl[step.SimplifiedRoutingGraph] with
     type ITags = ("vertexBoxes", "ports")
     override def tags     = deriveTags[ITags]
     override def helpText = """Create a routing graph.
@@ -192,9 +105,9 @@ object AlgorithmicSteps:
       large = Obstacles.lift(Stretch(s.step.stretch, _))(obs)
       _    <- cache.setStage(Stage.RoutingGraph, s.mkTag, RoutingGraph.create(large, pl))
     yield noRt
-  end SimplifiedRoutingGraphImpl
+  end given
 
-  case object EdgeRouting extends StepImpl[step.EdgeRouting]:
+  given StepImpl[step.EdgeRouting] with
     type ITags = ("routingGraph", "ports")
     override def tags     = deriveTags[ITags]
     override def helpText = "Perform edge routing (includes edge order)."
@@ -203,11 +116,11 @@ object AlgorithmicSteps:
       rg <- cache.getStageResult(Stage.RoutingGraph, s.mkITag("routingGraph"))
       pl <- cache.getStageResult(Stage.Ports, s.mkITag("ports"))
       res = Routing(rg, pl)
-      _  <- cache.setStage(Stage.EdgeRouting, mk(s.tag), res.get)
+      _  <- cache.setStage(Stage.EdgeRouting, s.mkTag, res.get)
     yield res
-  end EdgeRouting
+  end given
 
-  case object ConstrainedNudgingImpl extends StepImpl[step.ConstrainedNudging]:
+  given StepImpl[step.ConstrainedNudging] with
     type ITags = ("routing", "ports", "vertexBoxes")
     override def tags     = deriveTags[ITags]
     override def helpText = "Perform constrained nudging."
@@ -218,9 +131,9 @@ object AlgorithmicSteps:
       obs <- cache.getStageResult(Stage.Obstacles, s.mkITag("vertexBoxes"))
       _   <- cache.setStage(Stage.Routes, s.mkTag, EdgeNudging.calcEdgeRoutes(r, pl, obs))
     yield noRt
-  end ConstrainedNudgingImpl
+  end given
 
-  case object NoNudgingImpl extends StepImpl[step.NoNudging]:
+  given StepImpl[step.NoNudging] with
     type ITags = "routing" *: EmptyTuple
     override def tags     = deriveTags[ITags]
     override def helpText = "Perform no nudging."
@@ -229,7 +142,7 @@ object AlgorithmicSteps:
       cache.getStageResult(Stage.EdgeRouting, s.mkITag("routing"))
         .flatMap(r => cache.setStage(Stage.Routes, s.mkTag, r.routes)).unit
 
-  case object FullNudgingImpl extends StepImpl[step.FullNudging]:
+  given StepImpl[step.FullNudging] with
     type ITags = ("routing", "vertexBoxes", "ports", "graph")
     override def tags     = deriveTags[ITags]
     override def helpText = """Perform full nudging (moves edge segments, ports, and vertex boxes).
@@ -247,9 +160,7 @@ object AlgorithmicSteps:
         _           <- cache.setStage(Stage.Ports, s.mkTag, pl)
         _           <- cache.setStage(Stage.Obstacles, s.mkTag, obs)
       yield noRt
-      end for
-    end runToStage
-  end FullNudgingImpl
+  end given
 end AlgorithmicSteps
 
 enum Stretch derives CanEqual:
