@@ -11,7 +11,11 @@ import wueortho.util.RunningTime
 case class Pipeline(steps: Seq[WithTags[? <: Tuple, PipelineStep]])
 
 object Pipeline:
-  class Runtime(impls: Seq[StepImpl[?]]):
+  def coreRuntime = Runtime(CoreStep.allImpls)
+
+  case class Runtime(impls: Seq[StepImpl[?]]) extends RuntimeCommons(impls)
+
+  trait RuntimeCommons(impls: Seq[StepImpl[?]]):
     private lazy val lut = impls.map(impl => impl.stepName -> impl).toMap
 
     def load(path: Path) = for
@@ -56,7 +60,7 @@ object Pipeline:
 
     def asJson(p: Pipeline) = Encoder.forProduct1("steps")((_: Pipeline).steps)(Encoder.encodeSeq(enc))(p)
     def fromJson(j: Json)   = Decoder.forProduct1("steps")(Pipeline.apply)(Decoder.decodeSeq(dec)).decodeJson(j)
-  end Runtime
+  end RuntimeCommons
 end Pipeline
 
 trait PipelineResult extends StageCache.View:

@@ -8,13 +8,10 @@ import scala.compiletime.*
 import scala.reflect.ClassTag
 import wueortho.util.RunningTime
 
-case class WithTags[ITags <: Tuple, S](step: S, tag: Option[String], iTags: Map[Tuple.Union[ITags], String]):
+case class WithTags[ITags <: Tuple, +S](step: S, tag: Option[String], iTags: Map[Tuple.Union[ITags], String]):
   def mkTag                                 = StepUtils.resolve(tag)
   def mkITag[K <: Tuple.Union[ITags]](k: K) = StepUtils.resolve(iTags.get(k))
   def stepName                              = step.getClass().getSimpleName().nn
-
-object WithTags:
-  def only[S, T <: Tuple](s: S) = WithTags[T, S](s, None, Map.empty)
 
 /** Provides details for executing a pipeline step.
   *

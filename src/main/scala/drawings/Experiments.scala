@@ -1,7 +1,7 @@
 package drawings
 
 import wueortho.data.*, Metadata.toMetadata
-import wueortho.pipeline.*
+import wueortho.pipeline.*, PipelineStep.*
 import wueortho.io.tglf.TglfWriter
 import wueortho.io.random.RandomGraphs
 import wueortho.util.{Solidify, ConnectedComponents, TextUtils}, Solidify.*
@@ -76,12 +76,12 @@ object Experiments:
     import Pral.PralineExtractor as Use
     def mkPipeline(path: Path) = Pipeline(
       Seq(
-        WithTags.only(Pral.ReadPralineFile(path, List(Use.Graph, Use.VertexBoxes, Use.EdgeRoutes))),
-        WithTags.only(step.Metrics(List("all"))),
-        WithTags.only(step.SyntheticVertexLabels(SyntheticLabels.Enumerate)),
-        WithTags.only(step.SyntheticPortLabels(SyntheticLabels.Hide)),
-        WithTags.only(step.SvgDrawing(SvgConfig.Praline, overridePpu = None)),
-        WithTags.only(step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` json2svg(path))),
+        just(Pral.ReadPralineFile(path, List(Use.Graph, Use.VertexBoxes, Use.EdgeRoutes))),
+        just(step.Metrics(List("all"))),
+        just(step.SyntheticVertexLabels(SyntheticLabels.Enumerate)),
+        just(step.SyntheticPortLabels(SyntheticLabels.Hide)),
+        just(step.SvgDrawing(SvgConfig.Praline, overridePpu = None)),
+        just(step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` json2svg(path))),
       ),
     )
   ).run
@@ -91,25 +91,25 @@ object Experiments:
     override val fileType      = ".tglf"
     def mkPipeline(path: Path) = Pipeline(
       Seq(
-        WithTags.only(step.ReadTglfFile(path, List(Use.Graph, Use.Obstacles, Use.EdgeRoutes))),
-        WithTags.only(step.Metrics(List("all"))),
-        WithTags.only(step.SyntheticVertexLabels(SyntheticLabels.Enumerate)),
-        WithTags.only(step.SyntheticPortLabels(SyntheticLabels.Hide)),
-        WithTags.only(step.SvgDrawing(SvgConfig.Praline, overridePpu = None)),
-        WithTags.only(step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` tglf2svg(path))),
+        just(step.ReadTglfFile(path, List(Use.Graph, Use.Obstacles, Use.EdgeRoutes))),
+        just(step.Metrics(List("all"))),
+        just(step.SyntheticVertexLabels(SyntheticLabels.Enumerate)),
+        just(step.SyntheticPortLabels(SyntheticLabels.Hide)),
+        just(step.SvgDrawing(SvgConfig.Praline, overridePpu = None)),
+        just(step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` tglf2svg(path))),
       ),
     )
   ).run
 
   private def commonSteps(gTreeStretch: Stretch, portMode: PortMode): Seq[WithTags[? <: Tuple, PipelineStep]] = Seq(
-    WithTags.only(step.GTreeOverlaps(gTreeStretch, Seed(0x99c0ffee), forceGeneralPosition = true)),
-    WithTags.only(step.PortsByAngle(portMode)),
-    WithTags.only(step.SimplifiedRoutingGraph(Stretch.Original)),
-    WithTags.only(step.EdgeRouting()),
-    WithTags.only(step.FullNudging(padding = 12, use2ndHPass = true)),
-    WithTags.only(step.Metrics(List("all"))),
-    WithTags.only(step.SyntheticPortLabels(SyntheticLabels.Hide)),
-    WithTags.only(step.SvgDrawing(SvgConfig.Praline, overridePpu = None)),
+    just(step.GTreeOverlaps(gTreeStretch, Seed(0x99c0ffee), forceGeneralPosition = true)),
+    just(step.PortsByAngle(portMode)),
+    just(step.SimplifiedRoutingGraph(Stretch.Original)),
+    just(step.EdgeRouting()),
+    just(step.FullNudging(padding = 12, use2ndHPass = true)),
+    just(step.Metrics(List("all"))),
+    just(step.SyntheticPortLabels(SyntheticLabels.Hide)),
+    just(step.SvgDrawing(SvgConfig.Praline, overridePpu = None)),
   )
 
   private def json2svg(path: Path) = path.getFileName().nn.toString().replaceAll(".json$", ".svg")
@@ -118,33 +118,33 @@ object Experiments:
   @main def layoutFromPraline = (new Experiment("compactify"):
     import Pral.PralineExtractor as Use
     def mkPipeline(path: Path) = Pipeline:
-        WithTags.only(Pral.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels, Use.VertexLayout)))
-          +: WithTags.only(step.BoxesFromLabels(VertexLabelConfig.PralineDefaults))
+        just(Pral.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels, Use.VertexLayout)))
+          +: just(step.BoxesFromLabels(VertexLabelConfig.PralineDefaults))
           +: commonSteps(gTreeStretch = Stretch.Original, portMode = PortMode.Quadrants)
-          :+ WithTags.only(step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` json2svg(path))),
+          :+ just(step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` json2svg(path))),
   ).run
 
   @main def fdLayout = (new Experiment("fdlayout"):
     import Pral.PralineExtractor as Use
     def mkPipeline(path: Path) = Pipeline:
-        WithTags.only(Pral.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels)))
-          +: WithTags.only(step.ForceDirectedLayout(iterations = 800, Seed(0x98c0ffee), repetitions = 1))
-          +: WithTags.only(step.BoxesFromLabels(VertexLabelConfig.PralineDefaults))
+        just(Pral.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels)))
+          +: just(step.ForceDirectedLayout(iterations = 800, Seed(0x98c0ffee), repetitions = 1))
+          +: just(step.BoxesFromLabels(VertexLabelConfig.PralineDefaults))
           +: commonSteps(gTreeStretch = Stretch.Uniform(1.2), portMode = PortMode.Quadrants)
-          :+ WithTags.only(step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` json2svg(path))),
+          :+ just(step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` json2svg(path))),
   ).run
 
   @main def benchmark = (new Experiment("benchmark"):
     import Pral.PralineExtractor as Use
     def mkPipeline(path: Path) = Pipeline:
-        WithTags.only(Pral.ReadPralineFile(path, List(Use.Graph, Use.VertexBoxes)))
-          :: WithTags.only(step.ForceDirectedLayout(iterations = 800, Seed(0x98c0ffee), repetitions = 1))
-          :: WithTags.only(step.GTreeOverlaps(Stretch.Uniform(1.2), Seed(0x99c0ffee), forceGeneralPosition = true))
-          :: WithTags.only(step.PortsByAngle(PortMode.Octants))
-          :: WithTags.only(step.SimplifiedRoutingGraph(Stretch.Original))
-          :: WithTags.only(step.EdgeRouting())
-          :: WithTags.only(step.FullNudging(padding = 12, use2ndHPass = true))
-          :: WithTags.only(step.Metrics(List("all")))
+        just(Pral.ReadPralineFile(path, List(Use.Graph, Use.VertexBoxes)))
+          :: just(step.ForceDirectedLayout(iterations = 800, Seed(0x98c0ffee), repetitions = 1))
+          :: just(step.GTreeOverlaps(Stretch.Uniform(1.2), Seed(0x99c0ffee), forceGeneralPosition = true))
+          :: just(step.PortsByAngle(PortMode.Octants))
+          :: just(step.SimplifiedRoutingGraph(Stretch.Original))
+          :: just(step.EdgeRouting())
+          :: just(step.FullNudging(padding = 12, use2ndHPass = true))
+          :: just(step.Metrics(List("all")))
           :: Nil
   ).run
 

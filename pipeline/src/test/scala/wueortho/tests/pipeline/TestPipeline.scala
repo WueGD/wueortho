@@ -16,7 +16,7 @@ import io.circe.Decoder
 class TestPipeline private[TestPipeline] (steps: Seq[PipelineStep], name: String):
   lazy val rt     = Pipeline.Runtime(CoreStep.allImpls :+ DebuggingStep.impl)
   def run(): Unit =
-    val res  = rt.run(Pipeline(steps.map(WithTags.only)))
+    val res  = rt.run(Pipeline(steps.map(PipelineStep.just)))
     val meta = res.getResult(Stage.Metadata, None).fold(err => Metadata(Map("not found" -> err)), identity)
     val _    = Files.writeString(
       testArtifactsRoot `resolve` s"$name.log",

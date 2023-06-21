@@ -46,3 +46,9 @@ end step
 object CoreStep:
   import InputSteps.given, AlgorithmicSteps.given, OutputSteps.given
   lazy val allImpls: List[StepImpl[?]] = StepImpl.allImpls[CoreStep]
+
+object PipelineStep:
+  def withTags[S](step: S, tag: Option[String])(using imp: StepImpl[S])(iTags: (Tuple.Union[imp.ITags], String)*) =
+    WithTags(step, tag, iTags.toMap)
+
+  def just[S, T <: Tuple](s: S) = WithTags[T, S](s, None, Map.empty)
