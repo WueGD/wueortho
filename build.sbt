@@ -1,8 +1,8 @@
 import Deps._
 
 ThisBuild / scalaVersion := "3.3.0"
-ThisBuild / organization := "de.uniwue.info1"
-ThisBuild / version      := "0.1.0"
+ThisBuild / organization := "de.wueortho"
+ThisBuild / version      := "0.1.0-SNAPSHOT"
 ThisBuild / scalacOptions ++= compilerOptions
 
 lazy val core = project.settings(
@@ -29,7 +29,8 @@ lazy val praline = project.settings(
   libraryDependencies ++= jackson +: scalatest,
 ).dependsOn(pipeline)
 
-lazy val root = (project in file(".")).aggregate(core, io, layout, pipeline, praline).dependsOn(pipeline, praline)
+lazy val root = (project in file(".")).settings(publish / skip := true).aggregate(core, io, layout, pipeline, praline)
+  .dependsOn(pipeline, praline)
 
 lazy val compilerOptions = Seq(
   "-source:future",

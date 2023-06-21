@@ -6,6 +6,7 @@ import cats.syntax.traverse.*
 
 import scala.compiletime.*
 import scala.reflect.ClassTag
+import scala.deriving.Mirror
 import wueortho.util.RunningTime
 
 case class WithTags[ITags <: Tuple, +S](step: S, tag: Option[String], iTags: Map[Tuple.Union[ITags], String]):
@@ -62,7 +63,7 @@ object StepImpl:
 
   def apply[T](using s: StepImpl[T]) = s
 
-  transparent inline def allImpls[T](using m: scala.deriving.Mirror.SumOf[T]): List[Any] =
+  transparent inline def allImpls[T](using m: Mirror.SumOf[T]): List[Any] =
     summonAll[Tuple.Map[m.MirroredElemTypes, [z] =>> StepImpl[z]]].toList
 end StepImpl
 

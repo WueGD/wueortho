@@ -27,23 +27,24 @@ object Pipeline:
     def run(p: Pipeline) =
       if p.steps.isEmpty then PipelineResult.empty
       else
-        val cache = StageCache()
-        val res   = RunningTime.of("total"):
-          p.steps.zipWithIndex.foldLeft(Some(RunningTime.unit).toRight("")):
-            case (eth, (st, i)) =>
-              eth.flatMap: rts =>
-                val res = rts *> RunningTime.of(s"$i: ${st.stepName}~${st.mkTag}"):
-                  lut.get(st.stepName).toRight(s"cannot find impl for ${st.stepName}").flatMap: impl =>
-                    impl.runToStage(st.asInstanceOf, cache)
-                res.get.map(_ => res.map(_ => ()))
-
-        val (cacheView, rt) = cache.view -> res.get.fold(sys.error, _ => res.runtimes.head)
+        val cache           = StageCache()
+        val (cacheView, rt) = cache.view -> runCore(p.steps, cache)
 
         new PipelineResult:
           export cacheView.*
           override def runningTime = rt
-      end if
-    end run
+
+    protected def runCore(steps: Seq[WithTags[? <: Tuple, PipelineStep]], cache: StageCache) =
+      val res = RunningTime.of("total"):
+        steps.zipWithIndex.foldLeft(Some(RunningTime.unit).toRight("")):
+          case (eth, (st, i)) =>
+            eth.flatMap: rts =>
+              val res = rts *> RunningTime.of(s"$i: ${st.stepName}~${st.mkTag}"):
+                lut.get(st.stepName).toRight(s"cannot find impl for ${st.stepName}").flatMap: impl =>
+                  impl.runToStage(st.asInstanceOf, cache)
+              res.get.map(_ => res.map(_ => ()))
+      res.get.fold(sys.error, _ => res.runtimes.head)
+    end runCore
 
     private given enc: Encoder[WithTags[? <: Tuple, PipelineStep]] =
       Encoder.instance[WithTags[? <: Tuple, PipelineStep]]: swt =>
