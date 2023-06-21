@@ -6,7 +6,6 @@ import wueortho.util.GraphConversions, GraphConversions.all.*, GraphConversions.
 
 import java.nio.file.Files
 import java.nio.file.Path
-import io.circe.{Encoder, Decoder}
 
 object Debugging:
   def rawE(u: Int, v: Int, w: Double) = WeightedEdge(NodeIndex(u), NodeIndex(v), w)
@@ -75,11 +74,6 @@ object Debugging:
     val edgesSvg = svg.drawStraightEdges(ewg, vl)
     val rectsSvg = svg.drawObstacles(obs)
     svg.make(rectsSvg ++ edgesSvg ++ nodesSvg)
-
-  case class DebugStepWrapper(unwrap: StageCache => Unit)
-  object DebugStepWrapper:
-    given Encoder[DebugStepWrapper] = Encoder.AsObject.instance(_ => sys.error("Debug steps must not be serialized"))
-    given Decoder[DebugStepWrapper] = Decoder.failedWithMessage("Debug steps must not be serialized")
 
   def discard[T](t: T): Unit = ()
 end Debugging

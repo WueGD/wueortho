@@ -1,8 +1,7 @@
 package wueortho.tests.pipeline
 
 import wueortho.data.*
-import wueortho.pipeline.{Stage, Step, Stretch, PortMode, SyntheticLabels}
-import wueortho.routing.Nudging
+import wueortho.pipeline.{Stage, step, Stretch, PortMode, SyntheticLabels}
 import org.scalatest.flatspec.AnyFlatSpec
 
 /** @param size
@@ -32,24 +31,24 @@ class GridSpec extends AnyFlatSpec, TestPipelineSyntax:
     Seq(
       setStage(Stage.Graph, grid.graph),
       setStage(Stage.Obstacles, grid.obstacles),
-      Step.PortsByAngle(PortMode.Octants, None, None, None),
-      Step.SimplifiedRoutingGraph(Stretch.Original, None, None, None, None),
-      Step.EdgeRouting(None, None, None),
-      Step.SyntheticVertexLabels(SyntheticLabels.Enumerate, None, None),
-      Step.SyntheticPortLabels(SyntheticLabels.Hide, None, None),
+      step.PortsByAngle(PortMode.Octants),
+      step.SimplifiedRoutingGraph(Stretch.Original),
+      step.EdgeRouting(),
+      step.SyntheticVertexLabels(SyntheticLabels.Enumerate),
+      step.SyntheticPortLabels(SyntheticLabels.Hide),
     )
 
   "a regular 6x6 grid" `should` "allow to route edges with full nudging" in:
     val app = pipeline("grid6x6-full-nudging")
       |> prepareGrid
-      |> use(Step.FullNudging(Nudging.Config(0.25, use2ndHPass = true), None, None, None, None, None), drawSvg)
+      |> use(step.FullNudging(0.25, use2ndHPass = true), drawSvg)
       |> saveSvg
     app.run()
 
   it `should` "allow to route edges with edge nudging" in:
     val app = pipeline("grid6x6-edge-nudging")
       |> prepareGrid
-      |> use(Step.GeoNudging(None, None, None, None), drawSvg)
+      |> use(step.ConstrainedNudging(), drawSvg)
       |> saveSvg
     app.run()
 

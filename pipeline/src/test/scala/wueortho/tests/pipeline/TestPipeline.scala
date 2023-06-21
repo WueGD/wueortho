@@ -1,6 +1,6 @@
 package wueortho.tests.pipeline
 
-import wueortho.pipeline.*, Debugging.{rawSE, rawET, DebugStepWrapper}
+import wueortho.pipeline.*, Debugging.{rawSE, rawET}
 import wueortho.data.*, Direction.*
 import wueortho.tests.pipeline.TestPipeline.*
 
@@ -9,10 +9,14 @@ import java.time.ZonedDateTime
 import scala.annotation.targetName
 import scala.util.Using
 import scala.io.Source
+import wueortho.util.RunningTime
+import io.circe.Encoder
+import io.circe.Decoder
 
-class TestPipeline private[TestPipeline] (steps: Seq[Step], name: String):
+class TestPipeline private[TestPipeline] (steps: Seq[PipelineStep], name: String):
+  lazy val rt     = Pipeline.Runtime(CoreStep.allImpls :+ DebuggingStep.impl)
   def run(): Unit =
-    val res  = Pipeline.run(Pipeline(steps))
+    val res  = rt.run(Pipeline(steps.map(WithTags.only)))
     val meta = res.getResult(Stage.Metadata, None).fold(err => Metadata(Map("not found" -> err)), identity)
     val _    = Files.writeString(
       testArtifactsRoot `resolve` s"$name.log",
@@ -30,8 +34,9 @@ class TestPipeline private[TestPipeline] (steps: Seq[Step], name: String):
     )
   end run
 
-  @targetName("append") def |>(other: String => Seq[Step]): TestPipeline = new TestPipeline(steps ++ other(name), name)
-  @targetName("withStage") def |>[T](other: (Stage[T], T)): TestPipeline = |>(_ => Seq(setStage[T].tupled(other)))
+  @targetName("append") def |>(other: String => Seq[PipelineStep]): TestPipeline =
+    new TestPipeline(steps ++ other(name), name)
+  @targetName("withStage") def |>[T](other: (Stage[T], T)): TestPipeline         = |>(_ => Seq(setStage[T].tupled(other)))
 end TestPipeline
 
 object TestPipeline:
@@ -39,25 +44,23 @@ object TestPipeline:
 
   def apply(name: String) = new TestPipeline(Nil, name)
 
-  val drawSvg = Step.SvgDrawing(SvgConfig.SmoothEdges, None, None, None, None, None)
-  val metrics = Step.Metrics(List("all"), None, None, None, None)
+  val drawSvg              = step.SvgDrawing(SvgConfig.SmoothEdges, None)
+  def drawSvg(ppu: Double) = step.SvgDrawing(SvgConfig.SmoothEdges, overridePpu = Some(ppu))
+  val metrics              = step.Metrics(List("all"))
 
-  val saveSvg = (name: String) => List(Step.SvgToFile((testArtifactsRoot `resolve` s"${name}.svg").nn, None, None))
+  val saveSvg = (name: String) => List(step.SvgToFile((testArtifactsRoot `resolve` s"${name}.svg").nn))
 
   val defaultTag = StepUtils.resolve(None)
 
-  def debuggingStep(f: StageCache => Either[String, Unit]) =
-    Step.Debugging(DebugStepWrapper(f.andThen(_.fold[Unit](sys.error, identity))), None)
-
   def setStage[T](stage: Stage[T], value: T) =
-    debuggingStep(_.setStage(stage, defaultTag, value))
+    DebuggingStep(_.setStage(stage, defaultTag, value))
 
-  def use(steps: Step*) = (_: String) => steps
+  def use(steps: PipelineStep*) = (_: String) => steps
 
   def useSamples(stages: Stage[?]*) =
     import Samples.*
 
-    def go(stages: List[Stage[?]]): List[Step] = stages match
+    def go(stages: List[Stage[?]]): List[PipelineStep] = stages match
       case Seq()         => Nil
       case stage :: next =>
         (stage match
@@ -72,7 +75,7 @@ object TestPipeline:
           case Stage.Routes       => ???
           case Stage.Svg          => ???
           case Stage.Metadata     => setStage(Stage.Metadata, Metadata(Map.empty))
-          case Stage.Terminal     => debuggingStep(_ => Right(()))
+          case Stage.ForeignData  => ???
         ) :: go(next)
 
     (_: String) => go(stages.toList)
@@ -81,6 +84,22 @@ end TestPipeline
 
 trait TestPipelineSyntax:
   export TestPipeline.{apply as pipeline, *}
+
+case class DebuggingStep(f: StageCache => Either[String, Unit]) extends PipelineStep
+
+object DebuggingStep:
+  given Encoder.AsObject[DebuggingStep] =
+    Encoder.AsObject.instance(_ => sys.error("debugging steps must not be serialized"))
+  given Decoder[DebuggingStep]          = Decoder.failedWithMessage("debugging steps mut not be deserialized")
+
+  lazy val impl = new StepImpl[DebuggingStep]:
+    type ITags = EmptyTuple
+    override def helpText = "For debugging use only"
+    override def tags     = Nil
+
+    override def runToStage(s: WithTags[EmptyTuple, DebuggingStep], cache: StageCache) =
+      s.step.f(cache).map(_ => RunningTime.unit)
+end DebuggingStep
 
 object Samples:
   def sampleGraph = Graph.fromEdges(

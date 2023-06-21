@@ -16,23 +16,23 @@ class GeometrySpec extends AnyFlatSpec, TestPipelineSyntax:
     case Seq(center, Vec2D(w, h)) => Rect2D(center, Vec2D(w.abs / 2, h.abs / 2)),
   )
 
-  lazy val gTree = Step.GTreeOverlaps(Stretch.Padding(Vec2D(0.5, 0.5)), Seed(0x99c0ffee), false, None, None)
-  lazy val draw  = Step.StraightLineDrawing(SvgConfig.StraightEdges, None, None, None)
+  lazy val gTree = step.GTreeOverlaps(Stretch.Padding(Vec2D(0.5, 0.5)), Seed(0x99c0ffee), false)
+  // lazy val draw  = step.StraightLineDrawing(SvgConfig.StraightEdges)
 
-  lazy val layout = debuggingStep: cache =>
+  lazy val layout = DebuggingStep: cache =>
     for
       obstacles <- cache.getStageResult(Stage.Obstacles, defaultTag)
       _         <- cache.setStage(Stage.Layout, defaultTag, VertexLayout(obstacles.nodes.map(_.center)))
     yield ()
 
-  lazy val triangulate = debuggingStep: cache =>
+  lazy val triangulate = DebuggingStep: cache =>
     for
       layout      <- cache.getStageResult(Stage.Layout, defaultTag)
       triangulated = Triangulation(layout.nodes)
       _           <- cache.setStage(Stage.Graph, defaultTag, Graph.fromEdges(triangulated).mkBasicGraph)
     yield ()
 
-  lazy val mst = debuggingStep: cache =>
+  lazy val mst = DebuggingStep: cache =>
     for
       layout  <- cache.getStageResult(Stage.Layout, defaultTag)
       graph   <- cache.getStageResult(Stage.Graph, defaultTag)
@@ -59,14 +59,14 @@ class GeometrySpec extends AnyFlatSpec, TestPipelineSyntax:
   "Some points in the plane" `should` "have a minimum spanning tree of their triangulation by Euclidean distance" in:
     val app = TestPipeline("minimum-spanning-tree")
       |> (Stage.Layout -> VertexLayout(points))
-      |> use(triangulate, mst, draw)
+      |> use(triangulate, mst, drawEV)
       |> saveSvg
     app.run()
 
   "The net of P12" `should` "be drawable with a force-directed algorithm" in:
     val app = TestPipeline("force-directed-drawing")
       |> (Stage.Graph -> p12)
-      |> use(Step.ForceDirectedLayout(1000, Seed(0x99c0ffee), 1, None, None), draw)
+      |> use(step.ForceDirectedLayout(1000, Seed(0x99c0ffee), 1), drawEV)
       |> saveSvg
     app.run()
 

@@ -10,6 +10,7 @@ import wueortho.tests.layout.TestUtils.{rawE, rawSE}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should
 
+@annotation.nowarn // todo fix unsound initialization warning
 class GraphSearchSpec extends AnyFlatSpec, should.Matchers:
   // see https://upload.wikimedia.org/wikipedia/commons/5/57/Dijkstra_Animation.gif
   lazy val graph = Graph.fromWeightedEdges(
