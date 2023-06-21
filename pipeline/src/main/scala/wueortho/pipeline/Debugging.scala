@@ -32,8 +32,10 @@ object Debugging:
       graph: BasicGraph,
       layout: VertexLayout,
       ports: PortLayout,
+      ppu: Double,
   ) =
-    val svg      = Svg.withDefaults.copy(edgeBends = Svg.EdgeBends.Straight, edgeColor = Svg.EdgeColor.Single("gray"))
+    val svg      = Svg.withDefaults
+      .copy(edgeBends = Svg.EdgeBends.Straight, edgeColor = Svg.EdgeColor.Single("gray"), pixelsPerUnit = ppu)
     val rectsSvg = svg.drawObstacles(obstacles)
     val nodesSvg = svg.drawNodes(layout)
     val edgesSvg = svg.drawStraightEdges(graph, layout)
@@ -46,20 +48,20 @@ object Debugging:
       val l = adj.vertices(u).neighbors.map { case BasicLink(v, j) => s"$v [$j]" }.mkString("(", ", ", ")")
       println(s"$u @ $pos -> $l")
 
-  def debugSvg(obs: Obstacles, ports: PortLayout, routes: IndexedSeq[EdgeRoute]) =
-    val svg      = Svg.withDefaults.copy(edgeBends = Svg.EdgeBends.Straight)
+  def debugSvg(obs: Obstacles, ports: PortLayout, routes: IndexedSeq[EdgeRoute], ppu: Double) =
+    val svg      = Svg.withDefaults.copy(pixelsPerUnit = ppu)
     val rectsSvg = svg.drawObstacles(obs)
     val portsSvg = svg.drawPorts(ports)
     val edgesSvg = svg.drawEdgeRoutes(routes)
     svg.make(rectsSvg ++ edgesSvg ++ portsSvg)
 
-  def debugSvg(ewg: BasicGraph, vl: VertexLayout) =
-    val svg      = Svg.withDefaults.copy(edgeColor = Svg.EdgeColor.Single("gray"))
+  def debugSvg(ewg: BasicGraph, vl: VertexLayout, ppu: Double) =
+    val svg      = Svg.withDefaults.copy(edgeColor = Svg.EdgeColor.Single("gray"), pixelsPerUnit = ppu)
     val nodesSvg = svg.drawNodes(vl)
     val edgesSvg = svg.drawStraightEdges(ewg, vl)
     svg.make(edgesSvg ++ nodesSvg)
 
-  def debugSvg(adj: BasicGraph, obs: Obstacles, ppu: Double = 50) =
+  def debugSvg(adj: BasicGraph, obs: Obstacles, ppu: Double) =
     val svg      = Svg.withDefaults
       .copy(edgeBends = Svg.EdgeBends.Straight, edgeColor = Svg.EdgeColor.Single("gray"), pixelsPerUnit = ppu)
     val vl       = VertexLayout(obs.nodes.map(_.center))
@@ -68,8 +70,8 @@ object Debugging:
     val edgesSvg = svg.drawStraightEdges(adj, vl)
     svg.make(rectsSvg ++ edgesSvg ++ nodesSvg)
 
-  def debugSvg(ewg: BasicGraph, vl: VertexLayout, obs: Obstacles) =
-    val svg      = Svg.withDefaults.copy(edgeColor = Svg.EdgeColor.Single("gray"))
+  def debugStraightEdgesWithBoxes(ewg: BasicGraph, vl: VertexLayout, obs: Obstacles, ppu: Double) =
+    val svg      = Svg.withDefaults.copy(edgeColor = Svg.EdgeColor.Single("gray"), pixelsPerUnit = ppu)
     val nodesSvg = svg.drawNodes(vl)
     val edgesSvg = svg.drawStraightEdges(ewg, vl)
     val rectsSvg = svg.drawObstacles(obs)

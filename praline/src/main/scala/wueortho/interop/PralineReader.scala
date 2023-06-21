@@ -3,9 +3,9 @@ package wueortho.interop
 import wueortho.data.*
 import wueortho.util.Traverse.traverse
 
-import de.uniwue.informatik.praline.datastructure.{graphs as P, labels as L, paths}
-import de.uniwue.informatik.praline.datastructure.oldUnstyledObjects as old
-import de.uniwue.informatik.praline.datastructure.utils.Serialization
+import de.uniwue.informatik.praline.datastructure
+import datastructure.{graphs as P, labels as L, paths}, datastructure.oldUnstyledObjects as old,
+  datastructure.utils.Serialization
 
 import java.nio.file.{Files, Path as NioPath}
 import java.awt.geom.Point2D.Double as AwtPoint
@@ -33,6 +33,7 @@ object PralineReader:
       def getHypergraph   = mkHypergraph(g)
       def getVertexLabels = mkVertexLabels(g)
       def getObstacles    = mkObstacles(g)
+      def getEdgeRoutes   = mkEdgeRouts(g)
 
   def mkBasicGraph(g: P.Graph) =
     // def portsFlat(ps: Seq[P.PortComposition]): Either[String, Seq[P.Port]] =
@@ -94,7 +95,7 @@ object PralineReader:
       for
         shape <- Option(v.getShape).toRight(s"vertex $v has no shape")
         box   <- Option(shape.nn.getBoundingBox).toRight(s"vertex $v has a shape with no bounding box")
-      yield Rect2D(Vec2D(box.nn.getCenterX, box.nn.getCenterY), Vec2D(box.nn.getWidth / 2, box.nn.getHeight / 2))
+      yield Rect2D(Vec2D(box.nn.getCenterX, -box.nn.getCenterY), Vec2D(box.nn.getWidth / 2, box.nn.getHeight / 2))
     rects.map(rs => Obstacles(rs.toIndexedSeq))
 
   def mkEdgeRouts(g: P.Graph) = g.getEdges().nn.asScala.toSeq.traverse(e =>

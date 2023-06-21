@@ -18,11 +18,9 @@ object Pipeline:
   trait RuntimeCommons(impls: Seq[StepImpl[?]]):
     private lazy val lut = impls.map(impl => impl.stepName -> impl).toMap
 
-    def load(path: Path) = for
-      raw  <- Try(Files.readString(path).nn).toEither
-      json <- parse(raw)
-      res  <- fromJson(json).toTry.toEither
-    yield res
+    def fromFile(path: Path) = Try(Files.readString(path).nn).toEither.flatMap(fromString)
+
+    def fromString(s: String) = parse(s).flatMap(fromJson(_).toTry.toEither)
 
     def run(p: Pipeline) =
       if p.steps.isEmpty then PipelineResult.empty

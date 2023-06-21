@@ -29,7 +29,7 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
   "A sample set of obstacles and ports" `should` "allow constructing a simplified routing graph" in:
     val app = pipeline("sample-routing-graph")
       |> useSamples(Stage.Graph, Stage.Obstacles, Stage.Ports)
-      |> use(mkRoutingGraph, drawEPVO)
+      |> use(mkRoutingGraph, drawEPVO(50))
       |> saveSvg
     app.run()
 

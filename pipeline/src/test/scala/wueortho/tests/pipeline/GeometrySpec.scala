@@ -45,28 +45,28 @@ class GeometrySpec extends AnyFlatSpec, TestPipelineSyntax:
   "Some obstacles" `should` "allow triangulating their centers" in:
     val app = TestPipeline("input-triangulated")
       |> (Stage.Obstacles -> obstacles)
-      |> use(layout, triangulate, drawEVO)
+      |> use(layout, triangulate, drawEVO(50))
       |> saveSvg
     app.run()
 
   it `should` "allow removing all overlaps by moving alongside their triangulation" in:
     val app = TestPipeline("gtree-triangulated")
       |> (Stage.Obstacles -> obstacles)
-      |> use(gTree, layout, triangulate, drawEVO)
+      |> use(gTree, layout, triangulate, drawEVO(50))
       |> saveSvg
     app.run()
 
   "Some points in the plane" `should` "have a minimum spanning tree of their triangulation by Euclidean distance" in:
     val app = TestPipeline("minimum-spanning-tree")
       |> (Stage.Layout -> VertexLayout(points))
-      |> use(triangulate, mst, drawEV)
+      |> use(triangulate, mst, drawEV(50))
       |> saveSvg
     app.run()
 
   "The net of P12" `should` "be drawable with a force-directed algorithm" in:
     val app = TestPipeline("force-directed-drawing")
       |> (Stage.Graph -> p12)
-      |> use(step.ForceDirectedLayout(1000, Seed(0x99c0ffee), 1), drawEV)
+      |> use(step.ForceDirectedLayout(1000, Seed(0x99c0ffee), 1), drawEV(50))
       |> saveSvg
     app.run()
 

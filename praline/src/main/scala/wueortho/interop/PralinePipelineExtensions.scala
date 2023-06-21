@@ -14,7 +14,9 @@ object PralinePipelineExtensions:
   sealed trait PralineStep extends PipelineStep
 
   case class ReadPralineFile(path: file.Path, use: List[PralineExtractor]) extends PralineStep derives CC
+  case class AccessPraline(use: List[PralineExtractor])                    extends PralineStep derives CC
   case class WritePralineFile(path: file.Path)                             extends PralineStep derives CC
+  case class StorePraline()                                                extends PralineStep derives CC
 
   enum PralineExtractor derives CanEqual, ConfiguredEnumCodec:
     case Graph, VertexLabels, VertexLayout, VertexBoxes, EdgeRoutes // todo Hypergraphs? Ports? PortOrder?
@@ -25,12 +27,13 @@ object PralinePipelineExtensions:
 
   class InteropRuntime(impls: Seq[StepImpl[?]]) extends Pipeline.RuntimeCommons(impls):
     val ref = AtomicReference[PGraph]()
+    var tag = "default"
 
     override def run(p: Pipeline) =
       if p.steps.isEmpty then PipelineResult.empty
       else
         val cache           = StageCache()
-        cache.setStage(Stage.ForeignData, "default", ref.asInstanceOf[AtomicReference[Any]]).fold(sys.error, identity)
+        cache.setStage(Stage.ForeignData, tag, ref.asInstanceOf[AtomicReference[Any]]).fold(sys.error, identity)
         val (cacheView, rt) = cache.view -> runCore(p.steps, cache)
 
         new PipelineResult:

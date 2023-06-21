@@ -1,32 +1,32 @@
 package wueortho.tests.pipeline
 
 import wueortho.pipeline.Stage
-import wueortho.pipeline.Debugging.{debugOVG, debugSvg}
+import wueortho.pipeline.Debugging.{debugOVG, debugSvg, debugStraightEdgesWithBoxes}
 
 import TestPipeline.defaultTag
 
 object DebugSvgs:
-  lazy val drawEPVO = DebuggingStep: cache =>
+  def drawEPVO(ppu: Double) = DebuggingStep: cache =>
     for
       graph  <- cache.getStageResult(Stage.Graph, defaultTag)
       layout <- cache.getStageResult(Stage.Layout, defaultTag)
       obs    <- cache.getStageResult(Stage.Obstacles, defaultTag)
       ports  <- cache.getStageResult(Stage.Ports, defaultTag)
-      _      <- cache.setStage(Stage.Svg, defaultTag, debugOVG(obs, graph, layout, ports))
+      _      <- cache.setStage(Stage.Svg, defaultTag, debugOVG(obs, graph, layout, ports, ppu))
     yield ()
 
-  lazy val drawEVO = DebuggingStep: cache =>
+  def drawEVO(ppu: Double) = DebuggingStep: cache =>
     for
       graph  <- cache.getStageResult(Stage.Graph, defaultTag)
       layout <- cache.getStageResult(Stage.Layout, defaultTag)
       obs    <- cache.getStageResult(Stage.Obstacles, defaultTag)
-      _      <- cache.setStage(Stage.Svg, defaultTag, debugSvg(graph, layout, obs))
+      _      <- cache.setStage(Stage.Svg, defaultTag, debugStraightEdgesWithBoxes(graph, layout, obs, ppu))
     yield ()
 
-  lazy val drawEV = DebuggingStep: cache =>
+  def drawEV(ppu: Double) = DebuggingStep: cache =>
     for
       graph  <- cache.getStageResult(Stage.Graph, defaultTag)
       layout <- cache.getStageResult(Stage.Layout, defaultTag)
-      _      <- cache.setStage(Stage.Svg, defaultTag, debugSvg(graph, layout))
+      _      <- cache.setStage(Stage.Svg, defaultTag, debugSvg(graph, layout, ppu))
     yield ()
 end DebugSvgs
