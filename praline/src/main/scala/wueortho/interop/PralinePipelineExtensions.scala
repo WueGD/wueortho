@@ -25,7 +25,7 @@ object PralinePipelineExtensions:
     import PralineStepImpls.given
     StepImpl.allImpls[PralineStep]
 
-  class InteropRuntime(impls: Seq[StepImpl[?]]) extends Pipeline.RuntimeCommons(impls):
+  class InteropRuntime(impls: Seq[StepImpl[?]]) extends Pipeline.RuntimeCommons("praline-interop-runtime", impls):
     val ref = AtomicReference[PGraph]()
     var tag = "default"
 

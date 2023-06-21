@@ -1,9 +1,10 @@
 package wueortho.pipeline
 
 import wueortho.data.*
-import wueortho.io.{random, tglf}, tglf.TglfReader, random.RandomGraphs.RandomGraphConfig
+import wueortho.io.{random, tglf}, tglf.TglfReader, random.RandomGraphs
 import wueortho.util.Codecs.given
 import wueortho.util.TextUtils
+import wueortho.util.EnumUtils.enumNames
 
 import TglfExtractor as Use
 
@@ -11,7 +12,6 @@ import io.circe.derivation.ConfiguredEnumCodec
 
 import scala.util.Try
 import java.nio.file.Files
-import wueortho.util.EnumUtils
 
 object InputSteps:
   import wueortho.util.RunningTime.unit as noRt, StepUtils.unit
@@ -20,14 +20,16 @@ object InputSteps:
     type ITags = EmptyTuple
     override def tags     = Nil
     override def helpText =
-      """Create graphs at random.
-        |The PRNG is generated using `seed`. The graph will have `n` vertices and `m` edges.
-        |`core` allows to specify a graph structure for connectivity. Possible cores are `Empty`, `Path`, `Tree`, and `Star`.
-        |Set `allowLoops` to enable self-edges.""".stripMargin
+      val cores = enumNames[RandomGraphs.GraphCore].map(s => s"`$s`").mkString(", ")
+      s"""Create graphs at random.
+         | * The PRNG is generated using `seed`.
+         | * The graph will have `n` vertices and `m` edges.
+         | * `core` - allows to specify a graph structure for connectivity. Possible cores are $cores.
+         | * `allowLoops` - enable self-edges.""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.RandomGraph], cache: StageCache) =
       import s.step.*
-      def mkBg = random.RandomGraphs.mkBasicGraph(RandomGraphConfig(n, m, seed, core, allowLoops))
+      def mkBg = RandomGraphs.mkBasicGraph(RandomGraphs.RandomGraphConfig(n, m, seed, core, allowLoops))
       cache.updateStage(Stage.Graph, s.mkTag, _ => mkBg).unit
   end given
 
@@ -36,8 +38,8 @@ object InputSteps:
     override def tags     = deriveTags[ITags]
     override def helpText =
       """Create vertex boxes at random.
-        |`minSpan`/`maxSpan - minimum/maximum span vector of the boxes (span.x = width/2, span.y = height/2)
-        |`seed` - the PRNG is created using this""".stripMargin
+        | * `minSpan`/`maxSpan - minimum/maximum span vector of the boxes (span.x = width/2, span.y = height/2)
+        | * `seed` - the PRNG is created using this""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.RandomVertexBoxes], cache: StageCache) =
       import s.step.*
@@ -53,7 +55,7 @@ object InputSteps:
     type ITags = "vertexLayout" *: EmptyTuple
     override def tags     = deriveTags[ITags]
     override def helpText = """Create vertex boxes of uniform size.
-                              |`span` - span vector of the boxes (span.x = width/2, span.y = height/2)""".stripMargin
+                              | * `span` - span vector of the boxes (span.x = width/2, span.y = height/2)""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.UniformVertexBoxes], cache: StageCache) = for
       vl <- cache.getStageResult(Stage.Layout, s.mkITag("vertexLayout"))
@@ -66,7 +68,7 @@ object InputSteps:
     type ITags = "graph" *: EmptyTuple
     override def tags     = deriveTags[ITags]
     override def helpText = """Create artificial vertex labels.
-                              |`config` - is either `Hide` or `Enumerate`""".stripMargin
+                              | * `config` - is either `Hide` or `Enumerate`""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.SyntheticVertexLabels], cache: StageCache) = s.step.config match
       case SyntheticLabels.Hide      => cache.updateStage(Stage.VertexLabels, s.mkTag, _ => Right(Labels.Hide)).unit
@@ -81,7 +83,7 @@ object InputSteps:
     type ITags = "ports" *: EmptyTuple
     override def tags     = deriveTags[ITags]
     override def helpText = """Create artificial port labels.
-                              |`config` - is either `Hide` or `Enumerate`""".stripMargin
+                              | * `config` - is either `Hide` or `Enumerate`""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.SyntheticPortLabels], cache: StageCache) = s.step.config match
       case SyntheticLabels.Hide      => cache.updateStage(Stage.PortLabels, s.mkTag, _ => Right(Labels.Hide)).unit
@@ -96,10 +98,10 @@ object InputSteps:
     type ITags = ("vertexLayout", "vertexLabels")
     override def tags     = deriveTags[ITags]
     override def helpText = """Create vertex boxes to host text labels
-                              |`config` - either `PralineDefaults` or a json object with:
-                              |   `minWidth`/`minHeight` - minimum width and height.
-                              |   `padding` - at all sides.
-                              |   `fontSize`""".stripMargin
+                              | * `config` - either `PralineDefaults` or a json object with:
+                              |   - `minWidth`/`minHeight` - minimum width and height.
+                              |   - `padding` - at all sides.
+                              |   - `fontSize`""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.BoxesFromLabels], cache: StageCache) = for
       vl <- cache.getStageResult(Stage.Layout, s.mkITag("vertexLayout"))
@@ -125,10 +127,10 @@ object InputSteps:
     type ITags = EmptyTuple
     override def tags     = deriveTags[ITags]
     override def helpText =
-      val extractors = EnumUtils.enumNames[Use].map(name => s"`$name`").mkString(", ")
+      val extractors = enumNames[Use].map(name => s"`$name`").mkString(", ")
       s"""Read imputs in Trivial Graph Layout Format.
-         |`path` - read from this file.
-         |`use` - select a list of extractors. Possible values: $extractors""".stripMargin
+         | * `path` - read from this file.
+         | * `use` - select a list of extractors. Possible values: $extractors""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.ReadTglfFile], cache: StageCache) = (for
       raw <- Try(Files.readString(s.step.path).nn).toEither

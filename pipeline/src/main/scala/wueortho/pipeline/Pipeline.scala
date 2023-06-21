@@ -13,9 +13,9 @@ case class Pipeline(steps: Seq[WithTags[? <: Tuple, PipelineStep]])
 object Pipeline:
   def coreRuntime = Runtime(CoreStep.allImpls)
 
-  case class Runtime(impls: Seq[StepImpl[?]]) extends RuntimeCommons(impls)
+  case class Runtime(impls: Seq[StepImpl[?]]) extends RuntimeCommons("core-runtime", impls)
 
-  trait RuntimeCommons(impls: Seq[StepImpl[?]]):
+  trait RuntimeCommons(id: String, impls: Seq[StepImpl[?]]):
     private lazy val lut = impls.map(impl => impl.stepName -> impl).toMap
 
     def fromFile(path: Path) = Try(Files.readString(path).nn).toEither.flatMap(fromString)
@@ -59,6 +59,8 @@ object Pipeline:
 
     def asJson(p: Pipeline) = Encoder.forProduct1("steps")((_: Pipeline).steps)(Encoder.encodeSeq(enc))(p)
     def fromJson(j: Json)   = Decoder.forProduct1("steps")(Pipeline.apply)(Decoder.decodeSeq(dec)).decodeJson(j)
+
+    def showHelpText = HelpText(id, impls)
   end RuntimeCommons
 end Pipeline
 
