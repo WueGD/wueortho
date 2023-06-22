@@ -5,11 +5,13 @@ import java.nio.file.Paths
 import wueortho.pipeline.CoreStep
 import wueortho.interop.PralinePipelineExtensions
 
+lazy val mainRuntime = Pipeline
+  .Runtime("core-with-praline-steps", CoreStep.allImpls ++ PralinePipelineExtensions.allImpls)
+
 @main def runPipeline =
-  val rt  = Pipeline.Runtime(CoreStep.allImpls ++ PralinePipelineExtensions.allImpls)
-  val res = rt.run(rt.fromFile(Paths.get("config.json").nn).fold(throw _, identity))
+  val res = mainRuntime.run(mainRuntime.fromFile(Paths.get("config.json").nn).fold(throw _, identity))
   println(res.runningTime.show)
   println(res.getResult(Stage.Metadata, None).fold(identity, _.show))
 
 @main def showHelp =
-  println(Pipeline.Runtime(CoreStep.allImpls ++ PralinePipelineExtensions.allImpls).showHelpText)
+  println(mainRuntime.showHelpText)

@@ -120,6 +120,20 @@ object AlgorithmicSteps:
     yield res
   end given
 
+  given StepImpl[step.PseudoRouting] with
+    type ITags = "routes" *: EmptyTuple
+    override def tags     = deriveTags[ITags]
+    override def helpText = """Produce a fake edge routing from already routed edges
+                              |(e.g. in order to apply a nudging step afterwards).
+                              | * `fakePorts` - also produce fake ports""".stripMargin
+
+    override def runToStage(s: WithTags[ITags, step.PseudoRouting], cache: StageCache) = for
+      rs <- cache.getStageResult(Stage.Routes, s.mkITag("routes"))
+      _  <- cache.setStage(Stage.EdgeRouting, s.mkTag, PseudoRouting(rs))
+      _  <- if s.step.fakePorts then cache.setStage(Stage.Ports, s.mkTag, PortLayout(rs.map(_.terminals))) else Right(())
+    yield noRt
+  end given
+
   given StepImpl[step.ConstrainedNudging] with
     type ITags = ("routing", "ports", "vertexBoxes")
     override def tags     = deriveTags[ITags]

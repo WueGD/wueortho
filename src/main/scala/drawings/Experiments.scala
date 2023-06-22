@@ -35,8 +35,6 @@ object Experiments:
   val outPath = Path.of("results").nn
   val batch   = "runtime"
 
-  lazy val rt = Pipeline.Runtime(CoreStep.allImpls ++ Pral.allImpls)
-
   trait Experiment(val name: String):
     def mkPipeline(inPath: Path): Pipeline
 
@@ -53,7 +51,7 @@ object Experiments:
         yield
           print("\b".repeat(11).nn + f"(${i + 1}%4d/${files.size}%4d)")
           val res =
-            try rt.run(mkPipeline(file))
+            try mainRuntime.run(mkPipeline(file))
             catch
               case throwable =>
                 println(s"\nFAILED at file $file ($throwable)")

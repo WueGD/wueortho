@@ -4,7 +4,8 @@ import scala.util.Random
 import Direction.*
 import scala.annotation.nowarn
 
-case class EdgeTerminals(uTerm: Vec2D, uDir: Direction, vTerm: Vec2D, vDir: Direction) derives CanEqual
+case class EdgeTerminals(uTerm: Vec2D, uDir: Direction, vTerm: Vec2D, vDir: Direction) derives CanEqual:
+  override def toString() = s"$uTerm [$uDir] -> $vTerm [$vDir]"
 
 case class PortLayout(byEdge: IndexedSeq[EdgeTerminals]):
   def apply(i: Int)          = byEdge(i)
@@ -71,6 +72,15 @@ case class EdgeRoute(terminals: EdgeTerminals, route: Seq[EdgeRoute.OrthoSeg]):
               case (_, b: OrthoSeg, _)                              => b :: c :: tail
     EdgeRoute(terminals, res)
   end withoutInnerZeroSegs
+
+  def reverse =
+    val EdgeTerminals(uTerm, uDir, vTerm, vDir) = terminals
+
+    val revSegs = route.reverse.map:
+      case VSeg(dy) => VSeg(-dy)
+      case HSeg(dx) => HSeg(-dx)
+
+    EdgeRoute(EdgeTerminals(vTerm, vDir, uTerm, uDir), revSegs)
 end EdgeRoute
 
 object EdgeRoute:
@@ -88,7 +98,7 @@ object EdgeRoute:
 
   object OrthoSeg:
     extension (p: Vec2D)
-      def moveBy(s: OrthoSeg) = s match
+      infix def moveBy(s: OrthoSeg) = s match
         case HSeg(dx) => p.copy(x1 = p.x1 + dx)
         case VSeg(dy) => p.copy(x2 = p.x2 + dy)
 end EdgeRoute

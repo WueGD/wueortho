@@ -66,6 +66,8 @@ object Direction:
     def isHorizontal = d == Direction.West || d == Direction.East
     def isVertical   = d == Direction.North || d == Direction.South
     def reverse      = Direction.fromOrdinal((d.ordinal + 2) % 4)
+    def turnCW       = Direction.fromOrdinal((d.ordinal + 1) % 4)
+    def turnCCW      = Direction.fromOrdinal((d.ordinal + 3) % 4)
     def show         = s"[${d.toString.head}]"
 end Direction
 

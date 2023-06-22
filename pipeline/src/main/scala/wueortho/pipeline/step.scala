@@ -12,7 +12,7 @@ import java.nio.file.Path as FSPath
 trait PipelineStep
 
 /** trait for the steps defined in the pipeline module */
-sealed trait CoreStep extends PipelineStep
+sealed trait CoreStep extends PipelineStep derives CanEqual
 
 object step:
   import CoreStep as CS
@@ -33,6 +33,7 @@ object step:
   case class PortsByAngle(mode: PortMode)                                               extends CS derives CC
   case class SimplifiedRoutingGraph(stretch: Stretch)                                   extends CS derives CC
   case class EdgeRouting()                                                              extends CS derives CC
+  case class PseudoRouting(fakePorts: Boolean)                                          extends CS derives CC
   case class NoNudging()                                                                extends CS derives CC
   case class ConstrainedNudging()                                                       extends CS derives CC
   case class FullNudging(padding: Double, use2ndHPass: Boolean)                         extends CS derives CC

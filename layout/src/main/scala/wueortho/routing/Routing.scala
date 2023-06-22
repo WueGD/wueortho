@@ -74,11 +74,23 @@ object Routing:
 
   def removeEyes(paths: IndexedSeq[Path]): IndexedSeq[Path] =
     def intersect(pa: Path, pb: Path) =
-      for
-        (a, i) <- pa.nodes.zipWithIndex
-        (b, j) <- pb.nodes.zipWithIndex
-        if a == b
-      yield i -> j
+      // for
+      //   (a, i) <- pa.nodes.zipWithIndex
+      //   (b, j) <- pb.nodes.zipWithIndex
+      //   if a == b
+      // yield i -> j
+
+      val ia = (pa.nodes.iterator.zipWithIndex.flatMap: (a, i) =>
+          pb.nodes.iterator.zipWithIndex.filter((b, _) => b == a).map((_, j) => i -> j))
+        .nextOption()
+      val io =
+        if ia.isEmpty then None
+        else
+          (pa.nodes.zipWithIndex.reverseIterator.flatMap: (a, i) =>
+              pb.nodes.zipWithIndex.reverseIterator.filter((b, _) => b == a).map((_, j) => i -> j))
+            .nextOption()
+      if ia == io then ia.toSeq else ia ++ io
+    end intersect
 
     val pathBuf = mutable.ArrayBuffer.from(paths)
 

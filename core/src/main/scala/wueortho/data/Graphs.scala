@@ -92,29 +92,29 @@ object Graph:
 
   import scala.collection.mutable
 
-  class Builder private[Graph] (lut: mutable.ArrayBuffer[mutable.ArrayBuffer[(NodeIndex, Double, Int)]]):
-    private def ensureSize(i: Int) = if lut.size <= i then lut ++= Seq.fill(i - lut.size + 1)(mutable.ArrayBuffer.empty)
+  class Builder private[Graph] (adj: mutable.ArrayBuffer[mutable.ArrayBuffer[(NodeIndex, Double, Int)]]):
+    private def ensureSize(i: Int) = if adj.size <= i then adj ++= Seq.fill(i - adj.size + 1)(mutable.ArrayBuffer.empty)
 
     def addEdge(from: NodeIndex, to: NodeIndex, weight: Double): Builder =
       ensureSize(from.toInt max to.toInt)
       if from == to then
-        lut(from.toInt) += ((to, weight, lut(from.toInt).size + 1))
-        lut(to.toInt) += ((from, weight, lut(from.toInt).size - 1))
+        adj(from.toInt) += ((to, weight, adj(from.toInt).size + 1))
+        adj(to.toInt) += ((from, weight, adj(from.toInt).size - 1))
       else
-        lut(from.toInt) += ((to, weight, lut(to.toInt).size))
-        lut(to.toInt) += ((from, weight, lut(from.toInt).size - 1))
+        adj(from.toInt) += ((to, weight, adj(to.toInt).size))
+        adj(to.toInt) += ((from, weight, adj(from.toInt).size - 1))
       this
     end addEdge
 
     def addEdge(from: NodeIndex, to: NodeIndex): Builder = addEdge(from, to, 0.0)
 
-    def size = lut.size
+    def size = adj.size
 
     def mkBasicGraph: BasicGraph       = SGImpl(
-      lut.map(links => Vertex(links.map((v, _, rl) => BasicLink(v, rl)).toIndexedSeq)).toIndexedSeq,
+      adj.map(links => Vertex(links.map((v, _, rl) => BasicLink(v, rl)).toIndexedSeq)).toIndexedSeq,
     )
     def mkWeightedGraph: WeightedGraph = WGImpl(
-      lut.map(links => Vertex(links.map((v, w, rl) => WeightedLink(v, w, rl)).toIndexedSeq)).toIndexedSeq,
+      adj.map(links => Vertex(links.map((v, w, rl) => WeightedLink(v, w, rl)).toIndexedSeq)).toIndexedSeq,
     )
   end Builder
 
@@ -122,22 +122,22 @@ object Graph:
     def empty           = Builder(mutable.ArrayBuffer.empty)
     def reserve(n: Int) = Builder(mutable.ArrayBuffer.fill(n)(mutable.ArrayBuffer.empty))
 
-  class DiBuilder private[Graph] (lut: mutable.ArrayBuffer[mutable.ArrayBuffer[(NodeIndex, Double)]]):
-    private def ensureSize(i: Int) = if lut.size <= i then lut ++= Seq.fill(i - lut.size + 1)(mutable.ArrayBuffer.empty)
+  class DiBuilder private[Graph] (adj: mutable.ArrayBuffer[mutable.ArrayBuffer[(NodeIndex, Double)]]):
+    private def ensureSize(i: Int) = if adj.size <= i then adj ++= Seq.fill(i - adj.size + 1)(mutable.ArrayBuffer.empty)
 
     def addEdge(from: NodeIndex, to: NodeIndex, weight: Double): DiBuilder =
       ensureSize(from.toInt max to.toInt)
-      lut(from.toInt) += ((to, weight))
+      adj(from.toInt) += ((to, weight))
       this
 
     def addEdge(from: NodeIndex, to: NodeIndex): DiBuilder = addEdge(from, to, 0.0)
 
-    def size = lut.size
+    def size = adj.size
 
     def mkDiGraph: DiGraph                 =
-      DGImpl(lut.map(links => Vertex(links.map(_._1).toIndexedSeq)).toIndexedSeq)
+      DGImpl(adj.map(links => Vertex(links.map(_._1).toIndexedSeq)).toIndexedSeq)
     def mkWeightedDiGraph: WeightedDiGraph =
-      WDImpl(lut.map(links => Vertex(links.map(WeightedDiLink(_, _)).toIndexedSeq)).toIndexedSeq)
+      WDImpl(adj.map(links => Vertex(links.map(WeightedDiLink(_, _)).toIndexedSeq)).toIndexedSeq)
   end DiBuilder
 
   object DiBuilder:

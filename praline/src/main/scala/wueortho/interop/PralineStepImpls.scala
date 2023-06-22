@@ -29,16 +29,16 @@ object PralineStepImpls:
   end given
 
   private def extractAll(g: P.Graph, use: List[PralineExtractor], tag: String, cache: StageCache) =
-    import PralineExtractor as Use, PralineReader.*
+    import PralineExtractor as Use, PralineReader.syntax.*
 
     use.foldLeft(Right(()).withLeft[String]): (eth, ext) =>
       eth.flatMap: _ =>
         ext match
-          case Use.Graph        => cache.updateStage(Stage.Graph, tag, _ => mkBasicGraph(g))
-          case Use.VertexLabels => cache.updateStage(Stage.VertexLabels, tag, _ => mkVertexLabels(g))
-          case Use.VertexLayout => cache.updateStage(Stage.Layout, tag, _ => mkObstacles(g).map(_.toVertexLayout))
-          case Use.VertexBoxes  => cache.updateStage(Stage.Obstacles, tag, _ => mkObstacles(g))
-          case Use.EdgeRoutes   => cache.updateStage(Stage.Routes, tag, _ => mkEdgeRouts(g))
+          case Use.Graph        => cache.updateStage(Stage.Graph, tag, _ => g.getBasicGraph)
+          case Use.VertexLabels => cache.updateStage(Stage.VertexLabels, tag, _ => g.getVertexLabels)
+          case Use.VertexLayout => cache.updateStage(Stage.Layout, tag, _ => g.getObstacles.map(_.toVertexLayout))
+          case Use.VertexBoxes  => cache.updateStage(Stage.Obstacles, tag, _ => g.getObstacles)
+          case Use.EdgeRoutes   => cache.updateStage(Stage.Routes, tag, _ => g.getEdgeRoutes)
   end extractAll
 
   given StepImpl[AccessPraline] with

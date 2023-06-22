@@ -15,7 +15,7 @@ class JavaApi:
   def getMainTag            = runtime.tag
   def setMainTag(t: String) = runtime.tag = t
 
-  def getReference = runtime.ref
+  def getGraphBox = runtime.ref
 
-  def run(p: Pipeline) = runtime.run(p)
+  export runtime.{run, showHelpText}
 end JavaApi

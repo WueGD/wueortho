@@ -11,9 +11,9 @@ import wueortho.util.RunningTime
 case class Pipeline(steps: Seq[WithTags[? <: Tuple, PipelineStep]])
 
 object Pipeline:
-  def coreRuntime = Runtime(CoreStep.allImpls)
+  def coreRuntime = Runtime("core-runtime", CoreStep.allImpls)
 
-  case class Runtime(impls: Seq[StepImpl[?]]) extends RuntimeCommons("core-runtime", impls)
+  case class Runtime(id: String, impls: Seq[StepImpl[?]]) extends RuntimeCommons(id, impls)
 
   trait RuntimeCommons(id: String, impls: Seq[StepImpl[?]]):
     private lazy val lut = impls.map(impl => impl.stepName -> impl).toMap

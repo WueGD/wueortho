@@ -77,9 +77,9 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
     nudgedObstacles.nodes should have size Sample.obstacles.nodes.size
 
   lazy val routed = Routing(routingGraph, Sample.ports).get
+  lazy val routes = EdgeNudging.calcEdgeRoutes(routed, Sample.ports, Sample.obstacles)
 
   "Edge nudging of routes on the simplified routing graph" `should` "complete without errors" in:
-    val routes = EdgeNudging.calcEdgeRoutes(routed, Sample.ports, Sample.obstacles)
     routes should have size Sample.edges.size
 
   "Full nudging of routes on the simplified routing graph" `should` "complete without errors" in:
@@ -89,6 +89,29 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
     nudgedPorts.byEdge should have size Sample.edges.size
     nudgedObstacles.nodes should have size Sample.obstacles.nodes.size
 
+  lazy val pseudoRouting            = PseudoRouting(routes)
+  lazy val (pseudoRAsBasicGraph, _) = Debugging.rg2adj(pseudoRouting)
+
+  "Pseudo routing of given edge routes" `should` "not have loops" in:
+    pseudoRAsBasicGraph.hasLoops shouldBe false
+
+  it `should` "not have multi edges" in:
+    pseudoRAsBasicGraph.hasMultiEdges shouldBe false
+
+  it `should` "have a given number of vertices" in:
+    val n = routes.map(_.route.size + 1).sum
+    pseudoRAsBasicGraph.numberOfVertices shouldBe n
+    pseudoRouting.size shouldBe n
+
+  it `should` "have a degree between 1 and 2" in:
+    for v <- (NodeIndex(0) until pseudoRouting.size).map(pseudoRouting.neighbors) do v.size should (be > 0 and be < 3)
+
+  "Full nudging on a pseudo routing" `should` "complete without errors" in:
+    val (routes, nudgedPorts, nudgedObstacles) =
+      FullNudging(Nudging.Config(1, true), pseudoRouting, Sample.ports, Sample.graph, Sample.obstacles)
+    routes should have size Sample.edges.size
+    nudgedPorts.byEdge should have size Sample.edges.size
+    nudgedObstacles.nodes should have size Sample.obstacles.nodes.size
 end RoutingSpec
 
 object Sample:

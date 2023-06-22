@@ -1,7 +1,7 @@
 package wueortho.tests.pipeline
 
 import wueortho.pipeline.{Debugging as _, *}
-import wueortho.routing.RoutingGraph
+import wueortho.routing.{RoutingGraph, PseudoRouting}
 
 import wueortho.util.Debugging.rg2adj
 
@@ -14,8 +14,15 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
     for
       obs           <- cache.getStageResult(Stage.Obstacles, defaultTag)
       ports         <- cache.getStageResult(Stage.Ports, defaultTag)
-      srg            = RoutingGraph.create(obs, ports)
-      (rgAdj, rgLay) = rg2adj(srg)
+      (rgAdj, rgLay) = rg2adj(RoutingGraph.create(obs, ports))
+      _             <- cache.setStage(Stage.Graph, defaultTag, rgAdj)
+      _             <- cache.setStage(Stage.Layout, defaultTag, rgLay)
+    yield ()
+
+  lazy val pseudoRG = DebuggingStep: cache =>
+    for
+      routes        <- cache.getStageResult(Stage.Routes, defaultTag)
+      (rgAdj, rgLay) = rg2adj(PseudoRouting(routes))
       _             <- cache.setStage(Stage.Graph, defaultTag, rgAdj)
       _             <- cache.setStage(Stage.Layout, defaultTag, rgLay)
     yield ()
@@ -54,6 +61,22 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
       |> useSamples(Stage.Graph, Stage.Obstacles, Stage.Ports, Stage.VertexLabels)
       |> commonSteps
       |> use(step.FullNudging(0.8, true), metrics, drawSvg)
+      |> saveSvg
+    app.run()
+
+  it `should` "allow creating a pseudo routing" in:
+    val app = pipeline("sample-pseudo-routing")
+      |> useSamples(Stage.Graph, Stage.Obstacles, Stage.Ports, Stage.VertexLabels)
+      |> commonSteps
+      |> use(step.ConstrainedNudging(), pseudoRG, drawEPVO(50))
+      |> saveSvg
+    app.run()
+
+  it `should` "allow full nudging on a pseudo routing" in:
+    val app = pipeline("sample-nudging-on-pseudo-routing")
+      |> useSamples(Stage.Graph, Stage.Obstacles, Stage.Ports, Stage.VertexLabels)
+      |> commonSteps
+      |> use(step.ConstrainedNudging(), step.PseudoRouting(fakePorts = false), step.FullNudging(0.8, true), drawSvg)
       |> saveSvg
     app.run()
 end ArtifactsSpec

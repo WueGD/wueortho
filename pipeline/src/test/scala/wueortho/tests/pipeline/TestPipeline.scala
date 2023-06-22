@@ -12,7 +12,7 @@ import io.circe.Encoder
 import io.circe.Decoder
 
 class TestPipeline private[TestPipeline] (steps: Seq[PipelineStep], name: String):
-  lazy val rt     = Pipeline.Runtime(CoreStep.allImpls :+ DebuggingStep.impl)
+  lazy val rt     = Pipeline.Runtime("test-pipeline", CoreStep.allImpls :+ DebuggingStep.impl)
   def run(): Unit =
     val res  = rt.run(Pipeline(steps.map(PipelineStep.just)))
     val meta = res.getResult(Stage.Metadata, None).fold(err => Metadata(Map("not found" -> err)), identity)
@@ -88,7 +88,7 @@ case class DebuggingStep(f: StageCache => Either[String, Unit]) extends Pipeline
 object DebuggingStep:
   given Encoder.AsObject[DebuggingStep] =
     Encoder.AsObject.instance(_ => sys.error("debugging steps must not be serialized"))
-  given Decoder[DebuggingStep]          = Decoder.failedWithMessage("debugging steps mut not be deserialized")
+  given Decoder[DebuggingStep]          = Decoder.failedWithMessage("debugging steps must not be deserialized")
 
   lazy val impl = new StepImpl[DebuggingStep]:
     type ITags = EmptyTuple

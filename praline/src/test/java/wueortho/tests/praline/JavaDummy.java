@@ -9,7 +9,7 @@ class JavaDummy {
 
 	public JavaDummy(Graph g) {
 		api = new JavaApi();
-		var ref = api.getReference();
+		var ref = api.getGraphBox();
 		ref.set(g);
 	}
 

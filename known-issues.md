@@ -1,11 +1,11 @@
 KNOWN ISSUES
 ============
 
-* [BUG] the simplified routing graph has multi-edges for some instances
+* [BUG] praline and wueortho have different port positions (next to border vs on border). This disturbs full nudging.
 * [BUG] one separate run of the geo-nudging might put two segments in the same position that do not have each other in their `pathsBefore` sets. This can mean that we introduce unnecessary eyes (fixed for: knock-knee situations)
 * [BUG] segments get pressed into obstacles by EndOfWorld nodes (fixed for full nudging)
 * [POTENTIAL BUG] multiple monotony constraints might replace a separation constraint but do not induce a margin (we may be able to show that this cannot happen)
 * [POTENTIAL BUG] margins between segments of the same path might be desired (fixed for loops)
 * [IMPROVEMENT] we should add pseudo constraint edges for port -- port and port -- begin/end of obstacle pairs.
 * [IMPROVEMENT] close fixed segments should be joined before routing. Routed paths need to be separated (e.g. by adding an additional bend to one of them)
-
+* [IMPROVEMENT] interop: praline writer should restore ids (currently it creates new ones)
