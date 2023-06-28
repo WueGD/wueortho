@@ -5,6 +5,7 @@ import wueortho.io.svg.Svg
 import wueortho.metrics.*
 import wueortho.util.GraphProperties.*
 import wueortho.util.GraphSearch.Connectivity.isConnected
+import wueortho.util.EnumUtils.field
 
 import scala.util.Try
 import java.nio.file.Files
@@ -15,8 +16,10 @@ object OutputSteps:
   given StepImpl[step.Metrics] with
     type ITags = ("routes", "graph", "vertexBoxes")
     override def tags     = deriveTags[ITags]
-    override def helpText = """Calculate metrics.
-                              | * `use` - select a list of metrics. Use `["all"]` to select all metrics.""".stripMargin
+    override def helpText =
+      s"""Calculate metrics.
+         | * `${field[step.Metrics, "use"]}` - select a list of metrics. Use `["all"]` to select all metrics.
+         |    Otherwise select a subset of `[${Metrics.allMetrics.mkString(", ")}]`.""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.Metrics], cache: StageCache) = for
       g   <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
@@ -31,15 +34,14 @@ object OutputSteps:
   given StepImpl[step.SvgDrawing] with
     type ITags = ("routes", "vertexBoxes", "vertexLabels", "portLabels")
     override def tags     = deriveTags[ITags]
-    override def helpText = """Draw as SVG.
-                              | * `config` - use a predefined config:
-                              |
-                              |   - `SmoothEdges` colorful smooth edges (ppu=50).
-                              |   - `StraightEdges` colorful straight edges (ppu=50).
-                              |   - `Praline` close to Praline but with colorful edges (ppu=1).
-                              |   - `Custom` full custom (see wueortho.io.svg.Svg for details).
-                              |
-                              | * `overridePpu` - override the pixels per unit setting [optional]""".stripMargin
+    override def helpText =
+      s"""Draw as SVG.
+         | * `${field[step.SvgDrawing, "overridePpu"]}` - override the pixels per unit setting [optional]
+         | * `${field[step.SvgDrawing, "config"]}` - use a predefined config:
+         |   - `${field[SvgConfig, "SmoothEdges"]}` colorful smooth edges (ppu=50).
+         |   - `${field[SvgConfig, "StraightEdges"]}` colorful straight edges (ppu=50).
+         |   - `${field[SvgConfig, "Praline"]}` close to Praline but with colorful edges (ppu=1).
+         |   - `${field[SvgConfig, "Custom"]}` full custom (see wueortho.io.svg.Svg for details).""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.SvgDrawing], cache: StageCache) = for
       obs <- cache.getStageResult(Stage.Obstacles, s.mkITag("vertexBoxes"))
@@ -70,7 +72,7 @@ object OutputSteps:
   given StepImpl[step.SvgToFile] with
     type ITags = "svg" *: EmptyTuple
     override def tags     = deriveTags[ITags]
-    override def helpText = "Save the SVG as `path`"
+    override def helpText = s"Save the SVG as `${field[step.SvgToFile, "path"]}`"
 
     override def runToStage(s: WithTags[ITags, step.SvgToFile], cache: StageCache) = for
       svg <- cache.getStageResult(Stage.Svg, s.mkITag("svg"))

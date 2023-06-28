@@ -4,7 +4,7 @@ import wueortho.data.*
 import wueortho.io.{random, tglf}, tglf.TglfReader, random.RandomGraphs
 import wueortho.util.Codecs.given
 import wueortho.util.TextUtils
-import wueortho.util.EnumUtils.enumNames
+import wueortho.util.EnumUtils.{enumNames, field}
 
 import TglfExtractor as Use
 
@@ -22,10 +22,12 @@ object InputSteps:
     override def helpText =
       val cores = enumNames[RandomGraphs.GraphCore].map(s => s"`$s`").mkString(", ")
       s"""Create graphs at random.
-         | * The PRNG is generated using `seed`.
-         | * The graph will have `n` vertices and `m` edges.
-         | * `core` - allows to specify a graph structure for connectivity. Possible cores are $cores.
-         | * `allowLoops` - enable self-edges.""".stripMargin
+         | * The PRNG is generated using `${field[step.RandomGraph, "seed"]}`.
+         | * The graph will have `${field[step.RandomGraph, "n"]}` vertices and `${field[step.RandomGraph, "m"]}` edges.
+         | * `${field[step.RandomGraph, "core"]}` - allows to specify a graph structure for connectivity.
+         |   Possible cores are $cores.
+         | * `${field[step.RandomGraph, "allowLoops"]}` - enable self-edges.""".stripMargin
+    end helpText
 
     override def runToStage(s: WithTags[ITags, step.RandomGraph], cache: StageCache) =
       import s.step.*
@@ -37,9 +39,10 @@ object InputSteps:
     type ITags = "graph" *: EmptyTuple
     override def tags     = deriveTags[ITags]
     override def helpText =
-      """Create vertex boxes at random.
-        | * `minSpan`/`maxSpan - minimum/maximum span vector of the boxes (span.x = width/2, span.y = height/2)
-        | * `seed` - the PRNG is created using this""".stripMargin
+      s"""Create vertex boxes at random.
+         | * `${field[step.RandomVertexBoxes, "minSpan"]}`/`${field[step.RandomVertexBoxes, "maxSpan"]}` -
+         |   minimum/maximum span vector of the boxes (span.x = width/2, span.y = height/2)
+         | * `${field[step.RandomVertexBoxes, "seed"]}` - the PRNG is created using this""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.RandomVertexBoxes], cache: StageCache) =
       import s.step.*
@@ -54,8 +57,10 @@ object InputSteps:
   given StepImpl[step.UniformVertexBoxes] with
     type ITags = "vertexLayout" *: EmptyTuple
     override def tags     = deriveTags[ITags]
-    override def helpText = """Create vertex boxes of uniform size.
-                              | * `span` - span vector of the boxes (span.x = width/2, span.y = height/2)""".stripMargin
+    override def helpText =
+      s"""Create vertex boxes of uniform size.
+         | * `${field[step.UniformVertexBoxes, "span"]}` - span vector of the boxes
+         |    (span.x = width/2, span.y = height/2)""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.UniformVertexBoxes], cache: StageCache) = for
       vl <- cache.getStageResult(Stage.Layout, s.mkITag("vertexLayout"))
@@ -67,8 +72,10 @@ object InputSteps:
   given StepImpl[step.SyntheticVertexLabels] with
     type ITags = "graph" *: EmptyTuple
     override def tags     = deriveTags[ITags]
-    override def helpText = """Create artificial vertex labels.
-                              | * `config` - is either `Hide` or `Enumerate`""".stripMargin
+    override def helpText =
+      val configs = enumNames[SyntheticLabels].map(s => s"`$s`").mkString(", ")
+      s"""Create artificial vertex labels.
+         | * `${field[step.SyntheticVertexLabels, "config"]}` - is one of ${configs}.""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.SyntheticVertexLabels], cache: StageCache) = s.step.config match
       case SyntheticLabels.Hide      => cache.updateStage(Stage.VertexLabels, s.mkTag, _ => Right(Labels.Hide)).unit
@@ -82,8 +89,10 @@ object InputSteps:
   given StepImpl[step.SyntheticPortLabels] with
     type ITags = "ports" *: EmptyTuple
     override def tags     = deriveTags[ITags]
-    override def helpText = """Create artificial port labels.
-                              | * `config` - is either `Hide` or `Enumerate`""".stripMargin
+    override def helpText =
+      val configs = enumNames[SyntheticLabels].map(s => s"`$s`").mkString(", ")
+      s"""Create artificial vertex labels.
+         | * `${field[step.SyntheticPortLabels, "config"]}` - is one of ${configs}.""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.SyntheticPortLabels], cache: StageCache) = s.step.config match
       case SyntheticLabels.Hide      => cache.updateStage(Stage.PortLabels, s.mkTag, _ => Right(Labels.Hide)).unit
@@ -97,19 +106,23 @@ object InputSteps:
   given StepImpl[step.BoxesFromLabels] with
     type ITags = ("vertexLayout", "vertexLabels")
     override def tags     = deriveTags[ITags]
-    override def helpText = """Create vertex boxes to host text labels
-                              | * `config` - either `PralineDefaults` or a json object with:
-                              |   - `minWidth`/`minHeight` - minimum width and height.
-                              |   - `padding` - at all sides.
-                              |   - `fontSize`""".stripMargin
+    override def helpText =
+      s"""Create vertex boxes to host text labels
+         | * `${field[step.BoxesFromLabels, "config"]}` - a json object with either just
+         |   `{"type": "${field[VertexLabelConfig, "PralineDefaults"]}"}` or
+         |   `{"type": "${field[VertexLabelConfig, "Custom"]}"}` and following attributes
+         |   - `${field[VertexLabelConfig.Custom, "minWidth"]}`/`${field[VertexLabelConfig.Custom, "minHeight"]}` -
+         |      minimum width and height.
+         |   - `${field[VertexLabelConfig.Custom, "padding"]}` - at all sides.
+         |   - `${field[VertexLabelConfig.Custom, "fontSize"]}`""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.BoxesFromLabels], cache: StageCache) = for
       vl <- cache.getStageResult(Stage.Layout, s.mkITag("vertexLayout"))
       l  <- cache.getStageResult(Stage.VertexLabels, s.mkITag("vertexLabels"))
-      _  <- cache.setStage(Stage.Obstacles, s.mkTag, labels2obs(s.step.config, vl, l))
+      _  <- cache.setStage(Stage.Obstacles, s.mkTag, labels2boxes(s.step.config, vl, l))
     yield noRt
 
-    private def labels2obs(c: VertexLabelConfig, vl: VertexLayout, l: Labels) =
+    private def labels2boxes(c: VertexLabelConfig, vl: VertexLayout, l: Labels) =
       extension (s: Vec2D) def withPadding = Vec2D(s.x1 + c.padding, s.x2 + c.padding)
       l match
         case Labels.Hide              =>
@@ -120,7 +133,7 @@ object InputSteps:
               for (pos, label) <- vl.nodes zip labels yield
                 val Vec2D(textWidth, textHeight) = textSize(label)
                 Rect2D(pos, Vec2D(textWidth max c.minWidth, textHeight max c.minHeight).scale(0.5).withPadding)
-    end labels2obs
+    end labels2boxes
   end given
 
   given StepImpl[step.ReadTglfFile] with
@@ -128,9 +141,10 @@ object InputSteps:
     override def tags     = deriveTags[ITags]
     override def helpText =
       val extractors = enumNames[Use].map(name => s"`$name`").mkString(", ")
-      s"""Read imputs in Trivial Graph Layout Format.
-         | * `path` - read from this file.
-         | * `use` - select a list of extractors. Possible values: $extractors""".stripMargin
+      s"""Read inputs in Trivial Graph Layout Format.
+         | * `${field[step.ReadTglfFile, "path"]}` - read from this file.
+         | * `${field[step.ReadTglfFile, "use"]}` - select a list of extractors.
+         |    Possible values: $extractors""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.ReadTglfFile], cache: StageCache) = (for
       raw <- Try(Files.readString(s.step.path).nn).toEither

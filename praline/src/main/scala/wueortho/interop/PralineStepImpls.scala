@@ -62,7 +62,7 @@ object PralineStepImpls:
     type ITags = WriterITags
     override def tags     = deriveTags[ITags]
     override def helpText = """Store pipeline contents to file as praline json.
-                              |All availabe stages will be included. Use undefined tags to exclude stages."""
+                              |All available stages will be included. Use undefined tags to exclude stages."""
       .stripMargin
 
     override def runToStage(s: WithTags[ITags, WritePralineFile], cache: StageCache) =
@@ -85,7 +85,7 @@ object PralineStepImpls:
       maybe(Stage.Obstacles, "vertexBoxes")(vb => State.modify(_ <~~ vb)),
       maybe(Stage.VertexLabels, "vertexLabels")(vl => State.modify(_ <~~ vl)),
       maybe(Stage.Routes, "routes")(er => State.modify(_ <~~ er)),
-      // todo portLables, usw...
+      // todo portLabels, usw...
     ).reduce((s1, s2) => s1.flatMap(_ => s2)).runS(basic.toPraline)
   end constructAll
 
@@ -94,7 +94,7 @@ object PralineStepImpls:
     override def tags     = deriveTags[ITags]
     override def helpText =
       """Store pipeline contents to the praline API via the ForeignData stage.
-        |All availabe stages will be included. Use undefined tags to exclude stages.""".stripMargin
+        |All available stages will be included. Use undefined tags to exclude stages.""".stripMargin
 
     override def runToStage(s: WithTags[ITags, StorePraline], cache: StageCache) = for
       ref <- cache.getStageResult(Stage.ForeignData, s.mkITag("praline"))

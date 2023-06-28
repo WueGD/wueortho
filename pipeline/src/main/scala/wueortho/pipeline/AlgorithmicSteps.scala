@@ -9,6 +9,7 @@ import wueortho.metrics.Crossings
 import wueortho.util.GraphConversions, GraphConversions.toWeighted.*
 import wueortho.util.Codecs.given
 import wueortho.util.RunningTime, RunningTime.unit as noRt, StepUtils.unit
+import wueortho.util.EnumUtils.*
 import io.circe.derivation.ConfiguredEnumCodec
 
 import scala.util.Random
@@ -19,11 +20,11 @@ object AlgorithmicSteps:
     type ITags = "graph" *: EmptyTuple
     override def tags     = deriveTags[ITags]
     override def helpText =
-      """Perform force-directed vertex layout for a given graph.
-        | * `seed` - The layout is initialized using a PRNG with this seed.
-        | * `iterations` - and the algorithm stops after so many steps.
-        | * `repetitions` - number of layouts will be calculated. The algorithm takes the one with the least straight-line crossings"""
-        .stripMargin
+      s"""Perform force-directed vertex layout for a given graph.
+         | * `${field[step.ForceDirectedLayout, "seed"]}` - The layout is initialized using a PRNG with this seed.
+         | * `${field[step.ForceDirectedLayout, "iterations"]}` - and the algorithm stops after so many steps.
+         | * `${field[step.ForceDirectedLayout, "repetitions"]}` - number of layouts will be calculated.
+         |    The algorithm takes the one with the least straight-line crossings""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.ForceDirectedLayout], cache: StageCache) = for
       g  <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
@@ -47,10 +48,13 @@ object AlgorithmicSteps:
     type ITags = "vertexBoxes" *: EmptyTuple
     override def tags     = deriveTags[ITags]
     override def helpText =
-      """Remove overlaps among vertex boxes with the GTree algorithm.
-        | * `stretch` - manipulate the boxes before removing overlaps.
-        | * `seed` - use a PRNG initialized with this seed.
-        | * `forceGeneralPosition` - manipulate vertex positions afterwards to ensure general position.""".stripMargin
+      s"""Remove overlaps among vertex boxes with the GTree algorithm.
+         | * `${field[step.GTreeOverlaps, "seed"]}` - use a PRNG initialized with this seed.
+         | * `${field[step.GTreeOverlaps, "forceGeneralPosition"]}` -
+         |    manipulate vertex positions afterwards to ensure general position.
+         | * `${field[step.GTreeOverlaps, "stretch"]}` - manipulate the boxes before removing overlaps.
+         |    Use ${Stretch.description}
+         """.stripMargin
 
     override def runToStage(s: WithTags[ITags, step.GTreeOverlaps], cache: StageCache) =
       import s.step.*
@@ -69,8 +73,9 @@ object AlgorithmicSteps:
     type ITags = ("vertexBoxes", "graph")
     override def tags     = deriveTags[ITags]
     override def helpText =
-      """Distribute ports based on straight-line edges.
-        | * `mode` - use one of `OnlyVertical`, `OnlyHorizontal`, `Quadrants`, or `Octants`""".stripMargin
+      val modes = enumNames[PortMode].map(s => s"`$s`").mkString(", ")
+      s"""Distribute ports based on straight-line edges.
+         | * `${field[step.PortsByAngle, "mode"]}` - use one of $modes""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.PortsByAngle], cache: StageCache) = for
       g   <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
@@ -96,8 +101,10 @@ object AlgorithmicSteps:
   given StepImpl[step.SimplifiedRoutingGraph] with
     type ITags = ("vertexBoxes", "ports")
     override def tags     = deriveTags[ITags]
-    override def helpText = """Create a routing graph.
-                              | * `stretch` - manipulate the boxes before routing""".stripMargin
+    override def helpText =
+      s"""Create a routing graph.
+         | * `${field[step.SimplifiedRoutingGraph, "stretch"]}` - manipulate the boxes before routing.
+         |   Use ${Stretch.description}""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.SimplifiedRoutingGraph], cache: StageCache) = for
       obs  <- cache.getStageResult(Stage.Obstacles, s.mkITag("vertexBoxes"))
@@ -110,7 +117,7 @@ object AlgorithmicSteps:
   given StepImpl[step.EdgeRouting] with
     type ITags = ("routingGraph", "ports")
     override def tags     = deriveTags[ITags]
-    override def helpText = "Perform edge routing (includes edge order)."
+    override def helpText = "Perform edge routing (includes edge ordering)."
 
     override def runToStage(s: WithTags[ITags, step.EdgeRouting], cache: StageCache) = for
       rg <- cache.getStageResult(Stage.RoutingGraph, s.mkITag("routingGraph"))
@@ -123,9 +130,10 @@ object AlgorithmicSteps:
   given StepImpl[step.PseudoRouting] with
     type ITags = "routes" *: EmptyTuple
     override def tags     = deriveTags[ITags]
-    override def helpText = """Produce a fake edge routing from already routed edges
-                              |(e.g. in order to apply a nudging step afterwards).
-                              | * `fakePorts` - also produce fake ports""".stripMargin
+    override def helpText =
+      s"""Produce a fake edge routing from already routed edges
+         |(e.g. in order to apply a nudging step afterwards).
+         | * `${field[step.PseudoRouting, "fakePorts"]}` [boolean] - also produce fake ports""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.PseudoRouting], cache: StageCache) = for
       rs <- cache.getStageResult(Stage.Routes, s.mkITag("routes"))
@@ -159,9 +167,11 @@ object AlgorithmicSteps:
   given StepImpl[step.FullNudging] with
     type ITags = ("routing", "vertexBoxes", "ports", "graph")
     override def tags     = deriveTags[ITags]
-    override def helpText = """Perform full nudging (moves edge segments, ports, and vertex boxes).
-                              | * `padding` - A minimum object distance is maintained.
-                              | * `use2ndHPass` - enables an additional horizontal pass of full nudging.""".stripMargin
+    override def helpText =
+      s"""Perform full nudging (moves edge segments, ports, and vertex boxes).
+         | * `${field[step.FullNudging, "padding"]}` - A minimum object distance is maintained.
+         | * `${field[step.FullNudging, "use2ndHPass"]}` - enables an additional horizontal pass of full nudging."""
+        .stripMargin
 
     override def runToStage(s: WithTags[ITags, step.FullNudging], cache: StageCache) =
       for
@@ -181,7 +191,7 @@ enum Stretch derives CanEqual:
   case Original
   case Uniform(l: Double)
   case Scale(l: Vec2D)
-  case Padding(m: Vec2D)
+  case Padding(p: Vec2D)
   case Replace(width: Double, height: Double)
 
 object Stretch:
@@ -189,8 +199,17 @@ object Stretch:
     case Original               => rs
     case Uniform(l)             => rs.map(r => r.copy(span = r.span.scale(l)))
     case Scale(l)               => rs.map(r => Rect2D(r.center, Vec2D(r.span.x1 * l.x1, r.span.x2 * l.x2)))
-    case Padding(m)             => rs.map(r => Rect2D(r.center, r.span + m))
+    case Padding(p)             => rs.map(r => Rect2D(r.center, r.span + p))
     case Replace(width, height) => rs.map(_.copy(span = Vec2D(width / 2, height / 2)))
+
+  val description =
+    val types = enumNames[Stretch].map(s => s"`$s`").mkString(", ")
+    s"""a json object `{"type": "<type>"}` where `<type>` is one of $types and possibly attributes
+       |   - `${field[Stretch.Uniform, "l"]}` - the scalar (for type `${field[Stretch, "Uniform"]}`)
+       |      or vector (for type `${field[Stretch, "Scale"]}`) by which scaling is performed.
+       |   - `${field[Stretch.Padding, "p"]}` - the padding vector that is added to each `${field[Rect2D, "span"]}`
+       |   - `${field[Stretch.Replace, "width"]}`/ `${field[Stretch.Replace, "height"]}` - replace boxes""".stripMargin
+end Stretch
 
 enum PortMode derives CanEqual, ConfiguredEnumCodec:
   case OnlyVertical, OnlyHorizontal, Quadrants, Octants
