@@ -51,7 +51,7 @@ object PralineReader:
                     case Seq(u, v) => Right(u -> v)
                     case _         => Left("hyperedges are unsupported")
         (i, j) <- (lut.get(u.getVertex) zip lut.get(v.getVertex)).toRight(s"could not find vertices $u and $v")
-      yield NodeIndex(i) -> NodeIndex(j)
+      yield NodeIndex(i min j) -> NodeIndex(i max j)
 
     g.getEdges.asScala.toSeq.traverse(mkEdge).map(_.sorted.foldLeft(Graph.builder())(_.addEdge.tupled(_)).mkBasicGraph)
   end mkBasicGraph
@@ -102,9 +102,9 @@ object PralineReader:
       for
         (u, v) <- e.getPorts.asScala.toSeq match
                     case Seq(u, v) => Right(u -> v)
-                    case _         => Left("hyperedges are unsupported")
+                    case _         => Left(s"hyperedges are unsupported ($e has the wrong number of ports)")
         (i, j) <- (lut.get(u.getVertex) zip lut.get(v.getVertex)).toRight(s"could not find vertices $u and $v")
-        paths  <- Option(e.getPaths()).toRight("path must not be null")
+        paths  <- Option(e.getPaths()).toRight(s"path must not be null ($e)")
         path   <- paths.asScala.toSeq match
                     case Seq(one) => Right(one)
                     case err      => Left(s"expected edge with exactly one path but was $err")
@@ -118,14 +118,14 @@ object PralineReader:
       for
         (first, mid, last) <-
           Try((p.getStartPoint(), p.getBendPoints().asScala.toSeq, p.getEndPoint())).toEither.left.map(_.toString())
-        ortho              <- points2ortho(first +: mid :+ last)
+        ortho              <- points2ortho((first +: mid :+ last).map(_.asVec2D))
       yield EdgeRoute(EdgeTerminals(first.asVec2D, ortho.head.dir, last.asVec2D, ortho.last.dir.reverse), ortho)
+    case _                      => Left(s"unsupported path type: ${path.getClass().getSimpleName()}")
 
-  private def points2ortho(ps: Seq[AwtPoint]) =
+  private def points2ortho(ps: Seq[Vec2D]) =
     import EdgeRoute.OrthoSeg.*
     ps.sliding(2).toSeq.traverse:
-      case Seq(aa, bb) =>
-        val (a, b) = aa.asVec2D -> bb.asVec2D
+      case Seq(a, b) =>
         if a == b then Left("empty segments are unsupported")
         else if a.x1 == b.x1 then Right(VSeg(b.x2 - a.x2))
         else if a.x2 == b.x2 then Right(HSeg(b.x1 - a.x1))

@@ -79,14 +79,14 @@ object Nudging:
                   List(VarSeg(si, mkConst(v.x2), mkVar(vi), stl), VarSeg(si + 1, mkConst(v.x1), mkConst(v.x2), last))
                 else List(VarSeg(si, mkConst(v.x1), mkVar(vi), stl), VarSeg(si + 1, mkConst(v.x2), mkConst(v.x1), last))
               mkVariables((begin :: mids.reverse ::: end) :: res, vi + 1, si + 2, tail)
+          end match
 
     def notConst(a: CTerm)            = a.constValue.isEmpty
     def notConst2(a: CTerm, b: CTerm) = a.constValue.isEmpty || b.constValue.isEmpty
 
     def mkVConstraints(pathSegs: IndexedSeq[List[VarSeg]], margin: CTerm) =
       def resolveHSegment(nodeIdx: NodeIndex, pathIdx: Int) =
-        pathSegs(pathIdx)
-          .find(s => s.group.dir.isHorizontal && s.group.nodes.contains(nodeIdx))
+        pathSegs(pathIdx).find(s => s.group.dir.isHorizontal && s.group.nodes.contains(nodeIdx))
           .getOrElse(sys.error(s"path $pathIdx has no horizontal segment containing node $nodeIdx"))
 
       @tailrec def seek(res: List[Constraint], base: Option[CTerm], next: NodeIndex): Set[Constraint] =
@@ -113,6 +113,7 @@ object Nudging:
             val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(obstacles.nodes(id).bottom))
             (sep.toList ::: constraints ::: res).toSet
           case NavigableLink.Node(next)   => seek(constraints ::: res, nextBase, next)
+        end match
       end seek
 
       (ovg.edgeOfWorld(Direction.South).map(n => seek(Nil, None, n)) ++ (0 until obstacles.nodes.length).flatMap(o =>
@@ -123,8 +124,7 @@ object Nudging:
 
     def mkHConstraints(pathSegs: IndexedSeq[List[VarSeg]], margin: CTerm) =
       def resolveVSegment(nodeIdx: NodeIndex, pathIdx: Int) =
-        pathSegs(pathIdx)
-          .find(s => s.group.dir.isVertical && s.group.nodes.contains(nodeIdx))
+        pathSegs(pathIdx).find(s => s.group.dir.isVertical && s.group.nodes.contains(nodeIdx))
           .getOrElse(sys.error(s"path $pathIdx has no vertical segment containing node $nodeIdx"))
 
       @tailrec def seek(res: List[Constraint], base: Option[CTerm], next: NodeIndex): Set[Constraint] =
@@ -151,6 +151,7 @@ object Nudging:
             val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(obstacles.nodes(id).left))
             (sep.toList ::: constraints ::: res).toSet
           case NavigableLink.Node(next)   => seek(constraints ::: res, nextBase, next)
+        end match
       end seek
 
       (ovg.edgeOfWorld(Direction.West).map(seek(Nil, None, _)) ++ (0 until obstacles.nodes.length).flatMap(o =>
@@ -170,8 +171,10 @@ object Nudging:
             if head.group.dir.isHorizontal then go(OrthoSeg.HSeg(to - pos.x1) :: res, pos.copy(x1 = to), next)
             else go(OrthoSeg.VSeg(to - pos.x2) :: res, pos.copy(x2 = to), next)
         go(Nil, start, p)
+      end segmentize
 
       for (terms, path) <- ports.byEdge zip pathSegs yield EdgeRoute(terms, segmentize(path, terms.uTerm))
+    end mkRoutes
 
     val vars = mkVariables(Nil, 1, 0, paths.zipWithIndex).toIndexedSeq
     val vcs  = mkVConstraints(vars, marginVar)
@@ -179,10 +182,9 @@ object Nudging:
 
     assert(vars.flatten.map(_.id).toSet.size == vars.flatten.size)
     assert(vars.flatten.map(_.id).max == vars.flatten.size - 1)
-    println(s"DEBUG: #vars: ${vars.length} #constraints: ${vcs.size + hcs.size}")
+    // println(s"DEBUG: #vars: ${vars.length} #constraints: ${vcs.size + hcs.size}")
 
-    val sols = ORTools
-      .solve(ORTools.LPInstance((vcs ++ hcs).toSeq, marginVar, maximize = true))
+    val sols = ORTools.solve(ORTools.LPInstance((vcs ++ hcs).toSeq, marginVar, maximize = true))
       .fold(sys.error, identity)
 
     mkRoutes(vars, sols)

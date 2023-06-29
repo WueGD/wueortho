@@ -22,7 +22,9 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
   lazy val pseudoRG = DebuggingStep: cache =>
     for
       routes        <- cache.getStageResult(Stage.Routes, defaultTag)
-      (rgAdj, rgLay) = rg2adj(PseudoRouting(routes))
+      graph         <- cache.getStageResult(Stage.Graph, defaultTag)
+      boxes         <- cache.getStageResult(Stage.Obstacles, defaultTag)
+      (rgAdj, rgLay) = rg2adj(PseudoRouting(routes, graph, boxes))
       _             <- cache.setStage(Stage.Graph, defaultTag, rgAdj)
       _             <- cache.setStage(Stage.Layout, defaultTag, rgLay)
     yield ()

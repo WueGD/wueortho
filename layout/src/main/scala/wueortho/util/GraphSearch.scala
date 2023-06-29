@@ -112,7 +112,6 @@ object GraphSearch:
         iterations += 1
     end while
 
-    println(s"bellman-ford iterations: $iterations / $n")
     Some(dist.toIndexedSeq)
   end bellmanFordDistances
 

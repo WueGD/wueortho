@@ -35,7 +35,7 @@ class HybridModeSpec extends AnyFlatSpec:
                      |Terminals:
                      |${routes.zipWithIndex.map((r, k) => s"$k: ${r.terminals}").mkString("\n")}""".stripMargin)
 
-  "A sample from praline" `should` "allow constrained nudging with orignial edge routes" in:
+  it `should` "allow constrained nudging with original edge routes" in:
     rt.ref.set(input)
     val pipeline = Pipeline(
       Seq(
@@ -53,11 +53,12 @@ class HybridModeSpec extends AnyFlatSpec:
     )
     rt.run(pipeline)
 
-  it `should` "allow full nudging with orignial edge routes" in:
+  it `should` "allow full nudging with original edge routes" in:
     rt.ref.set(input)
     val pipeline = Pipeline(
       Seq(
-        just(PPE.AccessPraline(List(Use.Graph, Use.VertexBoxes, Use.VertexLabels, Use.EdgeRoutes))),
+        just(PPE.AccessPraline(List(Use.Graph, Use.VertexLayout, Use.VertexLabels, Use.EdgeRoutes))),
+        just(step.BoxesFromLabels(VertexLabelConfig.PralineDefaults)),
         just(step.SyntheticPortLabels(SyntheticLabels.Hide)),
         just(step.PseudoRouting(fakePorts = true)),
         just(step.FullNudging(padding = 10, use2ndHPass = true)),

@@ -164,7 +164,7 @@ object InputSteps:
 end InputSteps
 
 enum VertexLabelConfig(val minWidth: Double, val minHeight: Double, val padding: Double, val fontSize: Int):
-  case PralineDefaults extends VertexLabelConfig(12, 38, 2, 12) // this slightly overestimates
+  case PralineDefaults extends VertexLabelConfig(12, 34, 2, 12) // this slightly overestimates the width
   case Custom(
       override val minWidth: Double,
       override val minHeight: Double,

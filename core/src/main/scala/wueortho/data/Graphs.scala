@@ -42,16 +42,14 @@ object Graph:
 
   private def fromEdgesUndirected[E](ex: E => (NodeIndex, NodeIndex, Double), edges: Seq[E], size: Int) =
     val bld = if size < 0 then builder() else Builder.reserve(size)
-    edges.map(ex).foldLeft(bld):
-      case (_, (from, to, w)) => bld.addEdge(from, to, w)
-    if size >= 0 then assert(bld.size == size, s"node index was out of bounds [0, $size)")
+    edges.map(ex).foldLeft(bld)(_.addEdge.tupled(_))
+    if size >= 0 then require(bld.size == size, s"node index was out of bounds [0, $size)")
     bld
 
   private def fromEdgesDirected[E](ex: E => (NodeIndex, NodeIndex, Double), edges: Seq[E], size: Int) =
     val bld = if size < 0 then diBuilder() else DiBuilder.reserve(size)
-    edges.map(ex).foldLeft(bld):
-      case (_, (from, to, w)) => bld.addEdge(from, to, w)
-    if size >= 0 then assert(bld.size == size, s"node index was out of bounds [0, $size)")
+    edges.map(ex).foldLeft(bld)(_.addEdge.tupled(_))
+    if size >= 0 then require(bld.size == size, s"node index was out of bounds [0, $size)")
     bld
 
   private def mkDiEdges[L, E](nodes: Seq[Vertex[L]], mk: (NodeIndex, L) => E) = for
@@ -97,7 +95,7 @@ object Graph:
 
     def addEdge(from: NodeIndex, to: NodeIndex, weight: Double): Builder =
       ensureSize(from.toInt max to.toInt)
-      if from == to then
+      if from == to then // beware the loops
         adj(from.toInt) += ((to, weight, adj(from.toInt).size + 1))
         adj(to.toInt) += ((from, weight, adj(from.toInt).size - 1))
       else

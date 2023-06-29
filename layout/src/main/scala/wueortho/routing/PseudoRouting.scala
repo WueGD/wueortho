@@ -4,14 +4,33 @@ import wueortho.data.*, EdgeRoute.OrthoSeg, OrthoSeg.*, Direction.*
 import scala.collection.mutable
 
 object PseudoRouting:
+  private val eps = 1e-8
+
   private enum PseudoNode derives CanEqual:
     case Intermediate(at: Vec2D, back: (Direction, NodeIndex), forth: (Direction, NodeIndex), pathId: Int)
     case Terminal(at: Vec2D, portId: Int, pathId: Int, next: (Direction, NodeIndex))
     def at: Vec2D
     def pathId: Int
 
-  def apply(originals: IndexedSeq[EdgeRoute]) =
+  private def checkTerminal(at: Vec2D, dir: Direction, box: Rect2D) =
+    def checkX(should: Double) = if at.x1 < box.left then Left(Vec2D(box.left + eps, should))
+    else if at.x1 > box.right then Left(Vec2D(box.right - eps, should))
+    else Right(at.copy(x2 = should))
+
+    def checkY(should: Double) = if at.x2 < box.bottom then Left(Vec2D(should, box.bottom + eps))
+    else if at.x2 > box.top then Left(Vec2D(should, box.top - eps))
+    else Right(at.copy(x1 = should))
+
+    dir match
+      case North => checkX(box.top)
+      case East  => checkY(box.right)
+      case South => checkX(box.bottom)
+      case West  => checkY(box.left)
+  end checkTerminal
+
+  def apply(originals: IndexedSeq[EdgeRoute], graph: BasicGraph, boxes: Obstacles) =
     import PseudoNode.*
+    require(graph.numberOfVertices == boxes.nodes.size, "number of vertices did not match number of vertex boxes")
     val terminals = mutable.ArrayBuffer.fill(2 * originals.size)(-1)
 
     @annotation.tailrec
@@ -27,28 +46,50 @@ object PseudoRouting:
       case (acc, (route, pId)) =>
         val EdgeTerminals(uTerm, uDir, vTerm, vDir) = route.terminals
 
-        val alpha = Terminal(uTerm, pId * 2, pId, uDir -> NodeIndex(acc.size + 1))
-        terminals(2 * pId) = acc.size
-
-        val (mid, omega) = if route.route.size == 1 then // split one-segment paths
-          terminals(2 * pId + 1) = acc.size + 3
+        val mid: List[Intermediate] = if route.route.size == 1 then // split one-segment paths
           val midPos = uTerm + (vTerm - uTerm).scale(0.5)
           List(
             Intermediate(midPos, vDir        -> NodeIndex(acc.size), uDir.turnCW -> NodeIndex(acc.size + 2), pId),
             Intermediate(midPos, vDir.turnCW -> NodeIndex(acc.size + 1), uDir    -> NodeIndex(acc.size + 3), pId),
-          ) -> Terminal(vTerm, pId * 2 + 1, pId, vDir -> NodeIndex(acc.size + 2))
-        else
-          terminals(2 * pId + 1) = acc.size + route.route.size
-          go(pId, uTerm, acc.size + 1, route.route.toList, Nil)
-            -> Terminal(vTerm, pId * 2 + 1, pId, vDir -> NodeIndex(acc.size + route.route.size - 1))
+          )
+        else go(pId, uTerm, acc.size + 1, route.route.toList, Nil)
 
-        acc :+ alpha :++ mid :+ omega
+        val (alpha, mid2) = checkTerminal(uTerm, uDir, boxes(graph.edges(pId).from.toInt)) match
+          case Left(pos)  =>
+            Terminal(pos, pId * 2, pId, uDir -> NodeIndex(acc.size + 1))
+              -> (if uDir.isHorizontal then mid.head.copy(at = mid.head.at.copy(x2 = pos.x2)) :: mid.tail
+                  else mid.head.copy(at = mid.head.at.copy(x1 = pos.x1)) :: mid.tail)
+          case Right(pos) => Terminal(pos, pId * 2, pId, uDir -> NodeIndex(acc.size + 1)) -> mid
+
+        val (omega, mid3) = checkTerminal(vTerm, vDir, boxes(graph.edges(pId).to.toInt)) match
+          case Left(pos)  =>
+            Terminal(pos, pId * 2 + 1, pId, vDir -> NodeIndex(acc.size + mid.size))
+              -> (if vDir.isHorizontal then mid2.init :+ mid2.last.copy(at = mid2.last.at.copy(x2 = pos.x2))
+                  else mid2.init :+ mid2.last.copy(at = mid2.last.at.copy(x1 = pos.x1)))
+          case Right(pos) => Terminal(pos, pId * 2 + 1, pId, vDir -> NodeIndex(acc.size + mid.size)) -> mid2
+
+        terminals(2 * pId) = acc.size
+        terminals(2 * pId + 1) = acc.size + mid.size + 1
+
+        acc :+ alpha :++ mid3 :+ omega
+
+    def mkRoute(orig: EdgeTerminals, pId: Int) =
+      val path  = nodes.view.slice(terminals(pId * 2), terminals(pId * 2 + 1) + 1).toSeq
+      val route =
+        for Seq(u, v) <- path.sliding(2)
+        yield
+          if (u.at.x1 - v.at.x1).abs < eps then VSeg(v.at.x2 - u.at.x2)
+          else if (u.at.x2 - v.at.x2).abs < eps then HSeg(v.at.x1 - u.at.x1)
+          else sys.error(s"grid graph not orthogonal at ${u.at} -- ${v.at}")
+      val terms = orig.copy(uTerm = nodes(terminals(pId * 2)).at, vTerm = nodes(terminals(pId * 2 + 1)).at)
+      EdgeRoute(terms, route.toSeq)
+    end mkRoute
 
     assert(!terminals.exists(_ == -1), "dangling terminal pointer")
 
     new RoutingGraph with Routing with PathOrder:
       override def size   = nodes.size
-      override def routes = originals
+      override def routes = originals.map(_.terminals).zipWithIndex.map(mkRoute)
 
       override def locate(node: NodeIndex)  = nodes(node.toInt).at
       override def resolveEdge(edgeId: Int) = NodeIndex(terminals(2 * edgeId)) -> NodeIndex(terminals(2 * edgeId + 1))

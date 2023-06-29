@@ -128,7 +128,7 @@ object AlgorithmicSteps:
   end given
 
   given StepImpl[step.PseudoRouting] with
-    type ITags = "routes" *: EmptyTuple
+    type ITags = ("routes", "graph", "vertexBoxes")
     override def tags     = deriveTags[ITags]
     override def helpText =
       s"""Produce a fake edge routing from already routed edges
@@ -136,9 +136,14 @@ object AlgorithmicSteps:
          | * `${field[step.PseudoRouting, "fakePorts"]}` [boolean] - also produce fake ports""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.PseudoRouting], cache: StageCache) = for
-      rs <- cache.getStageResult(Stage.Routes, s.mkITag("routes"))
-      _  <- cache.setStage(Stage.EdgeRouting, s.mkTag, PseudoRouting(rs))
-      _  <- if s.step.fakePorts then cache.setStage(Stage.Ports, s.mkTag, PortLayout(rs.map(_.terminals))) else Right(())
+      rs     <- cache.getStageResult(Stage.Routes, s.mkITag("routes"))
+      graph  <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
+      boxes  <- cache.getStageResult(Stage.Obstacles, s.mkITag("vertexBoxes"))
+      routing = PseudoRouting(rs, graph, boxes)
+      _      <- cache.setStage(Stage.EdgeRouting, s.mkTag, routing)
+      _      <- cache.setStage(Stage.Routes, s.mkTag, routing.routes)
+      _      <- if s.step.fakePorts then cache.setStage(Stage.Ports, s.mkTag, PortLayout(routing.routes.map(_.terminals)))
+                else Right(())
     yield noRt
   end given
 

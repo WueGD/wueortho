@@ -89,7 +89,7 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
     nudgedPorts.byEdge should have size Sample.edges.size
     nudgedObstacles.nodes should have size Sample.obstacles.nodes.size
 
-  lazy val pseudoRouting            = PseudoRouting(routes)
+  lazy val pseudoRouting            = PseudoRouting(routes, Sample.graph, Sample.obstacles)
   lazy val (pseudoRAsBasicGraph, _) = Debugging.rg2adj(pseudoRouting)
 
   "Pseudo routing of given edge routes" `should` "not have loops" in:
