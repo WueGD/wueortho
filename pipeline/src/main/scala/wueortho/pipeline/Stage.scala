@@ -8,7 +8,7 @@ enum Stage[T]:
   case Graph        extends Stage[BasicGraph]
   case Layout       extends Stage[VertexLayout]
   case VertexLabels extends Stage[Labels]
-  case Obstacles    extends Stage[Obstacles]
+  case VertexBoxes  extends Stage[VertexBoxes]
   case Ports        extends Stage[PortLayout]
   case PortLabels   extends Stage[Labels]
   case RoutingGraph extends Stage[RoutingGraph]

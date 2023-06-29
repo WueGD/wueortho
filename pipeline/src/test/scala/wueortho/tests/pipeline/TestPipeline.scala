@@ -65,7 +65,7 @@ object TestPipeline:
           case Stage.Graph        => setStage(Stage.Graph, sampleGraph)
           case Stage.Layout       => setStage(Stage.Layout, sampleLayout)
           case Stage.VertexLabels => setStage(Stage.VertexLabels, sampleVLabels)
-          case Stage.Obstacles    => setStage(Stage.Obstacles, sampleObstacles)
+          case Stage.VertexBoxes  => setStage(Stage.VertexBoxes, sampleBoxes)
           case Stage.Ports        => setStage(Stage.Ports, samplePorts)
           case Stage.PortLabels   => setStage(Stage.PortLabels, samplePLabels)
           case Stage.RoutingGraph => ???
@@ -116,8 +116,8 @@ object Samples:
 
   def sampleVLabels = Labels.PlainText(IndexedSeq("0 south", "1 east", "2 north-west"))
 
-  def sampleObstacles =
-    Obstacles((sampleLayout.nodes zip List(Vec2D(3.5, 1), Vec2D(2, 1.5), Vec2D(1.5, 1.5))).map(Rect2D.apply))
+  def sampleBoxes =
+    VertexBoxes((sampleLayout.nodes zip List(Vec2D(3.5, 1), Vec2D(2, 1.5), Vec2D(1.5, 1.5))).map(Rect2D.apply))
 
   def samplePorts = PortLayout(
     IndexedSeq(

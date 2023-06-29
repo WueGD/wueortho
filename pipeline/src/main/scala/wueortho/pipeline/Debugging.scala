@@ -18,17 +18,17 @@ object Debugging:
 
   def debugAlign(g: WeightedDiGraph, rs: IndexedSeq[Rect2D]): Unit =
     val filename = s"${System.nanoTime}_dbg-mst.svg"
-    val svg      = debugSvg(g.basic(using UndirectStrategy.AllEdges), Obstacles(rs), 1)
+    val svg      = debugSvg(g.basic(using UndirectStrategy.AllEdges), VertexBoxes(rs), 1)
     discard(Files.writeString(Path.of(filename), svg))
 
-  def debugProtoRG(obs: Obstacles, edges: List[(Vec2D, Vec2D)]) =
+  def debugProtoRG(boxes: VertexBoxes, edges: List[(Vec2D, Vec2D)]) =
     val svg      = Svg.withDefaults.copy(pixelsPerUnit = 1.0)
-    val rectsSvg = svg.drawObstacles(obs)
+    val rectsSvg = svg.drawVertexBoxes(boxes)
     val linesSvg = svg.drawStraightSegments(edges)
     discard(Files.writeString(Path.of("debug-proto-rg.svg"), svg.make(rectsSvg ++ linesSvg)))
 
   def debugOVG(
-      obstacles: Obstacles,
+      vertexBoxes: VertexBoxes,
       graph: BasicGraph,
       layout: VertexLayout,
       ports: PortLayout,
@@ -36,7 +36,7 @@ object Debugging:
   ) =
     val svg      = Svg.withDefaults
       .copy(edgeBends = Svg.EdgeBends.Straight, edgeColor = Svg.EdgeColor.Single("gray"), pixelsPerUnit = ppu)
-    val rectsSvg = svg.drawObstacles(obstacles)
+    val rectsSvg = svg.drawVertexBoxes(vertexBoxes)
     val nodesSvg = svg.drawNodes(layout)
     val edgesSvg = svg.drawStraightEdges(graph, layout)
     val portsSvg = svg.drawPorts(ports)
@@ -48,9 +48,9 @@ object Debugging:
       val l = adj.vertices(u).neighbors.map { case BasicLink(v, j) => s"$v [$j]" }.mkString("(", ", ", ")")
       println(s"$u @ $pos -> $l")
 
-  def debugSvg(obs: Obstacles, ports: PortLayout, routes: IndexedSeq[EdgeRoute], ppu: Double) =
+  def debugSvg(boxes: VertexBoxes, ports: PortLayout, routes: IndexedSeq[EdgeRoute], ppu: Double) =
     val svg      = Svg.withDefaults.copy(pixelsPerUnit = ppu)
-    val rectsSvg = svg.drawObstacles(obs)
+    val rectsSvg = svg.drawVertexBoxes(boxes)
     val portsSvg = svg.drawPorts(ports)
     val edgesSvg = svg.drawEdgeRoutes(routes)
     svg.make(rectsSvg ++ edgesSvg ++ portsSvg)
@@ -61,20 +61,20 @@ object Debugging:
     val edgesSvg = svg.drawStraightEdges(ewg, vl)
     svg.make(edgesSvg ++ nodesSvg)
 
-  def debugSvg(adj: BasicGraph, obs: Obstacles, ppu: Double) =
+  def debugSvg(adj: BasicGraph, boxes: VertexBoxes, ppu: Double) =
     val svg      = Svg.withDefaults
       .copy(edgeBends = Svg.EdgeBends.Straight, edgeColor = Svg.EdgeColor.Single("gray"), pixelsPerUnit = ppu)
-    val vl       = VertexLayout(obs.nodes.map(_.center))
-    val rectsSvg = svg.drawObstacles(obs)
+    val vl       = VertexLayout(boxes.nodes.map(_.center))
+    val rectsSvg = svg.drawVertexBoxes(boxes)
     val nodesSvg = svg.drawNodes(vl)
     val edgesSvg = svg.drawStraightEdges(adj, vl)
     svg.make(rectsSvg ++ edgesSvg ++ nodesSvg)
 
-  def debugStraightEdgesWithBoxes(ewg: BasicGraph, vl: VertexLayout, obs: Obstacles, ppu: Double) =
+  def debugStraightEdgesWithBoxes(ewg: BasicGraph, vl: VertexLayout, boxes: VertexBoxes, ppu: Double) =
     val svg      = Svg.withDefaults.copy(edgeColor = Svg.EdgeColor.Single("gray"), pixelsPerUnit = ppu)
     val nodesSvg = svg.drawNodes(vl)
     val edgesSvg = svg.drawStraightEdges(ewg, vl)
-    val rectsSvg = svg.drawObstacles(obs)
+    val rectsSvg = svg.drawVertexBoxes(boxes)
     svg.make(rectsSvg ++ edgesSvg ++ nodesSvg)
 
   def discard[T](t: T): Unit = ()

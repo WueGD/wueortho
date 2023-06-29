@@ -44,7 +44,7 @@ object RandomGraphs:
     mkHull(rndm, coreEdges.size).map(hullEdges => Graph.fromEdges(coreEdges ++ hullEdges).mkBasicGraph)
   end mkBasicGraph
 
-  def mkObstacles(n: Int, minSpan: Vec2D, maxSpan: Vec2D, seed: Seed) = Obstacles:
+  def mkVertexBoxes(n: Int, minSpan: Vec2D, maxSpan: Vec2D, seed: Seed) = VertexBoxes:
       val (w, h) = (maxSpan.x1 - minSpan.x1, maxSpan.x2 - minSpan.x2)
       val rndm   = seed.newRandom
       for _ <- 1 to n yield

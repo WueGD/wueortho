@@ -21,7 +21,7 @@ class JavaApiSpec extends AnyFlatSpec:
     val ref   = res.getResult(Stage.ForeignData, Some("praline")).toOption.get
     val graph = ref.get.asInstanceOf[PGraph]
     (for
-      vb <- graph.getObstacles
+      vb <- graph.getVertexBoxes
       er <- graph.getEdgeRoutes
     yield
       val svg = Debugging.debugSvg(vb, PortLayout(er.map(_.terminals)), er, 1.0)

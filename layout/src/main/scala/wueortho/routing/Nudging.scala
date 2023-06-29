@@ -32,10 +32,10 @@ trait NudgingCommons:
       case South | West => CNode(pos, Estimated(NegInf, NegInf, PosInf), EndOfWorld(dir))
       case North | East => CNode(pos, Estimated(PosInf, NegInf, PosInf), EndOfWorld(dir))
 
-  enum ObsBorder extends NodeType:
-    case Begin(obsId: Int)
-    case End(obsId: Int)
-    def obsId: Int
+  enum BoxBorder extends NodeType:
+    case Begin(boxId: Int)
+    case End(boxId: Int)
+    def boxId: Int
 
   enum Segment extends NodeType:
     case TermSeg(terminal: CTerm, info: SegmentInfo)
@@ -55,14 +55,14 @@ trait NudgingCommons:
     def inS(uS: S[CNode[Segment.TermSeg]], midS: S[Seq[CNode[Segment.MidSeg]]], vS: S[CNode[Segment.TermSeg]]) =
       for u <- uS; mid <- midS; v <- vS yield PathNodes(u, mid, v)
 
-  case class ObsNodes(
-      left: CNode[ObsBorder.Begin],
-      right: CNode[ObsBorder.End],
-      bottom: CNode[ObsBorder.Begin],
-      top: CNode[ObsBorder.End],
+  case class BoxNodes(
+      left: CNode[BoxBorder.Begin],
+      right: CNode[BoxBorder.End],
+      bottom: CNode[BoxBorder.Begin],
+      top: CNode[BoxBorder.End],
   )
 
-  case class Terminal(pos: Vec2D, dir: Direction, obsId: Int)
+  case class Terminal(pos: Vec2D, dir: Direction, boxId: Int)
 
   object Segment:
     case class SegInRG(
@@ -164,10 +164,10 @@ trait NudgingCommons:
   object CNode:
     def lt(a: NodeType, b: NodeType) = a.nn -> b.nn match
       case (_: EndOfWorld, _) | (_, _: EndOfWorld)         => sys.error(s"EoW comparison: ${a -> b}")
-      case (ObsBorder.Begin(ia), ObsBorder.Begin(ib))      => ia < ib
-      case (ObsBorder.End(ia), ObsBorder.End(ib))          => ia < ib
-      case (_: ObsBorder.End, _) | (_, _: ObsBorder.Begin) => true
-      case (_, _: ObsBorder.End) | (_: ObsBorder.Begin, _) => false
+      case (BoxBorder.Begin(ia), BoxBorder.Begin(ib))      => ia < ib
+      case (BoxBorder.End(ia), BoxBorder.End(ib))          => ia < ib
+      case (_: BoxBorder.End, _) | (_, _: BoxBorder.Begin) => true
+      case (_, _: BoxBorder.End) | (_: BoxBorder.Begin, _) => false
       case (a: Segment, b: Segment)                        =>
         if a.info.pathId == b.info.pathId then
           if a.info.idx < b.info.idx then a.info.nextDir == East || a.info.nextDir == North
@@ -178,13 +178,14 @@ trait NudgingCommons:
   protected trait CGraphCommons:
     def segments: IndexedSeq[CNode[Segment]]
     def eow: (CNode[EndOfWorld], CNode[EndOfWorld])
-    def obs: IndexedSeq[CNode[ObsBorder]]
+    def boxes: IndexedSeq[CNode[BoxBorder]]
     def isHorizontal: Boolean
     protected def overscan = 0.0
 
-    lazy val obsOffset = segments.size + eow.size
+    lazy val boxOffset = segments.size + eow.size
 
-    lazy val allNodes: IndexedSeq[NodeData[CNodeAny]] = NodeData.mkNodes(segments ++ eow.toList ++ obs, startIndex = 0)
+    lazy val allNodes: IndexedSeq[NodeData[CNodeAny]] = NodeData
+      .mkNodes(segments ++ eow.toList ++ boxes, startIndex = 0)
 
     def mkSepEdges(queue: Seq[NodeData[CNodeAny]]) =
       val iTree = mutable.LinearIntervalTree.empty()
@@ -198,10 +199,10 @@ trait NudgingCommons:
     end mkSepEdges
 
     def mkEdges(queue: Seq[NodeData[CNodeAny]]) =
-      val obsPseudoEdges =
-        for i <- obsOffset until (obsOffset + obs.size) by 2
+      val boxPseudoEdges =
+        for i <- boxOffset until (boxOffset + boxes.size) by 2
         yield SimpleEdge(NodeIndex(i + 1), NodeIndex(i))
-      mkSepEdges(queue) ++ obsPseudoEdges
+      mkSepEdges(queue) ++ boxPseudoEdges
 
     lazy val graph: DiGraph =
       val digraph = Graph.fromEdges(mkEdges(mkQueue(allNodes)).toSeq, allNodes.size).mkDiGraph
@@ -212,7 +213,7 @@ trait NudgingCommons:
       res
 
     def borderConstraints =
-      val (min, max) = (obs.minBy(_.dim.at), obs.maxBy(_.dim.at))
+      val (min, max) = (boxes.minBy(_.dim.at), boxes.maxBy(_.dim.at))
       List(eow._1.pos <= min.pos, eow._2.pos >= max.pos) -> (eow._1.pos - eow._2.pos)
   end CGraphCommons
 

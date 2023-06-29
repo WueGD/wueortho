@@ -12,8 +12,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should
 
 class RoutingSpec extends AnyFlatSpec, should.Matchers:
-  lazy val (ovgGraph, ovgLayout, _, ovg) = OrthogonalVisibilityGraph.create(Sample.obstacles.nodes, Sample.ports)
-  lazy val routingGraph                  = RoutingGraph.create(Sample.obstacles, Sample.ports)
+  lazy val (ovgGraph, ovgLayout, _, ovg) = OrthogonalVisibilityGraph.create(Sample.boxes.nodes, Sample.ports)
+  lazy val routingGraph                  = RoutingGraph.create(Sample.boxes, Sample.ports)
   lazy val (rgAsBasicGraph, _)           = Debugging.rg2adj(routingGraph)
 
   "The orthogonal visibility graph" `should` "not have loops" in:
@@ -62,34 +62,34 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
       segments should contain theSameElementsInOrderAs segmentsSpec
 
   "Deprecated nudging of routes on the orthogonal visibility graph" `should` "complete without errors" in:
-    val routes = deprecated.Nudging.calcEdgeRoutes(ovg, gridWithPaths, ovgRouted.paths, Sample.ports, Sample.obstacles)
+    val routes = deprecated.Nudging.calcEdgeRoutes(ovg, gridWithPaths, ovgRouted.paths, Sample.ports, Sample.boxes)
     routes should have size Sample.edges.size
 
   "Edge nudging of routes on the orthogonal visibility graph" `should` "complete without errors" in:
-    val routes = EdgeNudging.calcEdgeRoutes(ovgRouted, Sample.ports, Sample.obstacles)
+    val routes = EdgeNudging.calcEdgeRoutes(ovgRouted, Sample.ports, Sample.boxes)
     routes should have size Sample.edges.size
 
   "Full nudging of routes on the orthogonal visibility graph" `should` "complete without errors" in:
-    val (routes, nudgedPorts, nudgedObstacles) =
-      FullNudging(Nudging.Config(1, false), ovgRouted, Sample.ports, Sample.graph, Sample.obstacles)
+    val (routes, nudgedPorts, nudgedBoxes) =
+      FullNudging(Nudging.Config(1, false), ovgRouted, Sample.ports, Sample.graph, Sample.boxes)
     routes should have size Sample.edges.size
     nudgedPorts.byEdge should have size Sample.edges.size
-    nudgedObstacles.nodes should have size Sample.obstacles.nodes.size
+    nudgedBoxes.nodes should have size Sample.boxes.nodes.size
 
   lazy val routed = Routing(routingGraph, Sample.ports).get
-  lazy val routes = EdgeNudging.calcEdgeRoutes(routed, Sample.ports, Sample.obstacles)
+  lazy val routes = EdgeNudging.calcEdgeRoutes(routed, Sample.ports, Sample.boxes)
 
   "Edge nudging of routes on the simplified routing graph" `should` "complete without errors" in:
     routes should have size Sample.edges.size
 
   "Full nudging of routes on the simplified routing graph" `should` "complete without errors" in:
-    val (routes, nudgedPorts, nudgedObstacles) =
-      FullNudging(Nudging.Config(1, true), routed, Sample.ports, Sample.graph, Sample.obstacles)
+    val (routes, nudgedPorts, nudgedBoxes) =
+      FullNudging(Nudging.Config(1, true), routed, Sample.ports, Sample.graph, Sample.boxes)
     routes should have size Sample.edges.size
     nudgedPorts.byEdge should have size Sample.edges.size
-    nudgedObstacles.nodes should have size Sample.obstacles.nodes.size
+    nudgedBoxes.nodes should have size Sample.boxes.nodes.size
 
-  lazy val pseudoRouting            = PseudoRouting(routes, Sample.graph, Sample.obstacles)
+  lazy val pseudoRouting            = PseudoRouting(routes, Sample.graph, Sample.boxes)
   lazy val (pseudoRAsBasicGraph, _) = Debugging.rg2adj(pseudoRouting)
 
   "Pseudo routing of given edge routes" `should` "not have loops" in:
@@ -107,15 +107,15 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
     for v <- (NodeIndex(0) until pseudoRouting.size).map(pseudoRouting.neighbors) do v.size should (be > 0 and be < 3)
 
   "Full nudging on a pseudo routing" `should` "complete without errors" in:
-    val (routes, nudgedPorts, nudgedObstacles) =
-      FullNudging(Nudging.Config(1, true), pseudoRouting, Sample.ports, Sample.graph, Sample.obstacles)
+    val (routes, nudgedPorts, nudgedBoxes) =
+      FullNudging(Nudging.Config(1, true), pseudoRouting, Sample.ports, Sample.graph, Sample.boxes)
     routes should have size Sample.edges.size
     nudgedPorts.byEdge should have size Sample.edges.size
-    nudgedObstacles.nodes should have size Sample.obstacles.nodes.size
+    nudgedBoxes.nodes should have size Sample.boxes.nodes.size
 end RoutingSpec
 
 object Sample:
-  val obstacles  = Obstacles(
+  val boxes      = VertexBoxes(
     Vector(
       Rect2D(Vec2D(5.5, 1), Vec2D(3.5, 1)),
       Rect2D(Vec2D(9, 5.5), Vec2D(2, 1.5)),

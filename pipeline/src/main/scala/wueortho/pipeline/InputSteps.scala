@@ -48,8 +48,8 @@ object InputSteps:
       import s.step.*
       for
         graph <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
-        boxes  = random.RandomGraphs.mkObstacles(graph.numberOfVertices, minSpan, maxSpan, seed)
-        _     <- cache.setStage(Stage.Obstacles, s.mkTag, boxes)
+        boxes  = random.RandomGraphs.mkVertexBoxes(graph.numberOfVertices, minSpan, maxSpan, seed)
+        _     <- cache.setStage(Stage.VertexBoxes, s.mkTag, boxes)
       yield noRt
     end runToStage
   end given
@@ -63,9 +63,9 @@ object InputSteps:
          |    (span.x = width/2, span.y = height/2)""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.UniformVertexBoxes], cache: StageCache) = for
-      vl <- cache.getStageResult(Stage.Layout, s.mkITag("vertexLayout"))
-      obs = Obstacles.fromVertexLayout((c, _) => Rect2D(c, s.step.span))(vl)
-      _  <- cache.setStage(Stage.Obstacles, s.mkTag, obs)
+      vl   <- cache.getStageResult(Stage.Layout, s.mkITag("vertexLayout"))
+      boxes = VertexBoxes.fromVertexLayout((c, _) => Rect2D(c, s.step.span))(vl)
+      _    <- cache.setStage(Stage.VertexBoxes, s.mkTag, boxes)
     yield noRt
   end given
 
@@ -119,20 +119,22 @@ object InputSteps:
     override def runToStage(s: WithTags[ITags, step.BoxesFromLabels], cache: StageCache) = for
       vl <- cache.getStageResult(Stage.Layout, s.mkITag("vertexLayout"))
       l  <- cache.getStageResult(Stage.VertexLabels, s.mkITag("vertexLabels"))
-      _  <- cache.setStage(Stage.Obstacles, s.mkTag, labels2boxes(s.step.config, vl, l))
+      _  <- cache.setStage(Stage.VertexBoxes, s.mkTag, labels2boxes(s.step.config, vl, l))
     yield noRt
 
     private def labels2boxes(c: VertexLabelConfig, vl: VertexLayout, l: Labels) =
       extension (s: Vec2D) def withPadding = Vec2D(s.x1 + c.padding, s.x2 + c.padding)
       l match
         case Labels.Hide              =>
-          Obstacles.fromVertexLayout((pos, _) => Rect2D(pos, Vec2D(c.minWidth, c.minHeight).scale(0.5).withPadding))(vl)
+          VertexBoxes
+            .fromVertexLayout((pos, _) => Rect2D(pos, Vec2D(c.minWidth, c.minHeight).scale(0.5).withPadding))(vl)
         case Labels.PlainText(labels) =>
           val textSize = TextUtils.TextSize(c.fontSize)
-          Obstacles:
+          VertexBoxes:
               for (pos, label) <- vl.nodes zip labels yield
                 val Vec2D(textWidth, textHeight) = textSize(label)
                 Rect2D(pos, Vec2D(textWidth max c.minWidth, textHeight max c.minHeight).scale(0.5).withPadding)
+      end match
     end labels2boxes
   end given
 
@@ -157,8 +159,8 @@ object InputSteps:
       ex match
         case Use.Graph        => cache.setStage(Stage.Graph, tag, in.getBasicGraph)
         case Use.VertexLayout =>
-          in.getObstacles.flatMap(obs => cache.setStage(Stage.Layout, tag, VertexLayout(obs.nodes.map(_.center))))
-        case Use.Obstacles    => in.getObstacles.flatMap(cache.setStage(Stage.Obstacles, tag, _))
+          in.getVertexBoxes.flatMap(boxes => cache.setStage(Stage.Layout, tag, VertexLayout(boxes.nodes.map(_.center))))
+        case Use.VertexBoxes  => in.getVertexBoxes.flatMap(cache.setStage(Stage.VertexBoxes, tag, _))
         case Use.EdgeRoutes   => in.getPaths.flatMap(cache.setStage(Stage.Routes, tag, _))
   end given
 end InputSteps
@@ -176,4 +178,4 @@ enum SyntheticLabels derives CanEqual, ConfiguredEnumCodec:
   case Hide, Enumerate
 
 enum TglfExtractor derives CanEqual, ConfiguredEnumCodec:
-  case Graph, VertexLayout, Obstacles, EdgeRoutes
+  case Graph, VertexLayout, VertexBoxes, EdgeRoutes

@@ -5,9 +5,9 @@ import wueortho.pipeline.{Stage, step, Stretch, PortMode, SyntheticLabels}
 import org.scalatest.flatspec.AnyFlatSpec
 
 /** @param size
-  *   side length per obstacle
+  *   side length per vertex box
   * @param gap
-  *   gap size as fraction of the obstacle size
+  *   gap size as fraction of the box size
   */
 case class Grid(rows: Int, columns: Int, size: Double, gap: Double):
   val graph =
@@ -17,7 +17,7 @@ case class Grid(rows: Int, columns: Int, size: Double, gap: Double):
     yield SimpleEdge(NodeIndex(i * columns + j), NodeIndex(((i + 1) % rows) * columns + ((j + 1) % columns)))
     Graph.fromEdges(edges).mkBasicGraph
 
-  val obstacles = Obstacles:
+  val boxes = VertexBoxes:
       for
         i <- 0 until rows
         j <- 0 until columns
@@ -30,7 +30,7 @@ class GridSpec extends AnyFlatSpec, TestPipelineSyntax:
   lazy val prepareGrid = (_: String) =>
     Seq(
       setStage(Stage.Graph, grid.graph),
-      setStage(Stage.Obstacles, grid.obstacles),
+      setStage(Stage.VertexBoxes, grid.boxes),
       step.PortsByAngle(PortMode.Octants),
       step.SimplifiedRoutingGraph(Stretch.Original),
       step.EdgeRouting(),

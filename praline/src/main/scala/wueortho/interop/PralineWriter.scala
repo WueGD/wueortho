@@ -20,7 +20,7 @@ object PralineWriter:
     extension (g: P.Graph)
       def asJson = writeJson(g)
 
-      @targetName("engulfVB") def <~~(obs: Obstacles)           = engulf(g, obs)
+      @targetName("engulfVB") def <~~(boxes: VertexBoxes)       = engulf(g, boxes)
       @targetName("engulfVL") def <~~(vl: Labels)               = engulf(g, vl)
       @targetName("engulfER") def <~~(r: IndexedSeq[EdgeRoute]) = engulf(g, r)
 
@@ -35,9 +35,10 @@ object PralineWriter:
       P.Edge(JList.of(u, v))
     P.Graph(badVertices.asJavaCollection, badEdges.asJavaCollection)
 
-  def engulf(g: P.Graph, obs: Obstacles) =
-    require(g.getVertices().nn.size() == obs.nodes.length, "praline vertex list and vertex boxes differed in size")
-    for (v, r) <- g.getVertices().nn.asScala zip obs.nodes do v.setShape(S.Rectangle(r.left, -r.top, r.width, r.height))
+  def engulf(g: P.Graph, boxes: VertexBoxes) =
+    require(g.getVertices().nn.size() == boxes.nodes.length, "praline vertex list and vertex boxes differed in size")
+    for (v, r) <- g.getVertices().nn.asScala zip boxes.nodes do
+      v.setShape(S.Rectangle(r.left, -r.top, r.width, r.height))
     g
 
   def engulf(g: P.Graph, l: Labels) = l match

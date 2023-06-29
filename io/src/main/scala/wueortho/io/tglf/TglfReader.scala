@@ -10,9 +10,9 @@ object TglfReader:
       .foldLeft(Graph.Builder.reserve(nodes.size))((bld, e) => bld.addEdge(NodeIndex(e.from), NodeIndex(e.to)))
       .mkBasicGraph
 
-    def getObstacles =
-      val res = Obstacles(nodes.map(n => Rect2D(n.pos, n.size.scale(0.5))))
-      if Overlaps.hasOverlaps(res.nodes) then Left("drawing has overlapping obstacles")
+    def getVertexBoxes =
+      val res = VertexBoxes(nodes.map(n => Rect2D(n.pos, n.size.scale(0.5))))
+      if Overlaps.hasOverlaps(res.nodes) then Left("drawing has overlapping vertex boxes")
       else Right(res)
 
     def getPaths =

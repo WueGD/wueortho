@@ -18,7 +18,7 @@ class LoopsSpec extends AnyFlatSpec, should.Matchers, Vec2DMatcher:
     ),
   ).mkBasicGraph
 
-  lazy val obstacleAtNode2  = Rect2D(Vec2D(0, 0), Vec2D(1, 1))
+  lazy val boxAtNode2       = Rect2D(Vec2D(0, 0), Vec2D(1, 1))
   lazy val neighborsOfNode2 = IndexedSeq(Vec2D(4, 4), Vec2D(4, 0), Vec2D(0, 0), Vec2D(0, 0))
 
   "A BasicGraph with a loop at Node 2" `should` "have a normal adjacency list at node 0" in:
@@ -55,7 +55,7 @@ class LoopsSpec extends AnyFlatSpec, should.Matchers, Vec2DMatcher:
 
   "The octant heuristic" `should` "generate ports for graphs with loops" in:
     val barycenter = Vec2D(2, 2)
-    val uut        = AngleHeuristic.octantHeuristic(obstacleAtNode2, neighborsOfNode2, barycenter)
+    val uut        = AngleHeuristic.octantHeuristic(boxAtNode2, neighborsOfNode2, barycenter)
 
     uut(0)._2 shouldBe East
     uut(0)._1 shouldBe vec(1, 1 / 3.0) +- 1e-6
@@ -70,7 +70,7 @@ class LoopsSpec extends AnyFlatSpec, should.Matchers, Vec2DMatcher:
     uut(3)._1 shouldBe vec(-1 / 3.0, 1) +- 1e-6
 
   "The quadrant heuristic" `should` "generate ports for graphs with loops" in:
-    val uut = AngleHeuristic.quadrantHeuristic(obstacleAtNode2, neighborsOfNode2)
+    val uut = AngleHeuristic.quadrantHeuristic(boxAtNode2, neighborsOfNode2)
 
     uut(0)._2 shouldBe North
     uut(0)._1 shouldBe vec(0.5, 1) +- 1e-6
@@ -85,7 +85,7 @@ class LoopsSpec extends AnyFlatSpec, should.Matchers, Vec2DMatcher:
     uut(3)._1 shouldBe vec(-0.5, 1) +- 1e-6
 
   "The only vertical heuristic" `should` "generate ports for graphs with loops" in:
-    val uut = AngleHeuristic.onlyVertical(obstacleAtNode2, neighborsOfNode2)
+    val uut = AngleHeuristic.onlyVertical(boxAtNode2, neighborsOfNode2)
 
     uut(0)._2 shouldBe North
     uut(0)._1 shouldBe vec(0.0, 1) +- 1e-6

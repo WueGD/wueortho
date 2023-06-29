@@ -28,7 +28,7 @@ object PseudoRouting:
       case West  => checkY(box.left)
   end checkTerminal
 
-  def apply(originals: IndexedSeq[EdgeRoute], graph: BasicGraph, boxes: Obstacles) =
+  def apply(originals: IndexedSeq[EdgeRoute], graph: BasicGraph, boxes: VertexBoxes) =
     import PseudoNode.*
     require(graph.numberOfVertices == boxes.nodes.size, "number of vertices did not match number of vertex boxes")
     val terminals = mutable.ArrayBuffer.fill(2 * originals.size)(-1)

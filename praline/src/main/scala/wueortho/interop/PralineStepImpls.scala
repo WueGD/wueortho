@@ -36,8 +36,8 @@ object PralineStepImpls:
         ext match
           case Use.Graph        => cache.updateStage(Stage.Graph, tag, _ => g.getBasicGraph)
           case Use.VertexLabels => cache.updateStage(Stage.VertexLabels, tag, _ => g.getVertexLabels)
-          case Use.VertexLayout => cache.updateStage(Stage.Layout, tag, _ => g.getObstacles.map(_.toVertexLayout))
-          case Use.VertexBoxes  => cache.updateStage(Stage.Obstacles, tag, _ => g.getObstacles)
+          case Use.VertexLayout => cache.updateStage(Stage.Layout, tag, _ => g.getVertexBoxes.map(_.toVertexLayout))
+          case Use.VertexBoxes  => cache.updateStage(Stage.VertexBoxes, tag, _ => g.getVertexBoxes)
           case Use.EdgeRoutes   => cache.updateStage(Stage.Routes, tag, _ => g.getEdgeRoutes)
   end extractAll
 
@@ -82,7 +82,7 @@ object PralineStepImpls:
 
     for basic <- cache.getStageResult(Stage.Graph, tag)
     yield List(
-      maybe(Stage.Obstacles, "vertexBoxes")(vb => State.modify(_ <~~ vb)),
+      maybe(Stage.VertexBoxes, "vertexBoxes")(vb => State.modify(_ <~~ vb)),
       maybe(Stage.VertexLabels, "vertexLabels")(vl => State.modify(_ <~~ vl)),
       maybe(Stage.Routes, "routes")(er => State.modify(_ <~~ er)),
       // todo portLabels, usw...

@@ -89,7 +89,7 @@ object Experiments:
     override val fileType      = ".tglf"
     def mkPipeline(path: Path) = Pipeline(
       Seq(
-        just(step.ReadTglfFile(path, List(Use.Graph, Use.Obstacles, Use.EdgeRoutes))),
+        just(step.ReadTglfFile(path, List(Use.Graph, Use.VertexBoxes, Use.EdgeRoutes))),
         just(step.Metrics(List("all"))),
         just(step.SyntheticVertexLabels(SyntheticLabels.Enumerate)),
         just(step.SyntheticPortLabels(SyntheticLabels.Hide)),
@@ -164,7 +164,7 @@ object Experiments:
         RandomGraphConfig(n, (n * density).round.toInt, Seed(rndm.nextLong), GraphCore.Tree, allowLoops = false)
       for i <- 1 to instancesPerSize do
         val g   = mkBasicGraph(conf).fold(sys.error, identity)
-        val res = g.toPraline <~~ mkObstacles(n, minSpan, maxSpan, Seed(rndm.nextLong()))
+        val res = g.toPraline <~~ mkVertexBoxes(n, minSpan, maxSpan, Seed(rndm.nextLong()))
         Files.writeString(outPath `resolve` s"rndm_n$n#$i.json", res.asJson.get)
   end randomGraphs
 
@@ -225,10 +225,10 @@ object Experiments:
         raw <- PralineReader.fromFile(file).toEither.left.map(_.toString)
         g   <- raw.getBasicGraph
         vl  <- raw.getVertexLabels
-        obs <- raw.getObstacles
+        vb  <- raw.getVertexBoxes
       yield
         val boxes = vl.labels.zipWithIndex.map((s, i) => vSize(s, g(NodeIndex(i)).neighbors.size))
-        val fixed = Obstacles(obs.nodes.zipWithIndex.map((r, i) => r.copy(span = boxes(i).scale(0.5))))
+        val fixed = VertexBoxes(vb.nodes.zipWithIndex.map((r, i) => r.copy(span = boxes(i).scale(0.5))))
         TglfWriter.writeGraph(g, fixed)
 
       Files.writeString(

@@ -87,12 +87,12 @@ object AngleHeuristic:
 
   extension [T <: Tuple](l: List[T]) def eachWith[A](a: A) = l.map(_ ++ Tuple1(a))
 
-  def makePorts(obs: Obstacles, graph: BasicGraph, s: (Rect2D, Seq[Vec2D]) => IndexedSeq[(Vec2D, Direction)]) =
-    assert(obs.nodes.length == graph.numberOfVertices, "There must be as many obstacles as vertices in the graph!")
+  def makePorts(boxes: VertexBoxes, graph: BasicGraph, s: (Rect2D, Seq[Vec2D]) => IndexedSeq[(Vec2D, Direction)]) =
+    assert(boxes.nodes.length == graph.numberOfVertices, "There must be as many vertex boxes as vertices in the graph!")
     // assert(!graph.hasLoops, "Generating ports is unsupported for graphs with loops")
 
-    val vertices = for (r, v) <- obs.nodes zip graph.vertices yield
-      val centers = v.neighbors.map(l => obs(l.toNode.toInt).center)
+    val vertices = for (r, v) <- boxes.nodes zip graph.vertices yield
+      val centers = v.neighbors.map(l => boxes(l.toNode.toInt).center)
       s(r, centers)
 
     PortLayout(for

@@ -21,9 +21,9 @@ object RoutingGraph:
 
   enum QueueItem:
     case Init(pos: Double)
-    case End(pos: Double, obsId: Int)
+    case End(pos: Double, boxId: Int)
     case Mid(pos: Double, dir: Direction, portId: Int)
-    case Begin(pos: Double, obsId: Int)
+    case Begin(pos: Double, boxId: Int)
     def pos: Double
 
   object QueueItem:
@@ -65,19 +65,19 @@ object RoutingGraph:
       node.adj(0) = left
   end RGNode
 
-  def create(obs: Obstacles, ports: PortLayout) =
+  def create(boxes: VertexBoxes, ports: PortLayout) =
     trait Builder:
-      def low(obs: Rect2D): Double
-      def high(obs: Rect2D): Double
-      def begin(obs: Rect2D): Double
+      def low(box: Rect2D): Double
+      def high(box: Rect2D): Double
+      def begin(box: Rect2D): Double
       def pos(p: Vec2D): Double
       def isDir(dir: Direction): Boolean
       def whenDir[R](dir: Direction)(neg: => R)(pos: => R): R
 
       def mkQueue =
-        val start    = QueueItem.Init((obs.nodes.map(low) ++ ports.toVertexLayout.nodes.map(pos)).min - eps)
-        val obsItems = for
-          (rect, i) <- obs.nodes.zipWithIndex
+        val start    = QueueItem.Init((boxes.nodes.map(low) ++ ports.toVertexLayout.nodes.map(pos)).min - eps)
+        val boxItems = for
+          (rect, i) <- boxes.nodes.zipWithIndex
           res       <- List(QueueItem.Begin(low(rect), i), QueueItem.End(high(rect), i))
         yield res
         val midItems = for
@@ -85,28 +85,28 @@ object RoutingGraph:
           (at, dir, j) <- List((ports(i).uTerm, ports(i).uDir, i * 2), (ports(i).vTerm, ports(i).vDir, i * 2 + 1))
           if !isDir(dir)
         yield QueueItem.Mid(pos(at), dir, j)
-        (start +: obsItems ++: midItems).sorted
+        (start +: boxItems ++: midItems).sorted
       end mkQueue
 
       def mkSegments(queue: IndexedSeq[QueueItem]) =
-        val activeObs = mutable.BitSet.empty
-        val buffer    = mutable.ArrayBuffer.empty[ProtoSeg]
+        val activeBoxes = mutable.BitSet.empty
+        val buffer      = mutable.ArrayBuffer.empty[ProtoSeg]
 
-        def obsBounds(j: Int) =
-          activeObs.map(i => high(obs(i))).filter(_ < low(obs(j))).maxOption.getOrElse(NegativeInfinity)
-            -> activeObs.map(i => low(obs(i))).filter(_ > high(obs(j))).minOption.getOrElse(PositiveInfinity)
+        def boxBounds(j: Int) =
+          activeBoxes.map(i => high(boxes(i))).filter(_ < low(boxes(j))).maxOption.getOrElse(NegativeInfinity)
+            -> activeBoxes.map(i => low(boxes(i))).filter(_ > high(boxes(j))).minOption.getOrElse(PositiveInfinity)
 
         def portBounds(dir: Direction, portId: Int) =
           val here = pos(ports.portCoordinate(portId))
           whenDir(dir)( // neg = low = south / west
-            activeObs.map(i => high(obs(i))).filter(_ < here).maxOption.getOrElse(NegativeInfinity) -> here,
+            activeBoxes.map(i => high(boxes(i))).filter(_ < here).maxOption.getOrElse(NegativeInfinity) -> here,
           )( // pos = high = north / east
-            here -> activeObs.map(i => low(obs(i))).filter(_ > here).minOption.getOrElse(PositiveInfinity),
+            here -> activeBoxes.map(i => low(boxes(i))).filter(_ > here).minOption.getOrElse(PositiveInfinity),
           )
 
         def seekBack(slice: IndexedSeq[QueueItem], lb: Double, ub: Double) =
           val prevItem = slice.reverseIterator.find:
-            case QueueItem.Begin(_, id) => low(obs(id)) >= lb && high(obs(id)) <= ub
+            case QueueItem.Begin(_, id) => low(boxes(id)) >= lb && high(boxes(id)) <= ub
             case _                      => false
           val until    = prevItem.fold(NegativeInfinity)(_.pos)
 
@@ -120,23 +120,23 @@ object RoutingGraph:
           item match
             case QueueItem.Init(pos)             =>
               buffer += ProtoSeg(pos, NegativeInfinity, PositiveInfinity, item)
-            case QueueItem.End(pos, obsId)       =>
-              activeObs -= obsId
-              val (lb, ub) = obsBounds(obsId)
+            case QueueItem.End(pos, boxId)       =>
+              activeBoxes -= boxId
+              val (lb, ub) = boxBounds(boxId)
               seekBack(queue.slice(0, i), lb, ub)
               buffer += ProtoSeg(pos, lb, ub, item)
             case QueueItem.Mid(pos, dir, portId) =>
               val (lb, ub) = portBounds(dir, portId)
               seekBack(queue.slice(0, i), lb, ub)
               buffer += ProtoSeg(pos, lb, ub, item)
-            case QueueItem.Begin(_, obsId)       =>
-              activeObs += obsId
+            case QueueItem.Begin(_, boxId)       =>
+              activeBoxes += boxId
         end for
 
-        val byStart = obs.nodes.sortBy(begin)
+        val byStart = boxes.nodes.sortBy(begin)
         for (seg, i) <- buffer.zipWithIndex do
           seg.item match
-            case QueueItem.End(pos, obsId) =>
+            case QueueItem.End(pos, boxId) =>
               val next = byStart.find(r => begin(r) >= pos && seg.low <= low(r) && seg.high >= high(r)).fold(pos)(begin)
               buffer(i) = seg.copy(at = (pos + next) / 2)
             case _                         =>
@@ -151,22 +151,24 @@ object RoutingGraph:
     // horizontal sweepline --- bottom to top
 
     val hBuilder = new Builder:
-      override def isDir(dir: Direction): Boolean                      = dir.isHorizontal
-      override def high(obs: Rect2D): Double                           = obs.right
-      override def low(obs: Rect2D): Double                            = obs.left
-      override def pos(p: Vec2D): Double                               = p.x1
-      override def begin(obs: Rect2D): Double                          = obs.bottom
+      override def isDir(dir: Direction): Boolean = dir.isHorizontal
+      override def high(box: Rect2D): Double      = box.right
+      override def low(box: Rect2D): Double       = box.left
+      override def pos(p: Vec2D): Double          = p.x1
+      override def begin(box: Rect2D): Double     = box.bottom
+
       override def whenDir[R](dir: Direction)(neg: => R)(pos: => R): R = dir match
         case West => neg
         case East => pos
         case _    => sys.error(s"horizontal port cannot have direction $dir")
 
     val vBuilder = new Builder:
-      override def isDir(dir: Direction): Boolean                      = dir.isVertical
-      override def high(obs: Rect2D): Double                           = obs.top
-      override def low(obs: Rect2D): Double                            = obs.bottom
-      override def pos(p: Vec2D): Double                               = p.x2
-      override def begin(obs: Rect2D): Double                          = obs.left
+      override def isDir(dir: Direction): Boolean = dir.isVertical
+      override def high(box: Rect2D): Double      = box.top
+      override def low(box: Rect2D): Double       = box.bottom
+      override def pos(p: Vec2D): Double          = p.x2
+      override def begin(box: Rect2D): Double     = box.left
+
       override def whenDir[R](dir: Direction)(neg: => R)(pos: => R): R = dir match
         case South => neg
         case North => pos

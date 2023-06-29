@@ -12,9 +12,9 @@ import DebugSvgs.*
 class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
   lazy val mkRoutingGraph = DebuggingStep: cache =>
     for
-      obs           <- cache.getStageResult(Stage.Obstacles, defaultTag)
+      boxes         <- cache.getStageResult(Stage.VertexBoxes, defaultTag)
       ports         <- cache.getStageResult(Stage.Ports, defaultTag)
-      (rgAdj, rgLay) = rg2adj(RoutingGraph.create(obs, ports))
+      (rgAdj, rgLay) = rg2adj(RoutingGraph.create(boxes, ports))
       _             <- cache.setStage(Stage.Graph, defaultTag, rgAdj)
       _             <- cache.setStage(Stage.Layout, defaultTag, rgLay)
     yield ()
@@ -23,7 +23,7 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
     for
       routes        <- cache.getStageResult(Stage.Routes, defaultTag)
       graph         <- cache.getStageResult(Stage.Graph, defaultTag)
-      boxes         <- cache.getStageResult(Stage.Obstacles, defaultTag)
+      boxes         <- cache.getStageResult(Stage.VertexBoxes, defaultTag)
       (rgAdj, rgLay) = rg2adj(PseudoRouting(routes, graph, boxes))
       _             <- cache.setStage(Stage.Graph, defaultTag, rgAdj)
       _             <- cache.setStage(Stage.Layout, defaultTag, rgLay)
@@ -35,16 +35,16 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
     step.SyntheticPortLabels(SyntheticLabels.Enumerate),
   )
 
-  "A sample set of obstacles and ports" `should` "allow constructing a simplified routing graph" in:
+  "A sample set of vertex boxes and ports" `should` "allow constructing a simplified routing graph" in:
     val app = pipeline("sample-routing-graph")
-      |> useSamples(Stage.Graph, Stage.Obstacles, Stage.Ports)
+      |> useSamples(Stage.Graph, Stage.VertexBoxes, Stage.Ports)
       |> use(mkRoutingGraph, drawEPVO(50))
       |> saveSvg
     app.run()
 
   it `should` "allow routing edges" in:
     val app = pipeline("sample-edge-routing")
-      |> useSamples(Stage.Graph, Stage.Obstacles, Stage.Ports, Stage.VertexLabels)
+      |> useSamples(Stage.Graph, Stage.VertexBoxes, Stage.Ports, Stage.VertexLabels)
       |> commonSteps
       |> use(step.NoNudging(), drawSvg)
       |> saveSvg
@@ -52,7 +52,7 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
 
   it `should` "allow nudging routed edges" in:
     val app = pipeline("sample-edge-nudged")
-      |> useSamples(Stage.Graph, Stage.Obstacles, Stage.Ports, Stage.VertexLabels)
+      |> useSamples(Stage.Graph, Stage.VertexBoxes, Stage.Ports, Stage.VertexLabels)
       |> commonSteps
       |> use(step.ConstrainedNudging(), metrics, drawSvg)
       |> saveSvg
@@ -60,7 +60,7 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
 
   it `should` "allow full nudging" in:
     val app = pipeline("sample-fully-nudged")
-      |> useSamples(Stage.Graph, Stage.Obstacles, Stage.Ports, Stage.VertexLabels)
+      |> useSamples(Stage.Graph, Stage.VertexBoxes, Stage.Ports, Stage.VertexLabels)
       |> commonSteps
       |> use(step.FullNudging(0.8, true), metrics, drawSvg)
       |> saveSvg
@@ -68,7 +68,7 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
 
   it `should` "allow creating a pseudo routing" in:
     val app = pipeline("sample-pseudo-routing")
-      |> useSamples(Stage.Graph, Stage.Obstacles, Stage.Ports, Stage.VertexLabels)
+      |> useSamples(Stage.Graph, Stage.VertexBoxes, Stage.Ports, Stage.VertexLabels)
       |> commonSteps
       |> use(step.ConstrainedNudging(), pseudoRG, drawEPVO(50))
       |> saveSvg
@@ -76,7 +76,7 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
 
   it `should` "allow full nudging on a pseudo routing" in:
     val app = pipeline("sample-nudging-on-pseudo-routing")
-      |> useSamples(Stage.Graph, Stage.Obstacles, Stage.Ports, Stage.VertexLabels)
+      |> useSamples(Stage.Graph, Stage.VertexBoxes, Stage.Ports, Stage.VertexLabels)
       |> commonSteps
       |> use(step.ConstrainedNudging(), step.PseudoRouting(fakePorts = false), step.FullNudging(0.8, true), drawSvg)
       |> saveSvg

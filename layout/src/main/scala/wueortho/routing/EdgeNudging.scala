@@ -40,17 +40,17 @@ object EdgeNudging extends NudgingCommons:
 
   private class HGraph(
       override val eow: (CNode[EndOfWorld], CNode[EndOfWorld]),
-      paths: IndexedSeq[PathNodes],
-      obstacles: IndexedSeq[ObsNodes],
+      pathNodes: IndexedSeq[PathNodes],
+      boxNodes: IndexedSeq[BoxNodes],
   ) extends CGraph:
     override val isHorizontal  = true
-    override lazy val segments = paths.flatMap(_.toList.filter(_.kind.isVertical))
-    override lazy val obs      = obstacles.flatMap(o => Vector(o.left, o.right))
+    override lazy val segments = pathNodes.flatMap(_.toList.filter(_.kind.isVertical))
+    override lazy val boxes    = boxNodes.flatMap(o => Vector(o.left, o.right))
 
   private class VGraph(
       override val eow: (CNode[EndOfWorld], CNode[EndOfWorld]),
-      paths: IndexedSeq[PathNodes],
-      obstacles: IndexedSeq[ObsNodes],
+      pathNodes: IndexedSeq[PathNodes],
+      boxNodes: IndexedSeq[BoxNodes],
       xSols: LPResult, // solved horizontal constraints
   ) extends CGraph:
     override def isHorizontal: Boolean                     = false
@@ -64,23 +64,23 @@ object EdgeNudging extends NudgingCommons:
             else
               val (end, s) = setX(head, start, xSols)
               fromPath(next, end, s :: res)
-      paths.flatMap(p => fromPath(p.toList, xSols(p.startX), Nil))
+      pathNodes.flatMap(p => fromPath(p.toList, xSols(p.startX), Nil))
     end segments
 
-    override lazy val obs: IndexedSeq[CNode[ObsBorder]] = obstacles.flatMap(o => Vector(o.bottom, o.top))
+    override lazy val boxes: IndexedSeq[CNode[BoxBorder]] = boxNodes.flatMap(o => Vector(o.bottom, o.top))
   end VGraph
 
-  private def mkObsNodes(r: Rect2D, i: Int) = ObsNodes(
-    CNode(mkConst(r.left), Estimated(r.left, r.bottom, r.top), ObsBorder.Begin(i)),
-    CNode(mkConst(r.right), Estimated(r.right, r.bottom, r.top), ObsBorder.End(i)),
-    CNode(mkConst(r.bottom), Estimated(r.bottom, r.left, r.right), ObsBorder.Begin(i)),
-    CNode(mkConst(r.top), Estimated(r.top, r.left, r.right), ObsBorder.End(i)),
+  private def mkBoxNodes(r: Rect2D, i: Int) = BoxNodes(
+    CNode(mkConst(r.left), Estimated(r.left, r.bottom, r.top), BoxBorder.Begin(i)),
+    CNode(mkConst(r.right), Estimated(r.right, r.bottom, r.top), BoxBorder.End(i)),
+    CNode(mkConst(r.bottom), Estimated(r.bottom, r.left, r.right), BoxBorder.Begin(i)),
+    CNode(mkConst(r.top), Estimated(r.top, r.left, r.right), BoxBorder.End(i)),
   )
 
   private def mkPseudoTerminals(ports: PortLayout) =
     ports.byEdge.flatMap(et => List(Terminal(et.uTerm, et.uDir, -1), Terminal(et.vTerm, et.vDir, -1)))
 
-  def calcEdgeRoutes(routing: Routed, ports: PortLayout, obstacles: Obstacles): IndexedSeq[EdgeRoute] =
+  def calcEdgeRoutes(routing: Routed, ports: PortLayout, vertexBoxes: VertexBoxes): IndexedSeq[EdgeRoute] =
     import Constraint.builder.*, Direction.*
 
     val mkEowH: S[(CNode[EndOfWorld], CNode[EndOfWorld])] =
@@ -91,11 +91,11 @@ object EdgeNudging extends NudgingCommons:
     (for
       allSegs     <- Segment.mkAll(routing.paths, routing, mkPseudoTerminals(ports), i => segBuilder(i, routing))
       // _            = allSegs.flatMap(_.toList).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_)) // DEBUG
-      obsNodes     = obstacles.nodes.zipWithIndex.map(mkObsNodes.tupled)
-      (hcs, hObj) <- mkEowH.flatMap(HGraph(_, allSegs, obsNodes).mkConstraints)
+      boxNodes     = vertexBoxes.nodes.zipWithIndex.map(mkBoxNodes.tupled)
+      (hcs, hObj) <- mkEowH.flatMap(HGraph(_, allSegs, boxNodes).mkConstraints)
       hSol         = maximize(hcs, hObj)
       // dbghsol      = hSol.solutions.map("%+10.6f".format(_)).mkString("[", ", ", "]")                                // DEBUG
-      (vcs, vObj) <- mkEowV.flatMap(VGraph(_, allSegs, obsNodes, hSol).mkConstraints)
+      (vcs, vObj) <- mkEowV.flatMap(VGraph(_, allSegs, boxNodes, hSol).mkConstraints)
       vSol         = maximize(vcs, vObj)
     // _            = {
     //   println(s"DEBUG: #vars: ${vSol.solutions.size + hSol.solutions.size} #constraints: ${vcs.size + hcs.size}")

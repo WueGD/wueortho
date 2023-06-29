@@ -16,9 +16,9 @@ case class Svg(
     edgeColor: EdgeColor = EdgeColor.Cycle(defaultColors),
     edgeStrokeWidth: Double = 4,
     edgeBends: EdgeBends = EdgeBends.Smooth(10),
-    obstacleColor: String = "blue",
-    obstacleStrokeWidth: Double = 2,
-    obstacleFill: String = "none",
+    boxColor: String = "blue",
+    boxStrokeWidth: Double = 2,
+    boxFill: String = "none",
     nodeColor: String = "blue",
     nodeSize: Double = 10,
     nodeLabelColor: String = "black",
@@ -43,8 +43,8 @@ case class Svg(
                             |    ]]>
                             |</style>""".stripMargin
 
-  def drawObstacles(obstacles: Obstacles) =
-    SvgFrag(bboxR(obstacles.nodes), obstacles.nodes.map(rectFrag(_, obstacleColor, obstacleStrokeWidth, obstacleFill)))
+  def drawVertexBoxes(boxes: VertexBoxes) =
+    SvgFrag(bboxR(boxes.nodes), boxes.nodes.map(rectFrag(_, boxColor, boxStrokeWidth, boxFill)))
 
   def drawPorts(ports: PortLayout) =
     val points = ports.toVertexLayout.nodes

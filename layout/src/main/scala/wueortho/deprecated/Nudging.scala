@@ -15,7 +15,7 @@ object Nudging:
       routes: IndexedSeq[PathsOnGridNode],
       paths: IndexedSeq[Path],
       ports: PortLayout,
-      obstacles: Obstacles,
+      boxes: VertexBoxes,
   ) =
     import Constraint.builder.*
 
@@ -99,7 +99,7 @@ object Nudging:
             ovg(next).obstacle match
               case None    => newCs -> pathsOrdered.lastOption
               case Some(i) =>
-                val obs = obstacles.nodes(i)
+                val obs = boxes.nodes(i)
                 val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(obs.bottom))
                 (sep.toList ::: newCs) -> Some(mkConst(obs.top))
           case _                     => Nil -> base
@@ -110,14 +110,14 @@ object Nudging:
             val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(ports.portCoordinate(id).x2))
             (sep.toList ::: constraints ::: res).toSet
           case NavigableLink.Obstacle(id) =>
-            val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(obstacles.nodes(id).bottom))
+            val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(boxes.nodes(id).bottom))
             (sep.toList ::: constraints ::: res).toSet
           case NavigableLink.Node(next)   => seek(constraints ::: res, nextBase, next)
         end match
       end seek
 
-      (ovg.edgeOfWorld(Direction.South).map(n => seek(Nil, None, n)) ++ (0 until obstacles.nodes.length).flatMap(o =>
-        val base = mkConst(obstacles.nodes(o).top)
+      (ovg.edgeOfWorld(Direction.South).map(n => seek(Nil, None, n)) ++ (0 until boxes.nodes.length).flatMap(o =>
+        val base = mkConst(boxes.nodes(o).top)
         ovg.obstacleBorder(Direction.North, o).map(n => seek(Nil, Some(base), n)),
       )).fold(Set.empty)(_ ++ _)
     end mkVConstraints
@@ -137,7 +137,7 @@ object Nudging:
             ovg(next).obstacle match
               case None    => newCs -> pathsOrdered.lastOption
               case Some(i) =>
-                val obs = obstacles.nodes(i)
+                val obs = boxes.nodes(i)
                 val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(obs.left))
                 (sep.toList ::: newCs) -> Some(mkConst(obs.right))
           case _                     => Nil -> base
@@ -148,14 +148,14 @@ object Nudging:
             val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(ports.portCoordinate(id).x1))
             (sep.toList ::: constraints ::: res).toSet
           case NavigableLink.Obstacle(id) =>
-            val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(obstacles.nodes(id).left))
+            val sep = pathsOrdered.lastOption.filter(notConst).map(_ + margin <= mkConst(boxes.nodes(id).left))
             (sep.toList ::: constraints ::: res).toSet
           case NavigableLink.Node(next)   => seek(constraints ::: res, nextBase, next)
         end match
       end seek
 
-      (ovg.edgeOfWorld(Direction.West).map(seek(Nil, None, _)) ++ (0 until obstacles.nodes.length).flatMap(o =>
-        val base = mkConst(obstacles.nodes(o).right)
+      (ovg.edgeOfWorld(Direction.West).map(seek(Nil, None, _)) ++ (0 until boxes.nodes.length).flatMap(o =>
+        val base = mkConst(boxes.nodes(o).right)
         ovg.obstacleBorder(Direction.East, o).map(seek(Nil, Some(base), _)),
       )).fold(Set.empty)(_ ++ _)
     end mkHConstraints

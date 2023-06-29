@@ -23,17 +23,16 @@ object ConnectedComponents:
     go(NodeIndex(0), 0 -> BitSet.empty)
   end largestComponent
 
-  def reduceToComponent(g: BasicGraph, inComponent: BitSet) =
+  def reduceToComponent(graph: BasicGraph, inComponent: BitSet) =
     val lut   = inComponent.zipWithIndex.toMap
-    val edges = g.edges.flatMap: e =>
+    val edges = graph.edges.flatMap: e =>
       if inComponent(e.from.toInt) && inComponent(e.to.toInt) then
         Some(SimpleEdge(NodeIndex(lut(e.from.toInt)), NodeIndex(lut(e.to.toInt))))
       else None
     Graph.fromEdges(edges).mkBasicGraph
 
-  def reduceToComponent(obs: Obstacles, inComponent: BitSet) =
-    Obstacles.lift: rects =>
-      rects.zipWithIndex.filter((_, i) => inComponent(i)).map(_._1)
+  def reduceToComponent(boxes: VertexBoxes, inComponent: BitSet) =
+    VertexBoxes.lift(rects => rects.zipWithIndex.filter((_, i) => inComponent(i)).map(_._1))(boxes)
 
   def reduceToComponent(vl: Labels, inComponent: BitSet) = vl match
     case Labels.Hide              => vl

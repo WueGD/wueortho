@@ -22,12 +22,12 @@ object OutputSteps:
          |    Otherwise select a subset of `[${Metrics.allMetrics.mkString(", ")}]`.""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.Metrics], cache: StageCache) = for
-      g   <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
-      obs <- cache.getStageResult(Stage.Obstacles, s.mkITag("vertexBoxes"))
-      r   <- cache.getStageResult(Stage.Routes, s.mkITag("routes"))
-      m    =
-        Metrics(g, obs, r, s.step.use*) + ("Vertices", s"${obs.nodes.size}") + ("Edges", s"${r.size}")
-      _   <- cache.setStage(Stage.Metadata, s.mkTag, m)
+      graph  <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
+      boxes  <- cache.getStageResult(Stage.VertexBoxes, s.mkITag("vertexBoxes"))
+      routes <- cache.getStageResult(Stage.Routes, s.mkITag("routes"))
+      metrics =
+        Metrics(graph, boxes, routes, s.step.use*) + ("Vertices", s"${boxes.nodes.size}") + ("Edges", s"${routes.size}")
+      _      <- cache.setStage(Stage.Metadata, s.mkTag, metrics)
     yield noRt
   end given
 
@@ -44,27 +44,27 @@ object OutputSteps:
          |   - `${field[SvgConfig, "Custom"]}` full custom (see wueortho.io.svg.Svg for details).""".stripMargin
 
     override def runToStage(s: WithTags[ITags, step.SvgDrawing], cache: StageCache) = for
-      obs <- cache.getStageResult(Stage.Obstacles, s.mkITag("vertexBoxes"))
-      r   <- cache.getStageResult(Stage.Routes, s.mkITag("routes"))
-      vls <- cache.getStageResult(Stage.VertexLabels, s.mkITag("vertexLabels"))
-      pls <- cache.getStageResult(Stage.PortLabels, s.mkITag("portLabels"))
-      svg  = s.step.overridePpu.fold(s.step.config.svg)(ppu => s.step.config.svg.copy(pixelsPerUnit = ppu))
-      _   <- cache.setStage(Stage.Svg, s.mkTag, drawAll(svg, obs, r, vls, pls))
+      boxes  <- cache.getStageResult(Stage.VertexBoxes, s.mkITag("vertexBoxes"))
+      routes <- cache.getStageResult(Stage.Routes, s.mkITag("routes"))
+      vls    <- cache.getStageResult(Stage.VertexLabels, s.mkITag("vertexLabels"))
+      pls    <- cache.getStageResult(Stage.PortLabels, s.mkITag("portLabels"))
+      svg     = s.step.overridePpu.fold(s.step.config.svg)(ppu => s.step.config.svg.copy(pixelsPerUnit = ppu))
+      _      <- cache.setStage(Stage.Svg, s.mkTag, drawAll(svg, boxes, routes, vls, pls))
     yield noRt
 
     private def drawAll(
         svg: Svg,
-        obs: Obstacles,
-        r: IndexedSeq[EdgeRoute],
+        boxes: VertexBoxes,
+        routes: IndexedSeq[EdgeRoute],
         vertexLabels: Labels,
         portLabels: Labels,
     ) =
-      val pl      = PortLayout(r.map(_.terminals))
-      val rects   = svg.drawObstacles(obs)
-      val nLabels = svg.drawNodeLabels(VertexLayout(obs.nodes.map(_.center)), vertexLabels)
+      val pl      = PortLayout(routes.map(_.terminals))
+      val rects   = svg.drawVertexBoxes(boxes)
+      val nLabels = svg.drawNodeLabels(VertexLayout(boxes.nodes.map(_.center)), vertexLabels)
       val ports   = svg.drawPorts(pl)
       val pLabels = svg.drawPortLabels(pl, portLabels)
-      val edges   = svg.drawEdgeRoutes(r)
+      val edges   = svg.drawEdgeRoutes(routes)
       svg.make(rects ++ edges ++ ports ++ nLabels ++ pLabels)
     end drawAll
   end given
@@ -96,21 +96,21 @@ object Metrics:
     "InterEdgeDistance",
   )
 
-  def apply(g: BasicGraph, obs: Obstacles, r: IndexedSeq[EdgeRoute], ms: String*): Metadata = Metadata(
+  def apply(g: BasicGraph, boxes: VertexBoxes, r: IndexedSeq[EdgeRoute], ms: String*): Metadata = Metadata(
     (ms.flatMap: m =>
         m match
-          case "all"                => Metrics(g, obs, r, allMetrics*).entries.toList
+          case "all"                => Metrics(g, boxes, r, allMetrics*).entries.toList
           case "Crossings"          => List(m -> Crossings.numberOfCrossings(r).toString)
-          case "BoundingBoxArea"    => List(m -> Area.boundingBoxArea(obs, r).toString)
-          case "ConvexHullArea"     => List(m -> Area.convexHullArea(obs, r).toString)
+          case "BoundingBoxArea"    => List(m -> Area.boundingBoxArea(boxes, r).toString)
+          case "ConvexHullArea"     => List(m -> Area.convexHullArea(boxes, r).toString)
           case "TotalEdgeLength"    => List(m -> EdgeLength.totalEdgeLength(r).toString)
           case "EdgeBends"          => List(m -> EdgeLength.numberOfBends(r).toString)
           case "EdgeLengthVariance" => List(m -> EdgeLength.edgeLengthVariance(r).toString)
           case "HasLoops"           => List(m -> g.hasLoops.toString())
           case "HasMultiEdges"      => List(m -> g.hasMultiEdges.toString())
           case "IsConnected"        => List(m -> g.isConnected.toString())
-          case "AspectRatio"        => List(m -> Area.aspectRatio(obs, r).toString)
-          case "InterEdgeDistance"  => List(m -> Crossings.interEdgeDist(obs, r).toString)
+          case "AspectRatio"        => List(m -> Area.aspectRatio(boxes, r).toString)
+          case "InterEdgeDistance"  => List(m -> Crossings.interEdgeDist(boxes, r).toString)
           case _                    => List(m -> "unknown metric")
       )
       .toMap,
@@ -126,9 +126,9 @@ enum SvgConfig(val svg: Svg):
           pixelsPerUnit = 1,
           edgeStrokeWidth = 2,
           edgeBends = Svg.EdgeBends.Smooth(6),
-          obstacleStrokeWidth = 1,
-          obstacleFill = "silver",
-          obstacleColor = "black",
+          boxStrokeWidth = 1,
+          boxFill = "silver",
+          boxColor = "black",
           portSize = 5,
           portLabelOffset = 3,
           fontSize = 10,

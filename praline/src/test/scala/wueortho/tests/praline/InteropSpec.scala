@@ -18,23 +18,24 @@ class InteropSpec extends AnyFlatSpec, should.Matchers:
     input
 
   "A sample graph" `should` "be writable in praline format" in:
-    val g = Sample.graph.toPraline <~~ Sample.obstacles <~~ Labels.PlainText(IndexedSeq("a", "b", "c"))
+    val g = Sample.graph.toPraline <~~ Sample.boxes <~~ Labels.PlainText(IndexedSeq("a", "b", "c"))
     Files.writeString(Path.of("test-results", "praline-interop-sample.json"), g.asJson.get)
 
   it `should` "be the same graph after writing and reading again" in:
-    val g  = Sample.graph.toPraline <~~ Sample.obstacles <~~ Labels.PlainText(IndexedSeq("a", "b", "c"))
+    val g  = Sample.graph.toPraline <~~ Sample.boxes <~~ Labels.PlainText(IndexedSeq("a", "b", "c"))
     val s  = g.asJson.get
     val g2 = PralineReader.fromString(s).get
     val bg = g2.getBasicGraph.fold(sys.error, identity)
-    // todo obs
+    val vb = g2.getVertexBoxes.fold(sys.error, identity)
     val l  = g2.getVertexLabels.fold(sys.error, identity)
     bg.vertices.map(_.neighbors.map(_.toNode).sorted) shouldEqual
       Sample.graph.vertices.map(_.neighbors.map(_.toNode).sorted)
+    vb shouldEqual Sample.boxes
     l.labels shouldEqual IndexedSeq("a", "b", "c")
 end InteropSpec
 
 object Sample:
-  val obstacles  = Obstacles(
+  val boxes      = VertexBoxes(
     Vector(
       Rect2D(Vec2D(5.5, 1), Vec2D(3.5, 1)),
       Rect2D(Vec2D(9, 5.5), Vec2D(2, 1.5)),

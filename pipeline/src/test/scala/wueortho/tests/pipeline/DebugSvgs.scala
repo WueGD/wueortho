@@ -10,17 +10,17 @@ object DebugSvgs:
     for
       graph  <- cache.getStageResult(Stage.Graph, defaultTag)
       layout <- cache.getStageResult(Stage.Layout, defaultTag)
-      obs    <- cache.getStageResult(Stage.Obstacles, defaultTag)
+      boxes  <- cache.getStageResult(Stage.VertexBoxes, defaultTag)
       ports  <- cache.getStageResult(Stage.Ports, defaultTag)
-      _      <- cache.setStage(Stage.Svg, defaultTag, debugOVG(obs, graph, layout, ports, ppu))
+      _      <- cache.setStage(Stage.Svg, defaultTag, debugOVG(boxes, graph, layout, ports, ppu))
     yield ()
 
   def drawEVO(ppu: Double) = DebuggingStep: cache =>
     for
       graph  <- cache.getStageResult(Stage.Graph, defaultTag)
       layout <- cache.getStageResult(Stage.Layout, defaultTag)
-      obs    <- cache.getStageResult(Stage.Obstacles, defaultTag)
-      _      <- cache.setStage(Stage.Svg, defaultTag, debugStraightEdgesWithBoxes(graph, layout, obs, ppu))
+      boxes  <- cache.getStageResult(Stage.VertexBoxes, defaultTag)
+      _      <- cache.setStage(Stage.Svg, defaultTag, debugStraightEdgesWithBoxes(graph, layout, boxes, ppu))
     yield ()
 
   def drawEV(ppu: Double) = DebuggingStep: cache =>

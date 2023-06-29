@@ -11,8 +11,8 @@ import scala.util.Random
 import DebugSvgs.*
 
 class GeometrySpec extends AnyFlatSpec, TestPipelineSyntax:
-  lazy val points    = ForceDirected.initLayout(Random(0x92c0ffee), 12 * 2).nodes
-  lazy val obstacles = Obstacles(points.grouped(2).toIndexedSeq.map:
+  lazy val points      = ForceDirected.initLayout(Random(0x92c0ffee), 12 * 2).nodes
+  lazy val vertexBoxes = VertexBoxes(points.grouped(2).toIndexedSeq.map:
     case Seq(center, Vec2D(w, h)) => Rect2D(center, Vec2D(w.abs / 2, h.abs / 2)),
   )
 
@@ -21,8 +21,8 @@ class GeometrySpec extends AnyFlatSpec, TestPipelineSyntax:
 
   lazy val layout = DebuggingStep: cache =>
     for
-      obstacles <- cache.getStageResult(Stage.Obstacles, defaultTag)
-      _         <- cache.setStage(Stage.Layout, defaultTag, VertexLayout(obstacles.nodes.map(_.center)))
+      vertexBoxes <- cache.getStageResult(Stage.VertexBoxes, defaultTag)
+      _           <- cache.setStage(Stage.Layout, defaultTag, VertexLayout(vertexBoxes.nodes.map(_.center)))
     yield ()
 
   lazy val triangulate = DebuggingStep: cache =>
@@ -42,16 +42,16 @@ class GeometrySpec extends AnyFlatSpec, TestPipelineSyntax:
       _       <- cache.setStage(Stage.Graph, defaultTag, tree)
     yield ()
 
-  "Some obstacles" `should` "allow triangulating their centers" in:
+  "Some vertex boxes" `should` "allow triangulating their centers" in:
     val app = TestPipeline("input-triangulated")
-      |> (Stage.Obstacles -> obstacles)
+      |> (Stage.VertexBoxes -> vertexBoxes)
       |> use(layout, triangulate, drawEVO(50))
       |> saveSvg
     app.run()
 
   it `should` "allow removing all overlaps by moving alongside their triangulation" in:
     val app = TestPipeline("gtree-triangulated")
-      |> (Stage.Obstacles -> obstacles)
+      |> (Stage.VertexBoxes -> vertexBoxes)
       |> use(gTree, layout, triangulate, drawEVO(50))
       |> saveSvg
     app.run()

@@ -32,7 +32,7 @@ object PralineReader:
       def getBasicGraph   = mkBasicGraph(g)
       def getHypergraph   = mkHypergraph(g)
       def getVertexLabels = mkVertexLabels(g)
-      def getObstacles    = mkObstacles(g)
+      def getVertexBoxes  = mkVertexBoxes(g)
       def getEdgeRoutes   = mkEdgeRoutes(g)
 
   def mkBasicGraph(g: P.Graph) =
@@ -88,13 +88,13 @@ object PralineReader:
         case err                           => Left(s"unsupported label type: ${err.getClass}")
     plain.map(ls => Labels.PlainText(ls.toIndexedSeq))
 
-  def mkObstacles(g: P.Graph) =
+  def mkVertexBoxes(g: P.Graph) =
     val rects = g.getVertices.asScala.toSeq.traverse: v =>
       for
         shape <- Option(v.getShape).toRight(s"vertex $v has no shape")
         box   <- Option(shape.getBoundingBox).toRight(s"vertex $v has a shape with no bounding box")
       yield Rect2D(Vec2D(box.getCenterX, -box.getCenterY), Vec2D(box.getWidth / 2, box.getHeight / 2))
-    rects.map(rs => Obstacles(rs.toIndexedSeq))
+    rects.map(rs => VertexBoxes(rs.toIndexedSeq))
 
   def mkEdgeRoutes(g: P.Graph) =
     val lut        = g.getVertices.asScala.zipWithIndex.toMap

@@ -22,7 +22,7 @@ class HybridModeSpec extends AnyFlatSpec:
       textLs  = labels match
                   case Labels.Hide              => IndexedSeq.empty
                   case Labels.PlainText(labels) => labels
-      boxes  <- cache.getStageResult(Stage.Obstacles, defaultTag)
+      boxes  <- cache.getStageResult(Stage.VertexBoxes, defaultTag)
       routes <- cache.getStageResult(Stage.Routes, defaultTag)
     yield println(s"""Vertices:
                      |${(textLs zip boxes.nodes).zipWithIndex.map { case ((s, r), i) => s"$i: $s @ ${r.center}" }
