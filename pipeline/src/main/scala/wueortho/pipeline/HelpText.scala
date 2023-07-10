@@ -26,7 +26,7 @@ object HelpText:
        |========================
        |
        |A WueOrtho pipeline can be assembled using its JSON representation.
-       |The pipeline describes a selection and oder of algorithms to produce an orthogonal graph drawing.
+       |The pipeline describes a selection and order of algorithms to produce an orthogonal graph drawing.
        |Each step may read and write intermediate results to a shared cache to persist results and to promote data to following steps.
        |
        |Intermediate results are grouped by type into so-called stages.

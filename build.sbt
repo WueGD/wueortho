@@ -27,6 +27,7 @@ lazy val pipeline = project.settings(
 lazy val praline = project.settings(
   name := "wueortho-praline",
   libraryDependencies ++= jackson +: scalatest,
+  javacOptions ++= Seq("-source", "17"),
 ).dependsOn(pipeline)
 
 lazy val root = (project in file(".")).settings(publish / skip := true).aggregate(core, io, layout, pipeline, praline)
