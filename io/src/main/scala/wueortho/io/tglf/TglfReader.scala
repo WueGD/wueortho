@@ -12,7 +12,7 @@ object TglfReader:
 
     def getVertexBoxes =
       val res = VertexBoxes(nodes.map(n => Rect2D(n.pos, n.size.scale(0.5))))
-      if Overlaps.hasOverlaps(res.nodes) then Left("drawing has overlapping vertex boxes")
+      if Overlaps.hasOverlaps(res.asRects) then Left("drawing has overlapping vertex boxes")
       else Right(res)
 
     def getPaths =

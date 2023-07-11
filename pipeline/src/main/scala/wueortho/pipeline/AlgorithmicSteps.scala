@@ -64,8 +64,8 @@ object AlgorithmicSteps:
       yield noRt
 
     private def align(stretch: Stretch, seed: Seed, forceGP: Boolean, boxes: VertexBoxes) =
-      val aligned = Nachmanson.align(Stretch(stretch, boxes.nodes), seed.newRandom)
-      val result  = VertexBoxes((aligned zip boxes.nodes).map((r, o) => Rect2D(r.center, o.span)))
+      val aligned = Nachmanson.align(Stretch(stretch, boxes.asRects), seed.newRandom)
+      val result  = VertexBoxes((aligned zip boxes.asRects).map((r, o) => Rect2D(r.center, o.span)))
       if forceGP then result.forceGeneralPosition(seed.newRandom) else result
   end given
 
@@ -87,7 +87,7 @@ object AlgorithmicSteps:
       import AngleHeuristic.*
 
       lazy val barycenter =
-        val sum = boxes.nodes.map(_.center).reduce(_ + _)
+        val sum = boxes.asRects.map(_.center).reduce(_ + _)
         Vec2D(sum.x1 / graph.numberOfVertices, sum.x2 / graph.numberOfVertices)
 
       mode match
@@ -110,7 +110,7 @@ object AlgorithmicSteps:
       boxes <- cache.getStageResult(Stage.VertexBoxes, s.mkITag("vertexBoxes"))
       pl    <- cache.getStageResult(Stage.Ports, s.mkITag("ports"))
       large  = VertexBoxes.lift(Stretch(s.step.stretch, _))(boxes)
-      _     <- cache.setStage(Stage.RoutingGraph, s.mkTag, RoutingGraph.create(large, pl))
+      _     <- cache.setStage(Stage.RoutingGraph, s.mkTag, RoutingGraph.withPorts(large, pl))
     yield noRt
   end given
 

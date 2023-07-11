@@ -36,8 +36,8 @@ object PralineWriter:
     P.Graph(badVertices.asJavaCollection, badEdges.asJavaCollection)
 
   def engulf(g: P.Graph, boxes: VertexBoxes) =
-    require(g.getVertices().nn.size() == boxes.nodes.length, "praline vertex list and vertex boxes differed in size")
-    for (v, r) <- g.getVertices().nn.asScala zip boxes.nodes do
+    require(g.getVertices().nn.size() == boxes.asRects.length, "praline vertex list and vertex boxes differed in size")
+    for (v, r) <- g.getVertices().nn.asScala zip boxes.asRects do
       v.setShape(S.Rectangle(r.left, -r.top, r.width, r.height))
     g
 

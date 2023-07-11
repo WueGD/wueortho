@@ -22,7 +22,7 @@ class GeometrySpec extends AnyFlatSpec, TestPipelineSyntax:
   lazy val layout = DebuggingStep: cache =>
     for
       vertexBoxes <- cache.getStageResult(Stage.VertexBoxes, defaultTag)
-      _           <- cache.setStage(Stage.Layout, defaultTag, VertexLayout(vertexBoxes.nodes.map(_.center)))
+      _           <- cache.setStage(Stage.Layout, defaultTag, VertexLayout(vertexBoxes.asRects.map(_.center)))
     yield ()
 
   lazy val triangulate = DebuggingStep: cache =>

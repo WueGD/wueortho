@@ -14,7 +14,7 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
     for
       boxes         <- cache.getStageResult(Stage.VertexBoxes, defaultTag)
       ports         <- cache.getStageResult(Stage.Ports, defaultTag)
-      (rgAdj, rgLay) = rg2adj(RoutingGraph.create(boxes, ports))
+      (rgAdj, rgLay) = rg2adj(RoutingGraph.withPorts(boxes, ports))
       _             <- cache.setStage(Stage.Graph, defaultTag, rgAdj)
       _             <- cache.setStage(Stage.Layout, defaultTag, rgLay)
     yield ()

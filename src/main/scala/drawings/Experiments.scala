@@ -244,7 +244,7 @@ object Experiments:
         vb  <- raw.getVertexBoxes
       yield
         val boxes = vl.labels.zipWithIndex.map((s, i) => vSize(s, g(NodeIndex(i)).neighbors.size))
-        val fixed = VertexBoxes(vb.nodes.zipWithIndex.map((r, i) => r.copy(span = boxes(i).scale(0.5))))
+        val fixed = VertexBoxes(vb.asRects.zipWithIndex.map((r, i) => r.copy(span = boxes(i).scale(0.5))))
         TglfWriter.writeGraph(g, fixed)
 
       Files.writeString(

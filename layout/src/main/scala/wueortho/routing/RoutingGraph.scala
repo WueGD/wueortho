@@ -2,6 +2,7 @@ package wueortho.routing
 
 import wueortho.data.*
 import Direction.*
+import wueortho.util.WhenSyntax.when
 import Double.{PositiveInfinity, NegativeInfinity}
 import scala.collection.mutable
 
@@ -67,6 +68,7 @@ object RoutingGraph:
     def low(box: Rect2D): Double
     def high(box: Rect2D): Double
     def begin(box: Rect2D): Double
+    def end(box: Rect2D): Double
     def pos(p: Vec2D): Double
     def isOriented(dir: Direction): Boolean
 
@@ -75,6 +77,7 @@ object RoutingGraph:
     override def high(box: Rect2D)          = box.right
     override def low(box: Rect2D)           = box.left
     override def begin(box: Rect2D)         = box.bottom
+    override def end(box: Rect2D)           = box.top
     override def pos(p: Vec2D)              = p.x1
 
   private case object Vertical extends Oriented:
@@ -82,6 +85,7 @@ object RoutingGraph:
     override def high(box: Rect2D)          = box.top
     override def low(box: Rect2D)           = box.bottom
     override def begin(box: Rect2D)         = box.left
+    override def end(box: Rect2D)           = box.right
     override def pos(p: Vec2D)              = p.x2
 
   sealed private trait SegmentCommons(boxes: VertexBoxes, orientation: Oriented, queue: IndexedSeq[QueueItem]):
@@ -94,9 +98,9 @@ object RoutingGraph:
       activeBoxes.map(i => high(boxes(i))).filter(_ < low(boxes(j))).maxOption.getOrElse(NegativeInfinity)
         -> activeBoxes.map(i => low(boxes(i))).filter(_ > high(boxes(j))).minOption.getOrElse(PositiveInfinity)
 
-    def portCoordinate(portId: Int): Vec2D
+    def portCoordinate(dir: Direction, portId: Int): Vec2D
     def portBounds(dir: Direction, portId: Int) =
-      val here = pos(portCoordinate(portId))
+      val here = pos(portCoordinate(dir, portId))
       dir match
         case South | West =>
           require(isOriented(dir), s"port dir $dir has incorrect orientation")
@@ -135,7 +139,7 @@ object RoutingGraph:
             activeBoxes += boxId
       end for
 
-      val byStart = boxes.nodes.sortBy(begin)
+      val byStart = boxes.asRects.sortBy(begin)
       for (seg, i) <- buffer.zipWithIndex do
         seg.item match
           case QueueItem.End(pos, boxId) =>
@@ -147,17 +151,21 @@ object RoutingGraph:
     end mkSegments
   end SegmentCommons
 
-  private class WithPorts(boxes: VertexBoxes, ports: PortLayout):
+  sealed private trait Builder:
+    def mkQueue(oriented: Oriented): IndexedSeq[QueueItem]
+    def mkSegments(queue: IndexedSeq[QueueItem], oriented: Oriented): IndexedSeq[ProtoSeg]
+
+  private class WithPorts(boxes: VertexBoxes, ports: PortLayout) extends Builder:
     def mkQueue(oriented: Oriented) =
       import oriented.*
-      val start    = QueueItem.Init((boxes.nodes.map(low) ++ ports.toVertexLayout.nodes.map(pos)).min - eps)
+      val start    = QueueItem.Init((boxes.asRects.map(low) ++ ports.toVertexLayout.nodes.map(pos)).min - eps)
       val midItems = for
         i            <- 0 until ports.byEdge.size
         (at, dir, j) <- List((ports(i).uTerm, ports(i).uDir, i * 2), (ports(i).vTerm, ports(i).vDir, i * 2 + 1))
         if !isOriented(dir)
       yield QueueItem.Mid(pos(at), dir, j)
       val boxItems = for
-        (rect, i) <- boxes.nodes.zipWithIndex
+        (rect, i) <- boxes.asRects.zipWithIndex
         res       <- List(QueueItem.Begin(low(rect), i), QueueItem.End(high(rect), i))
       yield res
 
@@ -165,26 +173,51 @@ object RoutingGraph:
     end mkQueue
 
     def mkSegments(queue: IndexedSeq[QueueItem], oriented: Oriented) = (new SegmentCommons(boxes, oriented, queue):
-      override def portCoordinate(portId: Int): Vec2D = ports.portCoordinate(portId)
+      override def portCoordinate(dir: Direction, portId: Int): Vec2D = ports.portCoordinate(portId)
     ).mkSegments
   end WithPorts
 
-  def withPorts(boxes: VertexBoxes, ports: PortLayout) =
+  private class WithoutPorts(boxes: VertexBoxes) extends Builder:
+    def mkQueue(oriented: Oriented) =
+      import oriented.*
 
+      val start    = QueueItem.Init(boxes.asRects.map(low).min - eps)
+      val midItems = boxes.asRects.zipWithIndex.flatMap: (box, i) =>
+        val pos = begin(box) + (end(box) - begin(box)) / 2
+        List(
+          QueueItem.Mid(pos, North when (!isOriented(_)) otherwise East, i),
+          QueueItem.Mid(pos, South when (!isOriented(_)) otherwise West, i),
+        )
+      val boxItems = boxes.asRects.zipWithIndex.flatMap: (box, i) =>
+        List(QueueItem.Begin(low(box), i), QueueItem.End(high(box), i))
+
+      (start +: boxItems ++: midItems).sorted.toIndexedSeq
+    end mkQueue
+
+    def mkSegments(queue: IndexedSeq[QueueItem], oriented: Oriented) = (new SegmentCommons(boxes, oriented, queue):
+      override def portCoordinate(dir: Direction, portId: Int) =
+        val box = boxes(portId)
+        dir match
+          case North => Vec2D(box.center.x1, box.top)
+          case East  => Vec2D(box.right, box.center.x2)
+          case South => Vec2D(box.center.x1, box.bottom)
+          case West  => Vec2D(box.left, box.center.x2)
+    ).mkSegments
+  end WithoutPorts
+
+  private def mkGraph(build: Builder, initNodes: Seq[RGNode], initPositions: Seq[Vec2D]) =
     def intersect(h: ProtoSeg, v: ProtoSeg) =
       Option.unless(h.at < v.low || h.at > v.high || v.at < h.low || v.at > h.high)(Vec2D(v.at, h.at))
 
+    val nodes     = mutable.ArrayBuffer.from(initNodes)
+    val positions = mutable.ArrayBuffer.from(initPositions)
+    val vSegs     = build.mkSegments(build.mkQueue(Horizontal), Vertical)
+    val hSegs     = build.mkSegments(build.mkQueue(Vertical), Horizontal)
+
+    val vLinks = mutable.ArrayBuffer.fill(vSegs.length)(-1)
+    val hLinks = mutable.ArrayBuffer.fill(hSegs.length)(-1)
+
     // horizontal sweepline --- bottom to top
-
-    val build = WithPorts(boxes, ports)
-    val vSegs = build.mkSegments(build.mkQueue(Horizontal), Vertical)
-    val hSegs = build.mkSegments(build.mkQueue(Vertical), Horizontal)
-
-    val nodes     = mutable.ArrayBuffer.fill(ports.numberOfPorts)(RGNode.empty)
-    val positions = mutable.ArrayBuffer.from(ports.toVertexLayout.nodes)
-    val vLinks    = mutable.ArrayBuffer.fill(vSegs.length)(-1)
-    val hLinks    = mutable.ArrayBuffer.fill(hSegs.length)(-1)
-
     for
       (vSeg, vi) <- vSegs.zipWithIndex
       (hSeg, hi) <- hSegs.zipWithIndex
@@ -238,6 +271,16 @@ object RoutingGraph:
 
     assert(!nodes.zipWithIndex.exists((v, i) => v.neighbors.exists(_._2.toInt == i)), "routing graph has loops")
     assert(!nodes.exists(v => v.neighbors.size != v.neighbors.distinctBy(_._2).size), "routing graph has multi edges")
+
+    nodes.view -> positions.view
+  end mkGraph
+
+  def withPorts(boxes: VertexBoxes, ports: PortLayout) =
+    val (nodes, positions) = mkGraph(
+      build = WithPorts(boxes, ports),
+      initNodes = Seq.fill(ports.numberOfPorts)(RGNode.empty),
+      initPositions = ports.toVertexLayout.nodes,
+    )
 
     new RoutingGraph:
       override def neighbors(node: NodeIndex): List[(Direction, NodeIndex)]     = nodes(node.toInt).neighbors

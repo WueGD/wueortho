@@ -64,7 +64,7 @@ object Debugging:
   def debugSvg(adj: BasicGraph, boxes: VertexBoxes, ppu: Double) =
     val svg      = Svg.withDefaults
       .copy(edgeBends = Svg.EdgeBends.Straight, edgeColor = Svg.EdgeColor.Single("gray"), pixelsPerUnit = ppu)
-    val vl       = VertexLayout(boxes.nodes.map(_.center))
+    val vl       = VertexLayout(boxes.asRects.map(_.center))
     val rectsSvg = svg.drawVertexBoxes(boxes)
     val nodesSvg = svg.drawNodes(vl)
     val edgesSvg = svg.drawStraightEdges(adj, vl)

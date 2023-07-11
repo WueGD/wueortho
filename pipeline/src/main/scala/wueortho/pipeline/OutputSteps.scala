@@ -26,7 +26,7 @@ object OutputSteps:
       boxes  <- cache.getStageResult(Stage.VertexBoxes, s.mkITag("vertexBoxes"))
       routes <- cache.getStageResult(Stage.Routes, s.mkITag("routes"))
       metrics =
-        Metrics(graph, boxes, routes, s.step.use*) + ("Vertices", s"${boxes.nodes.size}") + ("Edges", s"${routes.size}")
+        Metrics(graph, boxes, routes, s.step.use*) + ("Vertices", s"${boxes.asRects.size}") + ("Edges", s"${routes.size}")
       _      <- cache.setStage(Stage.Metadata, s.mkTag, metrics)
     yield noRt
   end given
@@ -61,7 +61,7 @@ object OutputSteps:
     ) =
       val pl      = PortLayout(routes.map(_.terminals))
       val rects   = svg.drawVertexBoxes(boxes)
-      val nLabels = svg.drawNodeLabels(VertexLayout(boxes.nodes.map(_.center)), vertexLabels)
+      val nLabels = svg.drawNodeLabels(VertexLayout(boxes.asRects.map(_.center)), vertexLabels)
       val ports   = svg.drawPorts(pl)
       val pLabels = svg.drawPortLabels(pl, portLabels)
       val edges   = svg.drawEdgeRoutes(routes)

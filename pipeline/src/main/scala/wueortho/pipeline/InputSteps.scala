@@ -159,7 +159,8 @@ object InputSteps:
       ex match
         case Use.Graph        => cache.setStage(Stage.Graph, tag, in.getBasicGraph)
         case Use.VertexLayout =>
-          in.getVertexBoxes.flatMap(boxes => cache.setStage(Stage.Layout, tag, VertexLayout(boxes.nodes.map(_.center))))
+          in.getVertexBoxes
+            .flatMap(boxes => cache.setStage(Stage.Layout, tag, VertexLayout(boxes.asRects.map(_.center))))
         case Use.VertexBoxes  => in.getVertexBoxes.flatMap(cache.setStage(Stage.VertexBoxes, tag, _))
         case Use.EdgeRoutes   => in.getPaths.flatMap(cache.setStage(Stage.Routes, tag, _))
   end given

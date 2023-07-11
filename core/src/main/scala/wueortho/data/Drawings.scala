@@ -17,15 +17,15 @@ case class PortLayout(byEdge: IndexedSeq[EdgeTerminals]):
 case class VertexLayout(nodes: IndexedSeq[Vec2D]):
   def apply(i: NodeIndex) = nodes(i.toInt)
 
-case class VertexBoxes(nodes: IndexedSeq[Rect2D]):
-  def apply(idx: Int)                   = nodes(idx)
+case class VertexBoxes(asRects: IndexedSeq[Rect2D]):
+  def apply(idx: Int)                   = asRects(idx)
   def forceGeneralPosition(rnd: Random) =
-    VertexBoxes(nodes.map(r => r.copy(center = r.center + Vec2D(rnd.nextGaussian, rnd.nextGaussian).scale(1e-8))))
-  def toVertexLayout                    = VertexLayout(nodes.map(_.center))
+    VertexBoxes(asRects.map(r => r.copy(center = r.center + Vec2D(rnd.nextGaussian, rnd.nextGaussian).scale(1e-8))))
+  def toVertexLayout                    = VertexLayout(asRects.map(_.center))
 
 object VertexBoxes:
   def fromVertexLayout(f: (Vec2D, Int) => Rect2D)(vl: VertexLayout) = VertexBoxes(vl.nodes.zipWithIndex.map(f.tupled))
-  def lift(f: IndexedSeq[Rect2D] => IndexedSeq[Rect2D])             = (in: VertexBoxes) => VertexBoxes(f(in.nodes))
+  def lift(f: IndexedSeq[Rect2D] => IndexedSeq[Rect2D])             = (in: VertexBoxes) => VertexBoxes(f(in.asRects))
 
 case class EdgeRoute(terminals: EdgeTerminals, route: Seq[EdgeRoute.OrthoSeg]):
   import EdgeRoute.OrthoSeg, OrthoSeg.*, Direction.*

@@ -32,9 +32,9 @@ object Crossings:
   def interEdgeDist(boxes: VertexBoxes, routes: Seq[EdgeRoute]) =
     val (vertical, horizontal) = routes.map(separateRoute).unzip
 
-    val hs = boxes.nodes.flatMap(r => Seq(Seg(r.top, r.left, r.right), Seg(r.bottom, r.left, r.right)))
+    val hs = boxes.asRects.flatMap(r => Seq(Seg(r.top, r.left, r.right), Seg(r.bottom, r.left, r.right)))
       ++ horizontal.flatten
-    val vs = boxes.nodes.flatMap(r => Seq(Seg(r.left, r.bottom, r.top), Seg(r.right, r.bottom, r.top)))
+    val vs = boxes.asRects.flatMap(r => Seq(Seg(r.left, r.bottom, r.top), Seg(r.right, r.bottom, r.top)))
       ++ vertical.flatten
 
     hs.flatMap(h => hs.filter(_ != h).map(h -> _)).filter(_ overlaps _).map((a, b) => (a.at - b.at).abs).min min

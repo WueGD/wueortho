@@ -91,7 +91,7 @@ object EdgeNudging extends NudgingCommons:
     (for
       allSegs     <- Segment.mkAll(routing.paths, routing, mkPseudoTerminals(ports), i => segBuilder(i, routing))
       // _            = allSegs.flatMap(_.toList).zipWithIndex.map((s, i) => s"$i: ${Segment.show(s)}").foreach(dbg(_)) // DEBUG
-      boxNodes     = vertexBoxes.nodes.zipWithIndex.map(mkBoxNodes.tupled)
+      boxNodes     = vertexBoxes.asRects.zipWithIndex.map(mkBoxNodes.tupled)
       (hcs, hObj) <- mkEowH.flatMap(HGraph(_, allSegs, boxNodes).mkConstraints)
       hSol         = maximize(hcs, hObj)
       // dbghsol      = hSol.solutions.map("%+10.6f".format(_)).mkString("[", ", ", "]")                                // DEBUG

@@ -44,7 +44,7 @@ case class Svg(
                             |</style>""".stripMargin
 
   def drawVertexBoxes(boxes: VertexBoxes) =
-    SvgFrag(bboxR(boxes.nodes), boxes.nodes.map(rectFrag(_, boxColor, boxStrokeWidth, boxFill)))
+    SvgFrag(bboxR(boxes.asRects), boxes.asRects.map(rectFrag(_, boxColor, boxStrokeWidth, boxFill)))
 
   def drawPorts(ports: PortLayout) =
     val points = ports.toVertexLayout.nodes

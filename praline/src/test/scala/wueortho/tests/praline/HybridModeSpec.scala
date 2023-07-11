@@ -29,7 +29,7 @@ class HybridModeSpec extends AnyFlatSpec:
       routes <- cache.getStageResult(Stage.Routes, defaultTag)
     yield println:
         s"""Vertices:
-           |${(textLs zip boxes.nodes).zipWithIndex.map { case ((s, r), i) => s"$i: $s @ ${r.center}" }.mkString("\n")}
+           |${(textLs zip boxes.asRects).zipWithIndex.map { case ((s, r), i) => s"$i: $s @ ${r.center}" }.mkString("\n")}
            |
            |Edges:
            |${graph.edges.zipWithIndex.map((e, j) => s"$j: ${textLs(e.from.toInt)} -> ${textLs(e.to.toInt)}")
