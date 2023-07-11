@@ -69,7 +69,7 @@ class HybridModeSpec extends AnyFlatSpec:
     rt.run(pipeline)
 
   it `should` "allow hybrid+ mode via the java api" in:
-    val layouter = new HybridPlusLayouter(input, 12, 16, 34, 2, 12):
+    val layouter = new HybridPlusLayouter(input, 12):
       override def getDrawingInformation()                              = sys.error("use of stupid api")
       override def setDrawingInformation(di: DrawingInformation | Null) = sys.error("use of stupid api")
 
@@ -83,5 +83,4 @@ class HybridModeSpec extends AnyFlatSpec:
           just(step.SvgToFile(file.Path.of("test-results", "hybrid-plus_java-api.svg").nn)),
         )
     rt.run(justDraw)
-  // todo test smaller labels
 end HybridModeSpec
