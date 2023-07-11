@@ -1,10 +1,12 @@
 package wueortho.tests.praline
 
 import wueortho.data.PortLayout
-import wueortho.pipeline.{Stage, Debugging}
-import wueortho.interop.PralineReader, PralineReader.syntax.*
+import wueortho.pipeline.*, PipelineStep.just
+import wueortho.interop.{PralineReader, ForceDirectedLayouter, PralinePipelineExtensions as PPE},
+  PralineReader.syntax.*, PPE.PralineExtractor as Use
 
 import de.uniwue.informatik.praline.datastructure.graphs.Graph as PGraph
+import de.uniwue.informatik.praline.io.output.util.DrawingInformation
 
 import java.nio.file
 
@@ -27,4 +29,23 @@ class JavaApiSpec extends AnyFlatSpec:
       val svg = Debugging.debugSvg(vb, PortLayout(er.map(_.terminals)), er, 1.0)
       file.Files.writeString(file.Path.of("test-results", "java-dummy2.svg"), svg)
     ).fold(sys.error, identity)
+
+  lazy val rt = PPE.InteropRuntime(CoreStep.allImpls ++ PPE.allImpls :+ DebuggingStep.impl)
+
+  "The force-directed PralineLayouter implementation" `should` "run without errors" in:
+    val layouter = new ForceDirectedLayouter(input, 12, 16, 34, 2, 12):
+      override def getDrawingInformation()                              = sys.error("use of stupid api")
+      override def setDrawingInformation(di: DrawingInformation | Null) = sys.error("use of stupid api")
+
+    layouter.computeLayout()
+    rt.ref.set(layouter.getGraph().nn)
+    val justDraw = Pipeline:
+        Seq(
+          just(PPE.AccessPraline(List(Use.Graph, Use.VertexBoxes, Use.VertexLabels, Use.EdgeRoutes))),
+          just(step.SyntheticPortLabels(SyntheticLabels.Hide)),
+          just(step.SvgDrawing(SvgConfig.Praline, overridePpu = None)),
+          just(step.SvgToFile(file.Path.of("test-results", "force-directed_java-api.svg").nn)),
+        )
+    rt.run(justDraw)
+
 end JavaApiSpec
