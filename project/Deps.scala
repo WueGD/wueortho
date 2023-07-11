@@ -9,8 +9,8 @@ object Deps {
   val circe = Seq("circe-core", "circe-parser").map("io.circe" %% _ % "0.14.4")
   val cats  = "org.typelevel" %% "cats-core" % "2.9.0"
 
-  val scalatestVersion = "3.2.15"
-  val scalatest        = Seq("scalatest", "scalatest-flatspec").map("org.scalatest" %% _ % scalatestVersion % "test")
+  val scalatest = Seq("scalatest", "scalatest-flatspec").map("org.scalatest" %% _ % "3.2.15" % "test")
 
   val jackson = "com.fasterxml.jackson.core" % "jackson-databind" % "2.12.0"
+  val batik   = "batik"                      % "batik-svggen"     % "1.6-1"
 }

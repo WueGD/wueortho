@@ -8,6 +8,7 @@ import scala.util.Using
 
 import java.nio.file
 import de.uniwue.informatik.praline.io.output.util.DrawingInformation
+import de.uniwue.informatik.praline.io.output.svg.SVGDrawer
 
 import org.scalatest.flatspec.AnyFlatSpec
 import DebuggingStep.defaultTag
@@ -83,4 +84,12 @@ class HybridModeSpec extends AnyFlatSpec:
           just(step.SvgToFile(file.Path.of("test-results", "hybrid-plus_java-api.svg").nn)),
         )
     rt.run(justDraw)
+
+  it `should` "allow drawing with the praline drawer" in:
+    val layouter = new HybridPlusLayouter(input, 12):
+      override def getDrawingInformation()                              = sys.error("use of stupid api")
+      override def setDrawingInformation(di: DrawingInformation | Null) = sys.error("use of stupid api")
+
+    layouter.computeLayout()
+    SVGDrawer(layouter.getGraph()).draw("test-results/hybrid-plus_praline-drawer.svg", DrawingInformation())
 end HybridModeSpec

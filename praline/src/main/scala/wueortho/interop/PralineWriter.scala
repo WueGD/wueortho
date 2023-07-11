@@ -45,7 +45,10 @@ object PralineWriter:
     case Labels.Hide              => g
     case Labels.PlainText(labels) =>
       require(g.getVertices().nn.size() == labels.length, "praline vertex list and vertex labels differed in size")
-      for (v, l) <- g.getVertices().nn.asScala zip labels do v.getLabelManager().nn.setMainLabel(L.TextLabel(l))
+      for (v, l) <- g.getVertices().nn.asScala zip labels do
+        val tl = L.TextLabel(l)
+        tl.setLayoutText(l)
+        v.getLabelManager().nn.setMainLabel(tl)
       g
 
   def engulf(g: P.Graph, routes: IndexedSeq[EdgeRoute]) =
