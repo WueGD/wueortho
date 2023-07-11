@@ -6,7 +6,7 @@ import wueortho.io.tglf.TglfWriter
 import wueortho.io.random.RandomGraphs
 import wueortho.util.{Solidify, ConnectedComponents, TextUtils}, Solidify.*
 import wueortho.util.GraphConversions.simple.withoutLoops
-import wueortho.interop.PralinePipelineExtensions as Pral
+import wueortho.interop.PralinePipelineExtensions as PPE
 import wueortho.interop.{PralineReader, PralineWriter}
 
 import java.nio.file.{Path, Files}
@@ -31,9 +31,9 @@ object Experiments:
     "InterEdgeDistance",
   )
 
-  val inPath  = Path.of("data", "random").nn
+  val inPath  = Path.of("data", "topozoo").nn
   val outPath = Path.of("results").nn
-  val batch   = "runtime"
+  val batch   = "tz"
 
   trait Experiment(val name: String):
     def mkPipeline(inPath: Path): Pipeline
@@ -71,10 +71,10 @@ object Experiments:
   end Experiment
 
   @main def calcPralineMetrics = (new Experiment("praline"):
-    import Pral.PralineExtractor as Use
+    import PPE.PralineExtractor as Use
     def mkPipeline(path: Path) = Pipeline(
       Seq(
-        just(Pral.ReadPralineFile(path, List(Use.Graph, Use.VertexBoxes, Use.EdgeRoutes))),
+        just(PPE.ReadPralineFile(path, List(Use.Graph, Use.VertexBoxes, Use.EdgeRoutes))),
         just(step.Metrics(List("all"))),
         just(step.SyntheticVertexLabels(SyntheticLabels.Enumerate)),
         just(step.SyntheticPortLabels(SyntheticLabels.Hide)),
@@ -99,6 +99,22 @@ object Experiments:
     )
   ).run
 
+  @main def hybridPlusLayout = (new Experiment("hybrid+"):
+    import PPE.PralineExtractor as Use
+    override def mkPipeline(path: Path) = Pipeline:
+        Seq(
+          just(PPE.ReadPralineFile(path, List(Use.Graph, Use.VertexBoxes, Use.VertexLabels, Use.EdgeRoutes))),
+          // just(step.BoxesFromLabels(VertexLabelConfig.PralineDefaults)),
+          just(step.GTreeOverlaps(Stretch.Original, Seed(0x99c0ffee), forceGeneralPosition = false)),
+          just(step.PseudoRouting(fakePorts = true)),
+          just(step.FullNudging(padding = 12, use2ndHPass = true)),
+          just(step.Metrics(List("all"))),
+          just(step.SyntheticPortLabels(SyntheticLabels.Hide)),
+          just(step.SvgDrawing(SvgConfig.Praline, overridePpu = None)),
+          just(step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` json2svg(path))),
+        )
+  ).run
+
   private def commonSteps(gTreeStretch: Stretch, portMode: PortMode): Seq[WithTags[? <: Tuple, PipelineStep]] = Seq(
     just(step.GTreeOverlaps(gTreeStretch, Seed(0x99c0ffee), forceGeneralPosition = true)),
     just(step.PortsByAngle(portMode)),
@@ -114,18 +130,18 @@ object Experiments:
   private def tglf2svg(path: Path) = path.getFileName().nn.toString().replaceAll(".tglf$", ".svg")
 
   @main def layoutFromPraline = (new Experiment("compactify"):
-    import Pral.PralineExtractor as Use
+    import PPE.PralineExtractor as Use
     def mkPipeline(path: Path) = Pipeline:
-        just(Pral.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels, Use.VertexLayout)))
+        just(PPE.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels, Use.VertexLayout)))
           +: just(step.BoxesFromLabels(VertexLabelConfig.PralineDefaults))
           +: commonSteps(gTreeStretch = Stretch.Original, portMode = PortMode.Quadrants)
           :+ just(step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` json2svg(path))),
   ).run
 
   @main def fdLayout = (new Experiment("fdlayout"):
-    import Pral.PralineExtractor as Use
+    import PPE.PralineExtractor as Use
     def mkPipeline(path: Path) = Pipeline:
-        just(Pral.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels)))
+        just(PPE.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels)))
           +: just(step.ForceDirectedLayout(iterations = 800, Seed(0x98c0ffee), repetitions = 1))
           +: just(step.BoxesFromLabels(VertexLabelConfig.PralineDefaults))
           +: commonSteps(gTreeStretch = Stretch.Uniform(1.2), portMode = PortMode.Quadrants)
@@ -133,9 +149,9 @@ object Experiments:
   ).run
 
   @main def benchmark = (new Experiment("benchmark"):
-    import Pral.PralineExtractor as Use
+    import PPE.PralineExtractor as Use
     def mkPipeline(path: Path) = Pipeline:
-        just(Pral.ReadPralineFile(path, List(Use.Graph, Use.VertexBoxes)))
+        just(PPE.ReadPralineFile(path, List(Use.Graph, Use.VertexBoxes)))
           :: just(step.ForceDirectedLayout(iterations = 800, Seed(0x98c0ffee), repetitions = 1))
           :: just(step.GTreeOverlaps(Stretch.Uniform(1.2), Seed(0x99c0ffee), forceGeneralPosition = true))
           :: just(step.PortsByAngle(PortMode.Octants))
