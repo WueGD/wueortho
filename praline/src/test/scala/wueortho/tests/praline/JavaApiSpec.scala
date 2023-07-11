@@ -32,6 +32,14 @@ class JavaApiSpec extends AnyFlatSpec:
 
   lazy val rt = PPE.InteropRuntime(CoreStep.allImpls ++ PPE.allImpls :+ DebuggingStep.impl)
 
+  def justDraw(fileName: String) = Pipeline:
+      Seq(
+        just(PPE.AccessPraline(List(Use.Graph, Use.VertexBoxes, Use.VertexLabels, Use.EdgeRoutes))),
+        just(step.SyntheticPortLabels(SyntheticLabels.Hide)),
+        just(step.SvgDrawing(SvgConfig.Praline, overridePpu = None)),
+        just(step.SvgToFile(file.Path.of("test-results", fileName).nn)),
+      )
+
   "The force-directed PralineLayouter implementation" `should` "run without errors" in:
     val layouter = new ForceDirectedLayouter(input, 12, 16, 34, 2, 12):
       override def getDrawingInformation()                              = sys.error("use of stupid api")
@@ -39,13 +47,9 @@ class JavaApiSpec extends AnyFlatSpec:
 
     layouter.computeLayout()
     rt.ref.set(layouter.getGraph().nn)
-    val justDraw = Pipeline:
-        Seq(
-          just(PPE.AccessPraline(List(Use.Graph, Use.VertexBoxes, Use.VertexLabels, Use.EdgeRoutes))),
-          just(step.SyntheticPortLabels(SyntheticLabels.Hide)),
-          just(step.SvgDrawing(SvgConfig.Praline, overridePpu = None)),
-          just(step.SvgToFile(file.Path.of("test-results", "force-directed_java-api.svg").nn)),
-        )
-    rt.run(justDraw)
+    rt.run(justDraw("force-directed_java-api.svg"))
 
+  "The hybrid+ PralineLayouter implementation" `should` "run when implemented as java class" in:
+    rt.ref.set(LayouterDummy.run(input, 12).nn)
+    rt.run(justDraw("hybrid-plus_plain-java.svg"))
 end JavaApiSpec
