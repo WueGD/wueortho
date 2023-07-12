@@ -19,6 +19,15 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
       _             <- cache.setStage(Stage.Layout, defaultTag, rgLay)
     yield ()
 
+  lazy val noPortsRG = DebuggingStep: cache =>
+    for
+      graph         <- cache.getStageResult(Stage.Graph, defaultTag)
+      boxes         <- cache.getStageResult(Stage.VertexBoxes, defaultTag)
+      (rgAdj, rgLay) = rg2adj(RoutingGraph.withoutPorts(boxes, graph))
+      _             <- cache.setStage(Stage.Graph, defaultTag, rgAdj)
+      _             <- cache.setStage(Stage.Layout, defaultTag, rgLay)
+    yield ()
+
   lazy val pseudoRG = DebuggingStep: cache =>
     for
       routes        <- cache.getStageResult(Stage.Routes, defaultTag)
@@ -42,6 +51,13 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
       |> saveSvg
     app.run()
 
+  it `should` "allow constructing a routing graph without ports" in:
+    val app = pipeline("sample-no-ports-routing-graph")
+      |> useSamples(Stage.Graph, Stage.VertexBoxes)
+      |> use(noPortsRG, drawEVO(50))
+      |> saveSvg
+    app.run()
+
   it `should` "allow routing edges" in:
     val app = pipeline("sample-edge-routing")
       |> useSamples(Stage.Graph, Stage.VertexBoxes, Stage.Ports, Stage.VertexLabels)
@@ -49,6 +65,10 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
       |> use(step.NoNudging(), drawSvg)
       |> saveSvg
     app.run()
+
+  // it `should` "allow routing edges without ports" in:
+  //   val app = pipeline("sample-no-ports-edge-routing")
+  //     |> useSamples(Stage.Graph, Stage.VertexBoxes, Stage.VertexLabels)
 
   it `should` "allow nudging routed edges" in:
     val app = pipeline("sample-edge-nudged")

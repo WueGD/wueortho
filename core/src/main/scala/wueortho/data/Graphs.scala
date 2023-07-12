@@ -2,6 +2,7 @@ package wueortho.data
 
 trait Graph[V, E]:
   def numberOfVertices: Int
+  def numberOfEdges: Int
   def apply(i: NodeIndex): Vertex[V]
   def vertices: IndexedSeq[Vertex[V]]
   def edges: Seq[E]
@@ -67,24 +68,28 @@ object Graph:
   private case class SGImpl private[Graph] (nodes: IndexedSeq[Vertex[BasicLink]]) extends BasicGraph:
     override def apply(i: NodeIndex) = nodes(i.toInt)
     override def numberOfVertices    = nodes.length
+    override def numberOfEdges       = nodes.map(_.neighbors.length).sum / 2
     override def vertices            = nodes
     override lazy val edges          = mkEdges(nodes, (u, l) => SimpleEdge(u, l.toNode), identity)
 
   private case class DGImpl private[Graph] (nodes: IndexedSeq[Vertex[NodeIndex]]) extends DiGraph:
     override def apply(i: NodeIndex) = nodes(i.toInt)
     override def numberOfVertices    = nodes.length
+    override def numberOfEdges       = nodes.map(_.neighbors.length).sum
     override def vertices            = nodes
     override lazy val edges          = mkDiEdges(nodes, SimpleEdge.apply)
 
   private case class WGImpl private[Graph] (nodes: IndexedSeq[Vertex[WeightedLink]]) extends WeightedGraph:
     override def apply(i: NodeIndex) = nodes(i.toInt)
     override def numberOfVertices    = nodes.length
+    override def numberOfEdges       = nodes.map(_.neighbors.length).sum / 2
     override def vertices            = nodes
     override lazy val edges          = mkEdges(nodes, (u, l) => WeightedEdge(u, l.toNode, l.weight), _.unweighted)
 
   private case class WDImpl private[Graph] (nodes: IndexedSeq[Vertex[WeightedDiLink]]) extends WeightedDiGraph:
     override def apply(i: NodeIndex) = nodes(i.toInt)
     override def numberOfVertices    = nodes.length
+    override def numberOfEdges       = nodes.map(_.neighbors.length).sum
     override def vertices            = nodes
     override lazy val edges          = mkDiEdges(nodes, (u, l) => WeightedEdge(u, l.toNode, l.weight))
 

@@ -12,6 +12,7 @@ object Hypergraph:
   private case class HGImpl private[Hypergraph] (nodes: IndexedSeq[IndexedSeq[Int]], hyperedges: IndexedSeq[Hyperedge])
       extends Hypergraph:
     override def numberOfVertices    = nodes.length
+    override def numberOfEdges       = hyperedges.length
     override def apply(i: NodeIndex) = Vertex(nodes(i.toInt).map(j => Via(hyperedges(j))))
     override def vertices            = (NodeIndex(0) until numberOfVertices).map(apply)
     override def edges               = hyperedges

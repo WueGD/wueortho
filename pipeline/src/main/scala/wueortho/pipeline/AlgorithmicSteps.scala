@@ -115,15 +115,15 @@ object AlgorithmicSteps:
   end given
 
   given StepImpl[step.EdgeRouting] with
-    type ITags = ("routingGraph", "ports")
+    type ITags = ("routingGraph", "graph")
     override def tags     = deriveTags[ITags]
     override def helpText = "Perform edge routing (includes edge ordering)."
 
     override def runToStage(s: WithTags[ITags, step.EdgeRouting], cache: StageCache) = for
-      rg <- cache.getStageResult(Stage.RoutingGraph, s.mkITag("routingGraph"))
-      pl <- cache.getStageResult(Stage.Ports, s.mkITag("ports"))
-      res = Routing(rg, pl)
-      _  <- cache.setStage(Stage.EdgeRouting, s.mkTag, res.get)
+      rg    <- cache.getStageResult(Stage.RoutingGraph, s.mkITag("routingGraph"))
+      graph <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
+      res    = Routing(rg, graph)
+      _     <- cache.setStage(Stage.EdgeRouting, s.mkTag, res.get)
     yield res
   end given
 

@@ -16,10 +16,10 @@ object Routing:
 
   val EPS = 1e-8
 
-  case class DijState(dist: Double, bends: Int, nonce: Double, dir: Direction):
+  case class DijState(dist: Double, bends: Int, nonce: Double, dir: Option[Direction]):
     def transitionCost(t: DijTrans) =
-      val bends = Direction.numberOfBends(dir, t.dir)
-      DijState(dist + t.dist, this.bends + bends, this.nonce + nonce, t.dir)
+      val bends = dir.map(Direction.numberOfBends(_, t.dir)).getOrElse(0)
+      DijState(dist + t.dist, this.bends + bends, this.nonce + nonce, Some(t.dir))
 
   object DijState:
     given Ordering[DijState] = (a, b) =>
@@ -29,17 +29,17 @@ object Routing:
 
   case class DijTrans(dir: Direction, dist: Double)
 
-  def apply(routing: RoutingGraph, ports: PortLayout): RunningTime.Measured[Routed] =
+  def apply(routing: RoutingGraph, graph: BasicGraph): RunningTime.Measured[Routed] =
     def transactions(u: NodeIndex) =
       routing.neighbors(u).map((dir, v) => v -> DijTrans(dir, (routing.locate(v) - routing.locate(u)).len))
 
     given dc: DijkstraCost[DijState, DijTrans] = (t, s0) => s0.transitionCost(t)
 
     val routedPaths = RunningTime.of("route-paths"):
-      for (EdgeTerminals(uPos, dir, vPos, _), i) <- ports.byEdge.zipWithIndex
+      for i <- 0 until graph.numberOfEdges
       yield
         val (u, v) = routing.resolveEdge(i)
-        dijkstra.shortestPath(transactions, u, v, DijState(0, 0, 0, dir))
+        dijkstra.shortestPath(transactions, u, v, DijState(0, 0, 0, None))
           .fold[Path](err => sys.error(s"cannot find shortest path between $u and $v: $err"), identity)
 
     val withoutEyes = routedPaths andThen (paths => RunningTime.of("remove-eyes")(removeEyes(paths)))
@@ -51,24 +51,24 @@ object Routing:
       new RoutingGraph with PathOrder with Routing:
         export orderedRG.get.*
         override def paths       = withoutEyes.get
-        override lazy val routes =
-          for (path, terminals) <- paths zip ports.byEdge yield pathToOrthoSegs(terminals, path, routing).refined
+        override lazy val routes = paths.map(pathToOrthoSegs(_, routing).refined)
   end apply
 
-  private def pathToOrthoSegs(terminals: EdgeTerminals, path: Path, routing: RoutingGraph) =
-    assert(
-      routing.locate(path.nodes.head) == terminals.uTerm,
-      s"1st terminal @ ${terminals.uTerm} does not match path.head ${path.nodes.head.toInt} @ ${routing.locate(path.nodes.head)}",
-    )
-    assert(
-      routing.locate(path.nodes.last) == terminals.vTerm,
-      s"2nd terminal @ ${terminals.vTerm} does not match path.last ${path.nodes.last.toInt} @ ${routing.locate(path.nodes.last)}",
-    )
+  private def pathToOrthoSegs(path: Path, routing: RoutingGraph) =
+    def linkDir(u: NodeIndex, v: NodeIndex) =
+      routing.connection(u, v).getOrElse(sys.error(s"path disconnected at $u -- $v"))
+
     val route = for Seq(u, v) <- path.nodes.sliding(2) yield
       val (uPos, vPos) = (routing.locate(u), routing.locate(v))
-      if uPos.x1 == vPos.x1 then VSeg(vPos.x2 - uPos.x2)
-      else if uPos.x2 == vPos.x2 then HSeg(vPos.x1 - uPos.x1)
-      else sys.error(s"grid graph not orthogonal at $uPos -- $vPos")
+      if linkDir(u, v).isVertical then VSeg(vPos.x2 - uPos.x2) else HSeg(vPos.x1 - uPos.x1)
+
+    val terminals = EdgeTerminals(
+      routing.locate(path.nodes.head),
+      linkDir(path.nodes.head, path.nodes.tail.head),
+      routing.locate(path.nodes.last),
+      linkDir(path.nodes.last, path.nodes.init.last),
+    )
+
     EdgeRoute(terminals, route.toSeq)
   end pathToOrthoSegs
 

@@ -15,15 +15,14 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
   lazy val (ovgGraph, ovgLayout, _, ovg) = OrthogonalVisibilityGraph.create(Sample.boxes.asRects, Sample.ports)
   lazy val routingGraph                  = RoutingGraph.withPorts(Sample.boxes, Sample.ports)
   lazy val (rgAsBasicGraph, _)           = Debugging.rg2adj(routingGraph)
+  lazy val withoutPorts                  = RoutingGraph.withoutPorts(Sample.boxes, Sample.graph)
+  lazy val (noPortsBasicGraph, _)        = Debugging.rg2adj(withoutPorts)
 
-  "The orthogonal visibility graph" `should` "not have loops" in:
-    ovgGraph.hasLoops shouldBe false
+  "The orthogonal visibility graph" `should` "not have loops" in (ovgGraph.hasLoops shouldBe false)
 
-  it `should` "not have multi edges" in:
-    ovgGraph.hasMultiEdges shouldBe false
+  it `should` "not have multi edges" in (ovgGraph.hasMultiEdges shouldBe false)
 
-  it `should` "have a given number of vertices" in:
-    ovgGraph.numberOfVertices shouldBe 65
+  it `should` "have a given number of vertices" in (ovgGraph.numberOfVertices shouldBe 65)
 
   it `should` "be connected" in:
     bfs.traverse(ovgGraph(_).neighbors.map(_.toNode), NodeIndex(0)) should have size ovgGraph.numberOfVertices
@@ -31,14 +30,11 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
   it `should` "have a degree between 1 and 4" in:
     for v <- ovgGraph.vertices do v.neighbors.size should (be > 0 and be < 5)
 
-  "The simplified routing graph" `should` "not have loops" in:
-    rgAsBasicGraph.hasLoops shouldBe false
+  "The simplified routing graph" `should` "not have loops" in (rgAsBasicGraph.hasLoops shouldBe false)
 
-  it `should` "not have multi edges" in:
-    rgAsBasicGraph.hasMultiEdges shouldBe false
+  it `should` "not have multi edges" in (rgAsBasicGraph.hasMultiEdges shouldBe false)
 
-  it `should` "have a given number of vertices" in:
-    routingGraph.size shouldBe 30
+  it `should` "have a given number of vertices" in (routingGraph.size shouldBe 30)
 
   it `should` "be connected" in:
     bfs.traverse(routingGraph.neighbors(_).map(_._2), NodeIndex(0)) should have size routingGraph.size
@@ -46,15 +42,27 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
   it `should` "have a degree between 1 and 4" in:
     for v <- (NodeIndex(0) until routingGraph.size).map(routingGraph.neighbors) do v.size should (be > 0 and be < 5)
 
+  "The routing graph without ports" `should` "not have loops" in (noPortsBasicGraph.hasLoops shouldBe false)
+
+  it `should` "not have multi edges" in (noPortsBasicGraph.hasMultiEdges shouldBe false)
+
+  it `should` "have a given number of vertices" in (withoutPorts.size shouldBe 42)
+
+  it `should` "be connected" in:
+    bfs.traverse(withoutPorts.neighbors(_).map(_._2), NodeIndex(0)) should have size withoutPorts.size
+
+  it `should` "have a degree between 1 and 4" in:
+    for v <- (NodeIndex(0) until withoutPorts.size).map(withoutPorts.neighbors) do v.size should (be > 0 and be < 5)
+
   lazy val adapter       = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, ovgGraph, ovgLayout, Sample.ports)
-  lazy val ovgRouted     = Routing(adapter, Sample.ports).get
+  lazy val ovgRouted     = Routing(adapter, Sample.graph).get
   lazy val gridWithPaths = deprecated.PathOrder(adapter, Sample.ports, ovgRouted.paths)
 
   "Routes on the orthogonal visibility graph" `should` "be given paths" in:
     val spec = Sample.ports.byEdge zip List(
       List(VSeg(2.0), HSeg(3.0), VSeg(0.0)),
-      List(HSeg(0.0), VSeg(0.0), HSeg(1.0), VSeg(3.0)),
-      List(HSeg(0.0), VSeg(0.0), HSeg(-4.0), VSeg(2.0), HSeg(0.0)),
+      List(HSeg(1.0), VSeg(3.0)),
+      List(HSeg(-4.0), VSeg(2.0), HSeg(0.0)),
       List(VSeg(0.0), HSeg(-6.0), VSeg(-1.0), HSeg(-2.0), VSeg(0.0)),
     )
     for (EdgeRoute(terms, segments), (termsSpec, segmentsSpec)) <- (ovgRouted.routes zip spec) do
@@ -76,7 +84,12 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
     nudgedPorts.byEdge should have size Sample.edges.size
     nudgedBoxes.asRects should have size Sample.boxes.asRects.size
 
-  lazy val routed = Routing(routingGraph, Sample.ports).get
+  lazy val routedNoPorts = Routing(withoutPorts, Sample.graph)
+
+  "Routing without ports" `should` "produce given routes" in:
+    routedNoPorts.get.routes.zipWithIndex.foreach((r, i) => println(s"$i: $r"))
+
+  lazy val routed = Routing(routingGraph, Sample.graph).get
   lazy val routes = EdgeNudging.calcEdgeRoutes(routed, Sample.ports, Sample.boxes)
 
   "Edge nudging of routes on the simplified routing graph" `should` "complete without errors" in:

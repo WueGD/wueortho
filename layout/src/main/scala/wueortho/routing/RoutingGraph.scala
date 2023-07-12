@@ -2,7 +2,6 @@ package wueortho.routing
 
 import wueortho.data.*
 import Direction.*
-import wueortho.util.WhenSyntax.when
 import Double.{PositiveInfinity, NegativeInfinity}
 import scala.collection.mutable
 
@@ -38,7 +37,7 @@ object RoutingGraph:
 
   private val dirs = List(West, North, East, South)
 
-  class RGNode private (private[RoutingGraph] val adj: Array[Int]):
+  class RGNode private[RoutingGraph] (private[RoutingGraph] val adj: Array[Int]):
     def neighbor(dir: Direction) = dir match
       case West  => if adj(0) == -1 then None else Some(NodeIndex(adj(0)))
       case North => if adj(1) == -1 then None else Some(NodeIndex(adj(1)))
@@ -178,15 +177,18 @@ object RoutingGraph:
   end WithPorts
 
   private class WithoutPorts(boxes: VertexBoxes) extends Builder:
+    private val n = boxes.asRects.size
+
     def mkQueue(oriented: Oriented) =
       import oriented.*
+      def mkPseudoPortNE(i: Int) = if isOriented(North) then East -> (n + 4 * i + 2) else North -> (n + 4 * i + 1)
+      def mkPseudoPortSW(i: Int) = if isOriented(South) then West -> (n + 4 * i + 0) else South -> (n + 4 * i + 3)
 
       val start    = QueueItem.Init(boxes.asRects.map(low).min - eps)
       val midItems = boxes.asRects.zipWithIndex.flatMap: (box, i) =>
-        val pos = begin(box) + (end(box) - begin(box)) / 2
         List(
-          QueueItem.Mid(pos, North when (!isOriented(_)) otherwise East, i),
-          QueueItem.Mid(pos, South when (!isOriented(_)) otherwise West, i),
+          (QueueItem.Mid(pos(box.center), _, _)).tupled(mkPseudoPortNE(i)),
+          (QueueItem.Mid(pos(box.center), _, _)).tupled(mkPseudoPortSW(i)),
         )
       val boxItems = boxes.asRects.zipWithIndex.flatMap: (box, i) =>
         List(QueueItem.Begin(low(box), i), QueueItem.End(high(box), i))
@@ -196,7 +198,7 @@ object RoutingGraph:
 
     def mkSegments(queue: IndexedSeq[QueueItem], oriented: Oriented) = (new SegmentCommons(boxes, oriented, queue):
       override def portCoordinate(dir: Direction, portId: Int) =
-        val box = boxes(portId)
+        val box = boxes((portId - boxes.asRects.size) / 4)
         dir match
           case North => Vec2D(box.center.x1, box.top)
           case East  => Vec2D(box.right, box.center.x2)
@@ -283,13 +285,34 @@ object RoutingGraph:
     )
 
     new RoutingGraph:
-      override def neighbors(node: NodeIndex): List[(Direction, NodeIndex)]     = nodes(node.toInt).neighbors
-      override def neighbor(node: NodeIndex, dir: Direction): Option[NodeIndex] = nodes(node.toInt).neighbor(dir)
-      override def locate(node: NodeIndex): Vec2D                               = positions(node.toInt)
-      override def resolveEdge(edgeId: Int): (NodeIndex, NodeIndex)             = NodeIndex(2 * edgeId) -> NodeIndex(2 * edgeId + 1)
-      override def portId(node: NodeIndex): Option[Int]                         = Option.when(node.toInt < ports.numberOfPorts)(node.toInt)
-      override def size: Int                                                    = nodes.length
+      override def neighbors(node: NodeIndex)                = nodes(node.toInt).neighbors
+      override def neighbor(node: NodeIndex, dir: Direction) = nodes(node.toInt).neighbor(dir)
+      override def locate(node: NodeIndex)                   = positions(node.toInt)
+      override def resolveEdge(edgeId: Int)                  = NodeIndex(2 * edgeId) -> NodeIndex(2 * edgeId + 1)
+      override def portId(node: NodeIndex)                   = Option.when(node.toInt < ports.numberOfPorts)(node.toInt)
+      override def size: Int                                 = nodes.length
   end withPorts
+
+  def withoutPorts(boxes: VertexBoxes, graph: BasicGraph) =
+    val n                  = boxes.asRects.size
+    val init               = (0 until n).map(i => RGNode((0 to 3).map(k => n + 4 * i + k).toArray) -> boxes(i).center) // box centers
+      ++ (0 until n).flatMap: i =>
+        Seq(
+          RGNode(Array(-1, -1, i, -1)) -> Vec2D(boxes(i).left, boxes(i).center.x2),  // West
+          RGNode(Array(-1, -1, -1, i)) -> Vec2D(boxes(i).center.x1, boxes(i).top),   // North
+          RGNode(Array(i, -1, -1, -1)) -> Vec2D(boxes(i).right, boxes(i).center.x2), // East
+          RGNode(Array(-1, i, -1, -1)) -> Vec2D(boxes(i).center.x1, boxes(i).bottom),// South
+        )
+    val (nodes, positions) = (mkGraph(WithoutPorts(boxes), _, _)).tupled(init.unzip)
+
+    new RoutingGraph:
+      override def neighbors(node: NodeIndex)                = nodes(node.toInt).neighbors
+      override def neighbor(node: NodeIndex, dir: Direction) = nodes(node.toInt).neighbor(dir)
+      override def locate(node: NodeIndex)                   = positions(node.toInt)
+      override def resolveEdge(edgeId: Int)                  = Tuple.fromProductTyped(graph.edges(edgeId))
+      override def portId(node: NodeIndex): Option[Int]      = None
+      override def size: Int                                 = nodes.length
+  end withoutPorts
 
   def debug(rg: RoutingGraph) = for i <- NodeIndex(0) until rg.size do
     println(s"$i @ ${rg.locate(i)} -> ${rg.neighbors(i).map((dir, n) => s"$n ${dir.show}").mkString("(", ", ", ")")}")

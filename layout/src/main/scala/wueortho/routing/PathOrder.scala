@@ -10,62 +10,67 @@ trait PathOrder:
   def rightPaths(n: NodeIndex): Seq[Int]
 
 object PathOrder:
+  extension (rg: RoutingGraph)
+    private def linkDir(u: NodeIndex, v: NodeIndex) =
+      rg.connection(u, v).getOrElse(sys.error(s"graph disconnected between $u and $v"))
+
   def apply(rg: RoutingGraph, paths: IndexedSeq[Path]) =
     val top   = mutable.ArrayBuffer.fill(rg.size)(mutable.ArrayBuffer.empty[Int])
     val right = mutable.ArrayBuffer.fill(rg.size)(mutable.ArrayBuffer.empty[Int])
 
     /*
-     * T1-property: all paths end in a degree 1 vertex
+     * T-property: a node never intermediate node of one path and terminal node of another
      * v1---v2 have a north or east edge
      * all north/east edges starting in a vertex < v1 are sorted
      * v1.east is sorted before v1.north
      */
     def mkLt(v1: NodeIndex, v2: NodeIndex)(pathIdA: Int, pathIdB: Int): Boolean =
-      val startDir = rg.connection(v2, v1).getOrElse(sys.error(s"graph disconnected between $v1 and $v2"))
+      val startDir = rg.linkDir(v2, v1)
       val isSorted = if startDir == West then (i: Int) => i < v1.toInt else (i: Int) => i <= v1.toInt
 
       val (pa, pb)             = (paths(pathIdA).nodes, paths(pathIdB).nodes)
       val (i1a, i1b, i2a, i2b) = (pa.indexOf(v1), pb.indexOf(v1), pa.indexOf(v2), pb.indexOf(v2))
-      assert(i1a > 0 && i1b > 0 && i2a > 0 && i2b > 0, s"could not find vertices #$v1, #$v2 in paths $pa and $pb")
-      val (da, db)             = (i2a - i1a, i2b - i1b)
-      assert((da == 1 || da == -1) && (db == 1 || db == -1), s"not an edge #$v1--#$v2 on paths $pa and $pb")
+      assert(i1a >= 0 && i1b >= 0 && i2a >= 0 && i2b >= 0, s"could not find vertices $v1, $v2 in paths $pa and $pb")
+      assert((i2a - i1a).abs == 1 && (i2b - i1b).abs == 1, s"not an edge #$v1--#$v2 on paths $pa and $pb")
 
-      def go(a: Int, b: Int, dir: Direction): Boolean =
+      def go(a: Int, b: Int, dir: Direction, isReversed: Boolean): Boolean =
         // - a/b terminate in the same vertex -> violates T1
-        assert(da > 0 && a > 0 || da < 0 && a < pa.size - 1, s"T1 violation: a=$a in $pa and $pb (starting $v1--$v2)")
-        assert(db > 0 && b > 0 || db < 0 && b < pb.size - 1, s"T1 violation: b=$b in $pa and $pb (starting $v1--$v2)")
+        // assert(da > 0 && a > 0 || da < 0 && a < pa.size - 1, s"T1 violation: a=$a in $pa and $pb (starting $v1--$v2)")
+        // assert(db > 0 && b > 0 || db < 0 && b < pb.size - 1, s"T1 violation: b=$b in $pa and $pb (starting $v1--$v2)")
+        val (da, db) = if isReversed then (i1a - i2a, i1b - i2b) else (i2a - i1a, i2b - i1b)
 
-        if pa(a - da) != pb(b - db) then
-          // - a/b have no common next vertex towards left/down: check their directions -> you are finished!
-          (for
-            dirA <- rg.connection(pa(a), pa(a - da))
-            dirB <- rg.connection(pb(b), pb(b - db))
-          yield dirOrder(dir, dirA) < dirOrder(dir, dirB))
-            .getOrElse(sys.error(s"path $pa disconnected at #$a || path $pb disconnected at #$b"))
+        if (a - da) < 0 || (a - da) >= pa.size || (b - db) < 0 || (b - db) >= pb.size then
+          // - a/b terminate in the same vertex
+          if isReversed then pathIdA < pathIdB
+          else go(i1a, i1b, startDir.reverse, isReversed = true)
+        else if pa(a - da) != pb(b - db) then
+          // - a/b have no common next vertex: check their directions -> you are finished!
+          val dirA = rg.linkDir(pa(a), pa(a - da))
+          val dirB = rg.linkDir(pb(b), pb(b - db))
+          dirOrder(dir, dirA) < dirOrder(dir, dirB)
         else
-          val commonDir   = rg.connection(pa(a), pa(a - da)).getOrElse(sys.error(s"path $pa disconnected at #$a"))
+          val commonDir   = rg.linkDir(pa(a), pa(a - da))
           val maybeLookup = commonDir match
             case North => Option.when(isSorted(pa(a).toInt))(top(pa(a).toInt))
             case East  => Option.when(isSorted(pa(a).toInt))(right(pa(a).toInt))
             case South => Option.when(isSorted(pa(a - da).toInt))(top(pa(a - da).toInt))
             case West  => Option.when(isSorted(pa(a - da).toInt))(right(pa(a - da).toInt))
-          twist(dir, commonDir) ^ maybeLookup.fold(go(a - da, b - db, commonDir))(lut =>
+          twist(dir, commonDir) ^ maybeLookup.fold(go(a - da, b - db, commonDir, isReversed)): lut =>
             // extract order from c---a edge
             val (ia, ib) = lut.indexOf(pathIdA) -> lut.indexOf(pathIdB)
             assert(ia >= 0 && ib >= 0, s"lost track of paths #$pathIdA and #$pathIdB on node #${pa(a - da)}")
-            ia < ib,
-          )
+            ia < ib
+        end if
       end go
 
-      go(i1a, i1b, startDir)
+      go(i1a, i1b, startDir, isReversed = false)
     end mkLt
 
     for // init
       (path, i) <- paths.zipWithIndex
       Seq(u, v) <- path.nodes.sliding(2)
-      dir       <- rg.connection(u, v).orElse(sys.error(s"path disconnected between $u and $v"))
     do
-      dir match
+      rg.linkDir(u, v) match
         case North => top(u.toInt) += i
         case East  => right(u.toInt) += i
         case South => top(v.toInt) += i
@@ -106,6 +111,8 @@ object PathOrder:
         if wnv >= 0 && sev >= 0 && checkNoSeparator(toRight, sev, fromLeft, wnv) then
           fromLeft.insert(wnv, toRight(sev))
           toRight.insert(sev + 1, fromLeft(wnv))
+      end if
+    end for
 
     new RoutingGraph with PathOrder:
       val (t, r) = (top.map(_.toSeq), right.map(_.toSeq))
@@ -123,8 +130,7 @@ object PathOrder:
     case South => if cur.isHorizontal then -1 else 0
     case West  => if cur.isHorizontal then 0 else -1
 
-  private def twist(cur: Direction, next: Direction) = cur -> next match
+  private def twist(cur: Direction, next: Direction) = PartialFunction.cond(cur -> next):
     case (North, East) | (East, North) | (South, West) | (West, South) => true
-    case _                                                             => false
 
 end PathOrder
