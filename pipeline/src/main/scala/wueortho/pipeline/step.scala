@@ -49,7 +49,7 @@ object CoreStep:
   lazy val allImpls: List[StepImpl[?]] = StepImpl.allImpls[CoreStep]
 
 object PipelineStep:
-  def withTags[S](step: S, tag: Option[String])(using imp: StepImpl[S])(iTags: (Tuple.Union[imp.ITags], String)*) =
-    WithTags(step, tag, iTags.toMap)
+  def withTags[S](step: S, tag: Option[String])(iTags: (String, String)*) = WithTags(step, tag, iTags.toMap)
+  // TODO: build a safe alternative!
 
-  def just[S, T <: Tuple](s: S) = WithTags[T, S](s, None, Map.empty)
+  def just[S](s: S) = WithTags[S](s, None, Map.empty)

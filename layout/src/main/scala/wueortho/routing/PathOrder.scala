@@ -19,7 +19,7 @@ object PathOrder:
     val right = mutable.ArrayBuffer.fill(rg.size)(mutable.ArrayBuffer.empty[Int])
 
     /*
-     * T-property: a node never intermediate node of one path and terminal node of another
+     * T-property: a node is never intermediate node of one path and terminal node of another
      * v1---v2 have a north or east edge
      * all north/east edges starting in a vertex < v1 are sorted
      * v1.east is sorted before v1.north

@@ -11,29 +11,37 @@ import scala.util.Try
 import java.nio.file.Files
 
 object OutputSteps:
-  import wueortho.util.RunningTime.unit as noRt
+  import wueortho.util.RunningTime.unit as noRt, StepImpl.*
 
   given StepImpl[step.Metrics] with
-    type ITags = ("routes", "graph", "vertexBoxes")
-    override def tags     = deriveTags[ITags]
+    override transparent inline def stagesUsed     =
+      ("graph" -> Stage.Graph, "vertexBoxes" -> Stage.VertexBoxes, "routes" -> Stage.Routes)
+    override transparent inline def stagesModified = Stage.Metadata
+
+    override def tags     = GetTags(stagesUsed)
     override def helpText =
       s"""Calculate metrics.
          | * `${field[step.Metrics, "use"]}` - select a list of metrics. Use `["all"]` to select all metrics.
          |    Otherwise select a subset of `[${Metrics.allMetrics.mkString(", ")}]`.""".stripMargin
 
-    override def runToStage(s: WithTags[ITags, step.Metrics], cache: StageCache) = for
-      graph  <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
-      boxes  <- cache.getStageResult(Stage.VertexBoxes, s.mkITag("vertexBoxes"))
-      routes <- cache.getStageResult(Stage.Routes, s.mkITag("routes"))
-      metrics =
+    override def runToStage(s: WithTags[step.Metrics], cache: StageCache) = for
+      (graph, boxes, routes) <- UseStages(s, cache, stagesUsed)
+      metrics                 =
         Metrics(graph, boxes, routes, s.step.use*) + ("Vertices", s"${boxes.asRects.size}") + ("Edges", s"${routes.size}")
-      _      <- cache.setStage(Stage.Metadata, s.mkTag, metrics)
+      _                      <- UpdateSingleStage(s, cache, stagesModified)(metrics)
     yield noRt
   end given
 
   given StepImpl[step.SvgDrawing] with
-    type ITags = ("routes", "vertexBoxes", "vertexLabels", "portLabels")
-    override def tags     = deriveTags[ITags]
+    override transparent inline def stagesUsed     = (
+      "vertexBoxes"  -> Stage.VertexBoxes,
+      "routes"       -> Stage.Routes,
+      "vertexLabels" -> Stage.VertexLabels,
+      "portLabels"   -> Stage.PortLabels,
+    )
+    override transparent inline def stagesModified = Stage.Svg
+
+    override def tags     = GetTags(stagesUsed)
     override def helpText =
       s"""Draw as SVG.
          | * `${field[step.SvgDrawing, "overridePpu"]}` - override the pixels per unit setting [optional]
@@ -43,13 +51,10 @@ object OutputSteps:
          |   - `${field[SvgConfig, "Praline"]}` close to Praline but with colorful edges (ppu=1).
          |   - `${field[SvgConfig, "Custom"]}` full custom (see wueortho.io.svg.Svg for details).""".stripMargin
 
-    override def runToStage(s: WithTags[ITags, step.SvgDrawing], cache: StageCache) = for
-      boxes  <- cache.getStageResult(Stage.VertexBoxes, s.mkITag("vertexBoxes"))
-      routes <- cache.getStageResult(Stage.Routes, s.mkITag("routes"))
-      vls    <- cache.getStageResult(Stage.VertexLabels, s.mkITag("vertexLabels"))
-      pls    <- cache.getStageResult(Stage.PortLabels, s.mkITag("portLabels"))
-      svg     = s.step.overridePpu.fold(s.step.config.svg)(ppu => s.step.config.svg.copy(pixelsPerUnit = ppu))
-      _      <- cache.setStage(Stage.Svg, s.mkTag, drawAll(svg, boxes, routes, vls, pls))
+    override def runToStage(s: WithTags[step.SvgDrawing], cache: StageCache) = for
+      (boxes, routes, vls, pls) <- UseStages(s, cache, stagesUsed)
+      svg                        = s.step.overridePpu.fold(s.step.config.svg)(ppu => s.step.config.svg.copy(pixelsPerUnit = ppu))
+      _                         <- UpdateSingleStage(s, cache, stagesModified)(drawAll(svg, boxes, routes, vls, pls))
     yield noRt
 
     private def drawAll(
@@ -70,12 +75,14 @@ object OutputSteps:
   end given
 
   given StepImpl[step.SvgToFile] with
-    type ITags = "svg" *: EmptyTuple
-    override def tags     = deriveTags[ITags]
+    override transparent inline def stagesUsed     = ("svg", Stage.Svg)
+    override transparent inline def stagesModified = EmptyTuple
+
+    override def tags     = GetSingleTag(stagesUsed)
     override def helpText = s"Save the SVG as `${field[step.SvgToFile, "path"]}`"
 
-    override def runToStage(s: WithTags[ITags, step.SvgToFile], cache: StageCache) = for
-      svg <- cache.getStageResult(Stage.Svg, s.mkITag("svg"))
+    override def runToStage(s: WithTags[step.SvgToFile], cache: StageCache) = for
+      svg <- UseSingleStage(s, cache, stagesUsed)
       _   <- Try(Files.writeString(s.step.path, svg)).toEither.left.map(_.toString)
     yield noRt
   end given

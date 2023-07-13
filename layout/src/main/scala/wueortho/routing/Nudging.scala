@@ -74,7 +74,7 @@ trait NudgingCommons:
         norm: Double,
         nodes: List[NodeIndex],
     ) derives CanEqual:
-      def isH = dir.isHorizontal
+      val isH = dir.isHorizontal
     end SegInRG
 
     def mkAll(
@@ -162,7 +162,7 @@ trait NudgingCommons:
     )
 
   object CNode:
-    def lt(a: NodeType, b: NodeType) = a.nn -> b.nn match
+    def lt(a: NodeType, b: NodeType) = a -> b match
       case (_: EndOfWorld, _) | (_, _: EndOfWorld)         => sys.error(s"EoW comparison: ${a -> b}")
       case (BoxBorder.Begin(ia), BoxBorder.Begin(ib))      => ia < ib
       case (BoxBorder.End(ia), BoxBorder.End(ib))          => ia < ib
@@ -219,7 +219,7 @@ trait NudgingCommons:
 
   protected def mkQueue(nodes: Seq[NodeData[CNodeAny]]) =
     import scala.collection.mutable
-    if nodes.length < 2 then IndexedSeq.from(nodes)
+    if nodes.length < 2 then nodes.toIndexedSeq
     else
       val buf    = mutable.ArrayBuffer.from(nodes.sortBy(_.data.dim.at))
       var (i, j) = (buf.length - 1, buf.length - 2)

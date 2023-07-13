@@ -14,10 +14,12 @@ object DebuggingStep:
   given Decoder[DebuggingStep]          = Decoder.failedWithMessage("debugging steps must not be deserialized")
 
   lazy val impl = new StepImpl[DebuggingStep]:
-    type ITags = EmptyTuple
+    override transparent inline def stagesUsed     = EmptyTuple
+    override transparent inline def stagesModified = EmptyTuple
+
     override def helpText = "For debugging use only"
     override def tags     = Nil
 
-    override def runToStage(s: WithTags[EmptyTuple, DebuggingStep], cache: StageCache) =
+    override def runToStage(s: WithTags[DebuggingStep], cache: StageCache) =
       s.step.f(cache).map(_ => RunningTime.unit)
 end DebuggingStep

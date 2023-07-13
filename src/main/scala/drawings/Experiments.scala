@@ -115,7 +115,7 @@ object Experiments:
         )
   ).run
 
-  private def commonSteps(gTreeStretch: Stretch, portMode: PortMode): Seq[WithTags[? <: Tuple, PipelineStep]] = Seq(
+  private def commonSteps(gTreeStretch: Stretch, portMode: PortMode): Seq[WithTags[PipelineStep]] = Seq(
     just(step.GTreeOverlaps(gTreeStretch, Seed(0x99c0ffee), forceGeneralPosition = true)),
     just(step.PortsByAngle(portMode)),
     just(step.SimplifiedRoutingGraph(Stretch.Original)),

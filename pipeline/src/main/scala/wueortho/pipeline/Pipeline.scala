@@ -8,7 +8,7 @@ import scala.util.Try
 import java.nio.file.{Path, Files}
 import wueortho.util.RunningTime
 
-case class Pipeline(steps: Seq[WithTags[? <: Tuple, PipelineStep]])
+case class Pipeline(steps: Seq[WithTags[PipelineStep]])
 
 object Pipeline:
   def coreRuntime = Runtime("core-runtime", CoreStep.allImpls)
@@ -32,7 +32,7 @@ object Pipeline:
           export cacheView.*
           override def runningTime = rt
 
-    protected def runCore(steps: Seq[WithTags[? <: Tuple, PipelineStep]], cache: StageCache) =
+    protected def runCore(steps: Seq[WithTags[PipelineStep]], cache: StageCache) =
       val res = RunningTime.of("total"):
         steps.zipWithIndex.foldLeft(Some(RunningTime.unit).toRight("")):
           case (eth, (st, i)) =>
@@ -44,18 +44,18 @@ object Pipeline:
       res.get.fold(sys.error, _ => res.runtimes.head)
     end runCore
 
-    private given enc: Encoder[WithTags[? <: Tuple, PipelineStep]] =
-      Encoder.instance[WithTags[? <: Tuple, PipelineStep]]: swt =>
+    private given enc: Encoder[WithTags[PipelineStep]] =
+      Encoder.instance[WithTags[PipelineStep]]: swt =>
         val impl = lut.get(swt.step.getClass().getSimpleName().nn)
           .getOrElse(sys.error(s"unsupported pipeline step ${swt.step.getClass().getSimpleName()}"))
           .asInstanceOf[StepImpl[PipelineStep]]
-        impl.codec(swt.asInstanceOf[WithTags[impl.ITags, PipelineStep]])
+        impl.codec(swt)
 
-    private given dec: Decoder[WithTags[? <: Tuple, PipelineStep]] = for
+    private given dec: Decoder[WithTags[PipelineStep]] = for
       tpe  <- Decoder[String].at("type")
       impl <- lut.get(tpe).fold(Decoder.failedWithMessage(s"unsupported pipeline step $tpe"))(Decoder.const)
       res  <- Decoder.decodeJson.emapTry(impl.codec.decodeJson(_).toTry)
-    yield res.asInstanceOf[WithTags[? <: Tuple, PipelineStep]]
+    yield res.asInstanceOf[WithTags[PipelineStep]]
 
     def asJson(p: Pipeline) = Encoder.forProduct1("steps")((_: Pipeline).steps)(Encoder.encodeSeq(enc))(p)
     def fromJson(j: Json)   = Decoder.forProduct1("steps")(Pipeline.apply)(Decoder.decodeSeq(dec)).decodeJson(j)

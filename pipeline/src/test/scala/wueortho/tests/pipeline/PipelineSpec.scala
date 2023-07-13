@@ -2,7 +2,7 @@ package wueortho.tests.pipeline
 
 import wueortho.data.Seed
 import wueortho.io.random.RandomGraphs
-import wueortho.pipeline.*, PipelineStep.*, AlgorithmicSteps.given, InputSteps.given
+import wueortho.pipeline.*, PipelineStep.*
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should

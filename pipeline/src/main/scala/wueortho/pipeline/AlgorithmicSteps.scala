@@ -8,7 +8,7 @@ import wueortho.routing.*
 import wueortho.metrics.Crossings
 import wueortho.util.GraphConversions, GraphConversions.toWeighted.*
 import wueortho.util.Codecs.given
-import wueortho.util.RunningTime, RunningTime.unit as noRt, StepUtils.unit
+import wueortho.util.RunningTime, RunningTime.unit as noRt, StepUtils.unit, StepImpl.*
 import wueortho.util.EnumUtils.*
 import io.circe.derivation.ConfiguredEnumCodec
 
@@ -17,19 +17,21 @@ import scala.util.Random
 object AlgorithmicSteps:
 
   given StepImpl[step.ForceDirectedLayout] with
-    type ITags = "graph" *: EmptyTuple
-    override def tags     = deriveTags[ITags]
+    override transparent inline def stagesUsed     = ("graph", Stage.Graph)
+    override transparent inline def stagesModified = Stage.Layout
+
+    override def tags     = GetSingleTag(stagesUsed)
     override def helpText =
       s"""Perform force-directed vertex layout for a given graph.
          | * `${field[step.ForceDirectedLayout, "seed"]}` - The layout is initialized using a PRNG with this seed.
          | * `${field[step.ForceDirectedLayout, "iterations"]}` - and the algorithm stops after so many steps.
          | * `${field[step.ForceDirectedLayout, "repetitions"]}` - number of layouts will be calculated.
-         |    The algorithm takes the one with the least straight-line crossings""".stripMargin
+         |    The algorithm chooses the one with the least straight-line crossings""".stripMargin
 
-    override def runToStage(s: WithTags[ITags, step.ForceDirectedLayout], cache: StageCache) = for
-      g  <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
-      res = layout(s.step.iterations, s.step.seed, s.step.repetitions, g) // todo move here
-      _  <- cache.setStage(Stage.Layout, s.mkTag, res.get)
+    override def runToStage(s: WithTags[step.ForceDirectedLayout], cache: StageCache) = for
+      graph <- UseSingleStage(s, cache, stagesUsed)
+      res    = layout(s.step.iterations, s.step.seed, s.step.repetitions, graph)
+      _     <- UpdateSingleStage(s, cache, stagesModified)(res.get)
     yield res
 
     private def layout(iterations: Int, seed: Seed, repetitions: Int, graph: BasicGraph) =
@@ -45,8 +47,10 @@ object AlgorithmicSteps:
   end given
 
   given StepImpl[step.GTreeOverlaps] with
-    type ITags = "vertexBoxes" *: EmptyTuple
-    override def tags     = deriveTags[ITags]
+    override transparent inline def stagesUsed     = ("vertexBoxes", Stage.VertexBoxes)
+    override transparent inline def stagesModified = Stage.VertexBoxes
+
+    override def tags     = GetSingleTag(stagesUsed)
     override def helpText =
       s"""Remove overlaps among vertex boxes with the GTree algorithm.
          | * `${field[step.GTreeOverlaps, "seed"]}` - use a PRNG initialized with this seed.
@@ -56,11 +60,11 @@ object AlgorithmicSteps:
          |    Use ${Stretch.description}
          """.stripMargin
 
-    override def runToStage(s: WithTags[ITags, step.GTreeOverlaps], cache: StageCache) =
+    override def runToStage(s: WithTags[step.GTreeOverlaps], cache: StageCache) =
       import s.step.*
       for
-        boxes <- cache.getStageResult(Stage.VertexBoxes, s.mkITag("vertexBoxes"))
-        _     <- cache.setStage(Stage.VertexBoxes, s.mkTag, align(stretch, seed, forceGeneralPosition, boxes))
+        boxes <- UseSingleStage(s, cache, stagesUsed)
+        _     <- UpdateSingleStage(s, cache, stagesModified)(align(stretch, seed, forceGeneralPosition, boxes))
       yield noRt
 
     private def align(stretch: Stretch, seed: Seed, forceGP: Boolean, boxes: VertexBoxes) =
@@ -70,17 +74,18 @@ object AlgorithmicSteps:
   end given
 
   given StepImpl[step.PortsByAngle] with
-    type ITags = ("vertexBoxes", "graph")
-    override def tags     = deriveTags[ITags]
+    override transparent inline def stagesUsed     = ("vertexBoxes" -> Stage.VertexBoxes, "graph" -> Stage.Graph)
+    override transparent inline def stagesModified = Stage.Ports *: EmptyTuple
+
+    override def tags     = GetTags(stagesUsed)
     override def helpText =
       val modes = enumNames[PortMode].map(s => s"`$s`").mkString(", ")
       s"""Distribute ports based on straight-line edges.
          | * `${field[step.PortsByAngle, "mode"]}` - use one of $modes""".stripMargin
 
-    override def runToStage(s: WithTags[ITags, step.PortsByAngle], cache: StageCache) = for
-      g     <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
-      boxes <- cache.getStageResult(Stage.VertexBoxes, s.mkITag("vertexBoxes"))
-      _     <- cache.setStage(Stage.Ports, s.mkTag, mkPorts(s.step.mode, boxes, g))
+    override def runToStage(s: WithTags[step.PortsByAngle], cache: StageCache) = for
+      (boxes, graph) <- UseStages(s, cache, stagesUsed)
+      _              <- UpdateStages(s, cache, stagesModified)(mkPorts(s.step.mode, boxes, graph) *: EmptyTuple)
     yield noRt
 
     private def mkPorts(mode: PortMode, boxes: VertexBoxes, graph: BasicGraph) =
@@ -99,95 +104,104 @@ object AlgorithmicSteps:
   end given
 
   given StepImpl[step.SimplifiedRoutingGraph] with
-    type ITags = ("vertexBoxes", "ports")
-    override def tags     = deriveTags[ITags]
+    override transparent inline def stagesUsed     = ("vertexBoxes" -> Stage.VertexBoxes, "ports" -> Stage.Ports)
+    override transparent inline def stagesModified = Stage.RoutingGraph
+
+    override def tags     = GetTags(stagesUsed)
     override def helpText =
       s"""Create a routing graph.
          | * `${field[step.SimplifiedRoutingGraph, "stretch"]}` - manipulate the boxes before routing.
          |   Use ${Stretch.description}""".stripMargin
 
-    override def runToStage(s: WithTags[ITags, step.SimplifiedRoutingGraph], cache: StageCache) = for
-      boxes <- cache.getStageResult(Stage.VertexBoxes, s.mkITag("vertexBoxes"))
-      pl    <- cache.getStageResult(Stage.Ports, s.mkITag("ports"))
-      large  = VertexBoxes.lift(Stretch(s.step.stretch, _))(boxes)
-      _     <- cache.setStage(Stage.RoutingGraph, s.mkTag, RoutingGraph.withPorts(large, pl))
+    override def runToStage(s: WithTags[step.SimplifiedRoutingGraph], cache: StageCache) = for
+      (boxes, ports) <- UseStages(s, cache, stagesUsed)
+      large           = VertexBoxes.lift(Stretch(s.step.stretch, _))(boxes)
+      _              <- UpdateSingleStage(s, cache, stagesModified)(RoutingGraph.withPorts(large, ports))
     yield noRt
   end given
 
   given StepImpl[step.EdgeRouting] with
-    type ITags = ("routingGraph", "graph")
-    override def tags     = deriveTags[ITags]
+    override transparent inline def stagesUsed     = ("graph" -> Stage.Graph, "routingGraph" -> Stage.RoutingGraph)
+    override transparent inline def stagesModified = Stage.EdgeRouting
+
+    override def tags     = GetTags(stagesUsed)
     override def helpText = "Perform edge routing (includes edge ordering)."
 
-    override def runToStage(s: WithTags[ITags, step.EdgeRouting], cache: StageCache) = for
-      rg    <- cache.getStageResult(Stage.RoutingGraph, s.mkITag("routingGraph"))
-      graph <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
-      res    = Routing(rg, graph)
-      _     <- cache.setStage(Stage.EdgeRouting, s.mkTag, res.get)
+    override def runToStage(s: WithTags[step.EdgeRouting], cache: StageCache) = for
+      (graph, rg) <- UseStages(s, cache, stagesUsed)
+      res          = Routing(rg, graph)
+      _           <- UpdateSingleStage(s, cache, stagesModified)(res.get)
     yield res
   end given
 
   given StepImpl[step.PseudoRouting] with
-    type ITags = ("routes", "graph", "vertexBoxes")
-    override def tags     = deriveTags[ITags]
+    override transparent inline def stagesUsed     =
+      ("graph" -> Stage.Graph, "vertexBoxes" -> Stage.VertexBoxes, "routes" -> Stage.Routes)
+    override transparent inline def stagesModified = (Stage.EdgeRouting, Stage.Routes)
+
+    override def tags     = GetTags(stagesUsed)
     override def helpText =
       s"""Produce a fake edge routing from already routed edges
          |(e.g. in order to apply a nudging step afterwards).
          | * `${field[step.PseudoRouting, "fakePorts"]}` [boolean] - also produce fake ports""".stripMargin
 
-    override def runToStage(s: WithTags[ITags, step.PseudoRouting], cache: StageCache) = for
-      rs     <- cache.getStageResult(Stage.Routes, s.mkITag("routes"))
-      graph  <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
-      boxes  <- cache.getStageResult(Stage.VertexBoxes, s.mkITag("vertexBoxes"))
-      routing = PseudoRouting(rs, graph, boxes)
-      _      <- cache.setStage(Stage.EdgeRouting, s.mkTag, routing)
-      _      <- cache.setStage(Stage.Routes, s.mkTag, routing.routes)
-      _      <- if s.step.fakePorts then cache.setStage(Stage.Ports, s.mkTag, PortLayout(routing.routes.map(_.terminals)))
-                else Right(())
+    override def runToStage(s: WithTags[step.PseudoRouting], cache: StageCache) = for
+      (graph, boxes, routes) <- UseStages(s, cache, stagesUsed)
+      routing                 = PseudoRouting(routes, graph, boxes)
+      _                      <- UpdateStages(s, cache, stagesModified)((routing, routing.routes))
+      _                      <- if s.step.fakePorts then cache.setStage(Stage.Ports, s.mkTag, PortLayout(routing.routes.map(_.terminals)))
+                                else Right(())
     yield noRt
   end given
 
   given StepImpl[step.ConstrainedNudging] with
-    type ITags = ("routing", "ports", "vertexBoxes")
-    override def tags     = deriveTags[ITags]
+    override transparent inline def stagesUsed     =
+      ("ports" -> Stage.Ports, "vertexBoxes" -> Stage.VertexBoxes, "routing" -> Stage.EdgeRouting)
+    override transparent inline def stagesModified = Stage.Routes
+
+    override def tags     = GetTags(stagesUsed)
     override def helpText = "Perform constrained nudging."
 
-    override def runToStage(s: WithTags[ITags, step.ConstrainedNudging], cache: StageCache) = for
-      routing <- cache.getStageResult(Stage.EdgeRouting, s.mkITag("routing"))
-      ports   <- cache.getStageResult(Stage.Ports, s.mkITag("ports"))
-      boxes   <- cache.getStageResult(Stage.VertexBoxes, s.mkITag("vertexBoxes"))
-      _       <- cache.setStage(Stage.Routes, s.mkTag, EdgeNudging.calcEdgeRoutes(routing, ports, boxes))
+    override def runToStage(s: WithTags[step.ConstrainedNudging], cache: StageCache) = for
+      (ports, boxes, routing) <- UseStages(s, cache, stagesUsed)
+      _                       <- UpdateSingleStage(s, cache, stagesModified)(EdgeNudging.calcEdgeRoutes(routing, ports, boxes))
     yield noRt
   end given
 
   given StepImpl[step.NoNudging] with
-    type ITags = "routing" *: EmptyTuple
-    override def tags     = deriveTags[ITags]
+    override transparent inline def stagesUsed     = ("routing", Stage.EdgeRouting)
+    override transparent inline def stagesModified = Stage.Routes
+
+    override def tags     = GetSingleTag(stagesUsed)
     override def helpText = "Perform no nudging."
 
-    override def runToStage(s: WithTags[ITags, step.NoNudging], cache: StageCache) =
-      cache.getStageResult(Stage.EdgeRouting, s.mkITag("routing"))
-        .flatMap(r => cache.setStage(Stage.Routes, s.mkTag, r.routes)).unit
+    override def runToStage(s: WithTags[step.NoNudging], cache: StageCache) =
+      UseSingleStage(s, cache, stagesUsed)
+        .flatMap(routing => UpdateSingleStage(s, cache, stagesModified)(routing.routes)).unit
+  end given
 
   given StepImpl[step.FullNudging] with
-    type ITags = ("routing", "vertexBoxes", "ports", "graph")
-    override def tags     = deriveTags[ITags]
+    override transparent inline def stagesUsed     = (
+      "graph"       -> Stage.Graph,
+      "ports"       -> Stage.Ports,
+      "vertexBoxes" -> Stage.VertexBoxes,
+      "routing"     -> Stage.EdgeRouting,
+    )
+    override transparent inline def stagesModified = (Stage.Routes, Stage.Ports, Stage.VertexBoxes)
+
+    override def tags     = GetTags(stagesUsed)
     override def helpText =
       s"""Perform full nudging (moves edge segments, ports, and vertex boxes).
          | * `${field[step.FullNudging, "padding"]}` - A minimum object distance is maintained.
          | * `${field[step.FullNudging, "use2ndHPass"]}` - enables an additional horizontal pass of full nudging."""
         .stripMargin
 
-    override def runToStage(s: WithTags[ITags, step.FullNudging], cache: StageCache) =
+    override def runToStage(s: WithTags[step.FullNudging], cache: StageCache) =
       for
-        routingIn  <- cache.getStageResult(Stage.EdgeRouting, s.mkITag("routing"))
-        portsIn    <- cache.getStageResult(Stage.Ports, s.mkITag("ports"))
-        boxesIn    <- cache.getStageResult(Stage.VertexBoxes, s.mkITag("vertexBoxes"))
-        g          <- cache.getStageResult(Stage.Graph, s.mkITag("graph"))
-        (r, pl, vb) = FullNudging(Nudging.Config(s.step.padding, s.step.use2ndHPass), routingIn, portsIn, g, boxesIn)
-        _          <- cache.setStage(Stage.Routes, s.mkTag, r)
-        _          <- cache.setStage(Stage.Ports, s.mkTag, pl)
-        _          <- cache.setStage(Stage.VertexBoxes, s.mkTag, vb)
+        (graph, portsIn, boxesIn, routing) <- UseStages(s, cache, stagesUsed)
+        (routes, ports, boxes)              =
+          FullNudging(Nudging.Config(s.step.padding, s.step.use2ndHPass), routing, portsIn, graph, boxesIn)
+        _                                  <- UpdateStages(s, cache, stagesModified)((routes, ports, boxes))
       yield noRt
   end given
 end AlgorithmicSteps
