@@ -98,7 +98,8 @@ trait NudgingCommons:
               if dir == nextDir then go(res, tail, v :: tmp, dir)
               else go(mkGroup(dir, res.size, nextDir, tmp.reverse) :: res, tail, List(v, u), nextDir)
 
-        go(Nil, path.nodes.sliding(2).toList, List(path.nodes.head), ts(rg.portId(path.nodes.head).get).dir)
+        val startDir = rg.unsafeLinkDir(path.nodes.head, path.nodes.tail.head)
+        go(Nil, path.nodes.sliding(2).toList, List(path.nodes.head), startDir)
       end splitIntoSegments
 
       @tailrec @nowarn("name=PatternMatchExhaustivity")

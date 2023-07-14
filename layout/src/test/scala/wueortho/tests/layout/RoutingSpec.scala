@@ -1,6 +1,6 @@
 package wueortho.tests.layout
 
-import wueortho.data.*
+import wueortho.data.*, Direction.*
 import wueortho.routing.*
 import wueortho.util.GraphProperties.*
 import wueortho.util.GraphSearch.bfs
@@ -79,7 +79,7 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
 
   "Full nudging of routes on the orthogonal visibility graph" `should` "complete without errors" in:
     val (routes, nudgedPorts, nudgedBoxes) =
-      FullNudging(Nudging.Config(1, false), ovgRouted, Sample.ports, Sample.graph, Sample.boxes)
+      FullNudging(Nudging.Config(1, false), ovgRouted, Sample.graph, Sample.boxes)
     routes should have size Sample.edges.size
     nudgedPorts.byEdge should have size Sample.edges.size
     nudgedBoxes.asRects should have size Sample.boxes.asRects.size
@@ -87,7 +87,13 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
   lazy val routedNoPorts = Routing(withoutPorts, Sample.graph)
 
   "Routing without ports" `should` "produce given routes" in:
-    routedNoPorts.get.routes.zipWithIndex.foreach((r, i) => println(s"$i: $r"))
+    val routes = routedNoPorts.get.routes
+    val spec1  = EdgeRoute(EdgeTerminals(Vec2D(5.5, 1), East, Vec2D(9, 5.5), South), List(HSeg(3.5), VSeg(4.5)))
+    val spec2  = EdgeRoute(EdgeTerminals(Vec2D(9, 5.5), West, Vec2D(1.5, 7.5), South), List(HSeg(-7.5), VSeg(2)))
+    routes(0) shouldBe spec1
+    routes(1) shouldBe spec1
+    routes(2) shouldBe spec2
+    routes(3) shouldBe spec2
 
   lazy val routed = Routing(routingGraph, Sample.graph).get
   lazy val routes = EdgeNudging.calcEdgeRoutes(routed, Sample.ports, Sample.boxes)
@@ -97,7 +103,7 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
 
   "Full nudging of routes on the simplified routing graph" `should` "complete without errors" in:
     val (routes, nudgedPorts, nudgedBoxes) =
-      FullNudging(Nudging.Config(1, true), routed, Sample.ports, Sample.graph, Sample.boxes)
+      FullNudging(Nudging.Config(1, true), routed, Sample.graph, Sample.boxes)
     routes should have size Sample.edges.size
     nudgedPorts.byEdge should have size Sample.edges.size
     nudgedBoxes.asRects should have size Sample.boxes.asRects.size
@@ -121,7 +127,7 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
 
   "Full nudging on a pseudo routing" `should` "complete without errors" in:
     val (routes, nudgedPorts, nudgedBoxes) =
-      FullNudging(Nudging.Config(1, true), pseudoRouting, Sample.ports, Sample.graph, Sample.boxes)
+      FullNudging(Nudging.Config(1, true), pseudoRouting, Sample.graph, Sample.boxes)
     routes should have size Sample.edges.size
     nudgedPorts.byEdge should have size Sample.edges.size
     nudgedBoxes.asRects should have size Sample.boxes.asRects.size

@@ -191,9 +191,9 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
     )
     VertexBoxes(boxNodes.map(nodes2rect))
 
-  def calcAll(routing: Routed, ports: PortLayout, graph: BasicGraph, vertexBoxes: VertexBoxes) = (for
+  def calcAll(routing: Routed, graph: BasicGraph, vertexBoxes: VertexBoxes) = (for
     boxNodes <- vertexBoxes.asRects.zipWithIndex.map(mkBoxNodes.tupled).toVector.sequence
-    paths    <- Segment.mkAll(routing.paths, routing, mkTerminals(ports, graph), i => segBuilder(i, routing, boxNodes))
+    paths    <- Segment.mkAll(routing.paths, routing, mkTerminals(routing.ports, graph), segBuilder(_, routing, boxNodes))
     hGraph   <- mkHGraph(paths, boxNodes)
     xSols1   <- hGraph.mkConstraints.map(maximize)
     ySols    <- mkVGraph(paths, boxNodes, xSols1).flatMap(_.mkConstraints).map(maximize)
@@ -208,5 +208,5 @@ class FullNudging(val conf: Nudging.Config) extends NudgingCommons:
 end FullNudging
 
 object FullNudging:
-  def apply(config: Nudging.Config, routing: Routed, ports: PortLayout, graph: BasicGraph, vertexBoxes: VertexBoxes) =
-    new FullNudging(config).calcAll(routing, ports, graph, vertexBoxes)
+  def apply(config: Nudging.Config, routing: Routed, graph: BasicGraph, vertexBoxes: VertexBoxes) =
+    new FullNudging(config).calcAll(routing, graph, vertexBoxes)

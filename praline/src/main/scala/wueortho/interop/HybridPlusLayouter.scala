@@ -12,7 +12,7 @@ abstract class HybridPlusLayouter(graph: Graph, minObjDistance: Double) extends 
     Pipeline:
         Seq(
           just(PPE.AccessPraline(List(Use.Graph, Use.VertexBoxes, Use.VertexLabels, Use.EdgeRoutes))),
-          just(step.PseudoRouting(fakePorts = true)),
+          just(step.PseudoRouting()),
           just(step.FullNudging(minObjDistance, use2ndHPass = true)),
           just(PPE.StorePraline()),
         )

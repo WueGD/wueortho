@@ -8,6 +8,7 @@ import wueortho.util.RunningTime
 trait Routing:
   def paths: IndexedSeq[Path]
   def routes: IndexedSeq[EdgeRoute]
+  def ports: PortLayout = PortLayout(routes.map(_.terminals))
 
 type Routed = RoutingGraph & PathOrder & Routing
 
@@ -30,8 +31,9 @@ object Routing:
   case class DijTrans(dir: Direction, dist: Double)
 
   def apply(routing: RoutingGraph, graph: BasicGraph): RunningTime.Measured[Routed] =
-    def transactions(u: NodeIndex) =
-      routing.neighbors(u).map((dir, v) => v -> DijTrans(dir, (routing.locate(v) - routing.locate(u)).len))
+    def mkTransactions(start: NodeIndex) = (u: NodeIndex) =>
+      if u != start && routing.isBlocked(u) then Nil
+      else routing.neighbors(u).map((dir, v) => v -> DijTrans(dir, (routing.locate(v) - routing.locate(u)).len))
 
     given dc: DijkstraCost[DijState, DijTrans] = (t, s0) => s0.transitionCost(t)
 
@@ -39,7 +41,7 @@ object Routing:
       for i <- 0 until graph.numberOfEdges
       yield
         val (u, v) = routing.resolveEdge(i)
-        dijkstra.shortestPath(transactions, u, v, DijState(0, 0, 0, None))
+        dijkstra.shortestPath(mkTransactions(u), u, v, DijState(0, 0, 0, None))
           .fold[Path](err => sys.error(s"cannot find shortest path between $u and $v: $err"), identity)
 
     val withoutEyes = routedPaths andThen (paths => RunningTime.of("remove-eyes")(removeEyes(paths)))

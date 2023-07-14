@@ -101,6 +101,8 @@ object PseudoRouting:
         case Intermediate(_, back, forth, _) => List(back, forth)
         case Terminal(_, _, _, next)         => List(next)
 
+      override def isBlocked(node: NodeIndex) = false
+
       override def rightPaths(n: NodeIndex) =
         neighbors(n).find((dir, _) => dir == East).map((_, i) => nodes(i.toInt).pathId).toSeq
       override def topPaths(n: NodeIndex)   =

@@ -17,6 +17,7 @@ case class OVG(nodes: IndexedSeq[OVGNode], private val obstacleLinks: IndexedSeq
   val neighbor                = OrthogonalVisibilityGraph.neighbor(this)
   def isPort(id: NodeIndex)   = id.toInt >= length
   def asPortId(id: NodeIndex) = id.toInt - length
+end OVG
 
 case class OVGNode(
     left: NavigableLink,
@@ -36,6 +37,7 @@ case class OVGNode(
     else if isLinkToNode(right) then Some(Direction.East)
     else if isLinkToNode(bottom) then Some(Direction.South)
     else None
+  end dirToNode
 
   def dirToPort(id: Int) =
     def isLinkToPort(link: NavigableLink) = PartialFunction.cond(link):
@@ -46,6 +48,8 @@ case class OVGNode(
     else if isLinkToPort(right) then Some(Direction.East)
     else if isLinkToPort(bottom) then Some(Direction.South)
     else None
+  end dirToPort
+end OVGNode
 
 enum NavigableLink derives CanEqual:
   case EndOfWorld
@@ -77,6 +81,7 @@ object OrthogonalVisibilityGraph:
       case _: QueueItem.Start => 2
       case _: QueueItem.Mid   => 1
       case _: QueueItem.End   => 0
+  end QueueItem
 
   enum PartialOVGNode:
     case Init(left: NavigableLink, bottom: NavigableLink, vi: Int, hi: Int, obstacle: Option[Int])
@@ -93,6 +98,7 @@ object OrthogonalVisibilityGraph:
       case base: Init              => WithRight(right, base)
       case WithTop(top, b)         => Ready(OVGNode(b.left, top, right, b.bottom, b.obstacle))
       case _: WithRight | _: Ready => sys.error(s"cannot add right part to $this")
+  end PartialOVGNode
 
   def create(rects: IndexedSeq[Rect2D], ports: PortLayout): (WeightedGraph, VertexLayout, IndexedSeq[SimpleEdge], OVG) =
     val (hSegs, vSegs) = buildSegments(rects, ports)
@@ -137,6 +143,7 @@ object OrthogonalVisibilityGraph:
             State(s.posHP - rect.right, s.negHP - rect.left, mkObsSeg(s, rect, rect.top, orig) :: s.segments)
           case Mid(y, x, idx)      => s.copy(segments = mkPortSeg(s, idx, x, y) :: s.segments),
       ).segments
+    end hSegs
 
     val vSegs =
       val queue = (nodes.zipWithIndex.flatMap((rect, i) => List(Start(rect.left, rect, i), End(rect.right, rect, i)))
@@ -164,6 +171,7 @@ object OrthogonalVisibilityGraph:
             State(s.posHP - rect.top, s.negHP - rect.bottom, mkObsSeg(s, rect, rect.right, orig) :: s.segments)
           case Mid(x, y, idx)      => s.copy(segments = mkPortSeg(s, idx, x, y) :: s.segments),
       ).segments
+    end vSegs
 
     hSegs -> vSegs
   end buildSegments
@@ -217,6 +225,8 @@ object OrthogonalVisibilityGraph:
         else
           nodes(bi) = nodes(bi).withTop(NavigableLink.Node(NodeIndex(i)))
           NavigableLink.Node(NodeIndex(bi))
+        end if
+      end bottom
       vPreNodes(vi) = i
 
       val left =
@@ -232,6 +242,8 @@ object OrthogonalVisibilityGraph:
         else
           nodes(li) = nodes(li).withRight(NavigableLink.Node(NodeIndex(i)))
           NavigableLink.Node(NodeIndex(li))
+        end if
+      end left
       hPreNodes(hi) = i
 
       hSegs(hi) -> vSegs(vi) match
@@ -243,6 +255,7 @@ object OrthogonalVisibilityGraph:
           nodes += PartialOVGNode.Init(left, bottom, vi, hi, Some(ho))
         case _ =>
           nodes += PartialOVGNode.Init(left, bottom, vi, hi, None)
+      end match
     end for
 
     def mkTop(vi: Int, hi: Int) = // a node has no top node iff it is the topmost node in its channel
@@ -333,6 +346,7 @@ object OrthogonalVisibilityGraph:
       case West  =>
         val first = nodeOrElse(bl.right)(identity, failCornerNode(bl, _))
         listAll(_.right, _.top)(Nil, first)
+    end match
   end obstacleBorder
 
   def edgeOfWorld(ovg: OVG)(dir: Direction) =
@@ -361,6 +375,7 @@ object OrthogonalVisibilityGraph:
       case NavigableLink.Node(idx)     => Some(idx.toInt)
       case NavigableLink.Obstacle(idx) => None
       case NavigableLink.Port(idx)     => Some(ovg.length + idx)
+  end neighbor
 
   class RoutingGraphAdapter(ovg: OVG, adj: WeightedGraph, lay: VertexLayout, ports: PortLayout) extends RoutingGraph:
 
@@ -378,10 +393,13 @@ object OrthogonalVisibilityGraph:
 
     override def locate(node: NodeIndex) = lay(node)
 
+    override def isBlocked(node: NodeIndex) = false
+
     private def portNeighbor(node: NodeIndex, dir: Direction) =
       Option.when(ports.portDir(ovg.asPortId(node)) == dir)(adj(node).neighbors.head.toNode)
 
     private def portNeighbors(node: NodeIndex) =
       adj(node).neighbors.map(link => ports.portDir(ovg.asPortId(node)) -> link.toNode).toList
+  end RoutingGraphAdapter
 
 end OrthogonalVisibilityGraph

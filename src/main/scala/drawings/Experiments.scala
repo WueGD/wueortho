@@ -106,7 +106,7 @@ object Experiments:
           just(PPE.ReadPralineFile(path, List(Use.Graph, Use.VertexBoxes, Use.VertexLabels, Use.EdgeRoutes))),
           // just(step.BoxesFromLabels(VertexLabelConfig.PralineDefaults)),
           just(step.GTreeOverlaps(Stretch.Original, Seed(0x99c0ffee), forceGeneralPosition = false)),
-          just(step.PseudoRouting(fakePorts = true)),
+          just(step.PseudoRouting()),
           just(step.FullNudging(padding = 12, use2ndHPass = true)),
           just(step.Metrics(List("all"))),
           just(step.SyntheticPortLabels(SyntheticLabels.Hide)),

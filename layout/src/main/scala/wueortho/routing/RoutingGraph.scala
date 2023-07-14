@@ -12,8 +12,12 @@ trait RoutingGraph:
   def neighbors(node: NodeIndex): List[(Direction, NodeIndex)]
   def neighbor(node: NodeIndex, dir: Direction): Option[NodeIndex]
   def portId(node: NodeIndex): Option[Int]
+  def isBlocked(node: NodeIndex): Boolean
 
   def connection(u: NodeIndex, v: NodeIndex): Option[Direction] = neighbors(u).find(_._2 == v).map(_._1)
+  def unsafeLinkDir(u: NodeIndex, v: NodeIndex): Direction      =
+    connection(u, v) getOrElse sys.error(s"graph disconnected between $u and $v")
+
 end RoutingGraph
 
 object RoutingGraph:
@@ -291,6 +295,7 @@ object RoutingGraph:
       override def resolveEdge(edgeId: Int)                  = NodeIndex(2 * edgeId) -> NodeIndex(2 * edgeId + 1)
       override def portId(node: NodeIndex)                   = Option.when(node.toInt < ports.numberOfPorts)(node.toInt)
       override def size: Int                                 = nodes.length
+      override def isBlocked(node: NodeIndex)                = false
   end withPorts
 
   def withoutPorts(boxes: VertexBoxes, graph: BasicGraph) =
@@ -312,6 +317,7 @@ object RoutingGraph:
       override def resolveEdge(edgeId: Int)                  = Tuple.fromProductTyped(graph.edges(edgeId))
       override def portId(node: NodeIndex): Option[Int]      = None
       override def size: Int                                 = nodes.length
+      override def isBlocked(node: NodeIndex)                = node.toInt < n
   end withoutPorts
 
   def debug(rg: RoutingGraph) = for i <- NodeIndex(0) until rg.size do

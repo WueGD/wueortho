@@ -10,10 +10,6 @@ trait PathOrder:
   def rightPaths(n: NodeIndex): Seq[Int]
 
 object PathOrder:
-  extension (rg: RoutingGraph)
-    private def linkDir(u: NodeIndex, v: NodeIndex) =
-      rg.connection(u, v).getOrElse(sys.error(s"graph disconnected between $u and $v"))
-
   def apply(rg: RoutingGraph, paths: IndexedSeq[Path]) =
     val top   = mutable.ArrayBuffer.fill(rg.size)(mutable.ArrayBuffer.empty[Int])
     val right = mutable.ArrayBuffer.fill(rg.size)(mutable.ArrayBuffer.empty[Int])
@@ -25,7 +21,7 @@ object PathOrder:
      * v1.east is sorted before v1.north
      */
     def mkLt(v1: NodeIndex, v2: NodeIndex)(pathIdA: Int, pathIdB: Int): Boolean =
-      val startDir = rg.linkDir(v2, v1)
+      val startDir = rg.unsafeLinkDir(v2, v1)
       val isSorted = if startDir == West then (i: Int) => i < v1.toInt else (i: Int) => i <= v1.toInt
 
       val (pa, pb)             = (paths(pathIdA).nodes, paths(pathIdB).nodes)
@@ -42,14 +38,14 @@ object PathOrder:
         if (a - da) < 0 || (a - da) >= pa.size || (b - db) < 0 || (b - db) >= pb.size then
           // - a/b terminate in the same vertex
           if isReversed then pathIdA < pathIdB
-          else go(i1a, i1b, startDir.reverse, isReversed = true)
+          else go(i2a, i2b, startDir.reverse, isReversed = true)
         else if pa(a - da) != pb(b - db) then
           // - a/b have no common next vertex: check their directions -> you are finished!
-          val dirA = rg.linkDir(pa(a), pa(a - da))
-          val dirB = rg.linkDir(pb(b), pb(b - db))
+          val dirA = rg.unsafeLinkDir(pa(a), pa(a - da))
+          val dirB = rg.unsafeLinkDir(pb(b), pb(b - db))
           dirOrder(dir, dirA) < dirOrder(dir, dirB)
         else
-          val commonDir   = rg.linkDir(pa(a), pa(a - da))
+          val commonDir   = rg.unsafeLinkDir(pa(a), pa(a - da))
           val maybeLookup = commonDir match
             case North => Option.when(isSorted(pa(a).toInt))(top(pa(a).toInt))
             case East  => Option.when(isSorted(pa(a).toInt))(right(pa(a).toInt))
@@ -70,7 +66,7 @@ object PathOrder:
       (path, i) <- paths.zipWithIndex
       Seq(u, v) <- path.nodes.sliding(2)
     do
-      rg.linkDir(u, v) match
+      rg.unsafeLinkDir(u, v) match
         case North => top(u.toInt) += i
         case East  => right(u.toInt) += i
         case South => top(v.toInt) += i

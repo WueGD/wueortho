@@ -98,7 +98,7 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
     val app = pipeline("sample-nudging-on-pseudo-routing")
       |> useSamples(Stage.Graph, Stage.VertexBoxes, Stage.Ports, Stage.VertexLabels)
       |> commonSteps
-      |> use(step.ConstrainedNudging(), step.PseudoRouting(fakePorts = false), step.FullNudging(0.8, true), drawSvg)
+      |> use(step.ConstrainedNudging(), step.PseudoRouting(), step.FullNudging(0.8, true), drawSvg)
       |> saveSvg
     app.run()
 end ArtifactsSpec

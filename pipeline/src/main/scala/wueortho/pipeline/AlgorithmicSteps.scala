@@ -120,6 +120,19 @@ object AlgorithmicSteps:
     yield noRt
   end given
 
+  given StepImpl[step.CenteredRoutingGraph] with
+    override transparent inline def stagesUsed     = ("graph" -> Stage.Graph, "vertexBoxes" -> Stage.VertexBoxes)
+    override transparent inline def stagesModified = Stage.RoutingGraph
+
+    override def tags     = GetTags(stagesUsed)
+    override def helpText = "Create a routing graph with all edges starting at the centers of vertex boxes."
+
+    override def runToStage(s: WithTags[step.CenteredRoutingGraph], cache: StageCache) = for
+      (graph, boxes) <- UseStages(s, cache, stagesUsed)
+      _              <- UpdateSingleStage(s, cache, stagesModified)(RoutingGraph.withoutPorts(boxes, graph))
+    yield noRt
+  end given
+
   given StepImpl[step.EdgeRouting] with
     override transparent inline def stagesUsed     = ("graph" -> Stage.Graph, "routingGraph" -> Stage.RoutingGraph)
     override transparent inline def stagesModified = Stage.EdgeRouting
@@ -142,15 +155,25 @@ object AlgorithmicSteps:
     override def tags     = GetTags(stagesUsed)
     override def helpText =
       s"""Produce a fake edge routing from already routed edges
-         |(e.g. in order to apply a nudging step afterwards).
-         | * `${field[step.PseudoRouting, "fakePorts"]}` [boolean] - also produce fake ports""".stripMargin
+         |(e.g. in order to apply a nudging step afterwards).""".stripMargin
 
     override def runToStage(s: WithTags[step.PseudoRouting], cache: StageCache) = for
       (graph, boxes, routes) <- UseStages(s, cache, stagesUsed)
       routing                 = PseudoRouting(routes, graph, boxes)
       _                      <- UpdateStages(s, cache, stagesModified)((routing, routing.routes))
-      _                      <- if s.step.fakePorts then cache.setStage(Stage.Ports, s.mkTag, PortLayout(routing.routes.map(_.terminals)))
-                                else Right(())
+    yield noRt
+  end given
+
+  given StepImpl[step.PseudoPorts] with
+    override transparent inline def stagesUsed     = ("routing" -> Stage.EdgeRouting)
+    override transparent inline def stagesModified = Stage.Ports
+
+    override def tags     = GetSingleTag(stagesUsed)
+    override def helpText = "Produce a fake ports from an edge routing. These Ports may overlap."
+
+    override def runToStage(s: WithTags[step.PseudoPorts], cache: StageCache) = for
+      routing <- UseSingleStage(s, cache, stagesUsed)
+      _       <- UpdateSingleStage(s, cache, stagesModified)(routing.ports)
     yield noRt
   end given
 
@@ -181,12 +204,8 @@ object AlgorithmicSteps:
   end given
 
   given StepImpl[step.FullNudging] with
-    override transparent inline def stagesUsed     = (
-      "graph"       -> Stage.Graph,
-      "ports"       -> Stage.Ports,
-      "vertexBoxes" -> Stage.VertexBoxes,
-      "routing"     -> Stage.EdgeRouting,
-    )
+    override transparent inline def stagesUsed     =
+      ("graph" -> Stage.Graph, "vertexBoxes" -> Stage.VertexBoxes, "routing" -> Stage.EdgeRouting)
     override transparent inline def stagesModified = (Stage.Routes, Stage.Ports, Stage.VertexBoxes)
 
     override def tags     = GetTags(stagesUsed)
@@ -198,10 +217,10 @@ object AlgorithmicSteps:
 
     override def runToStage(s: WithTags[step.FullNudging], cache: StageCache) =
       for
-        (graph, portsIn, boxesIn, routing) <- UseStages(s, cache, stagesUsed)
-        (routes, ports, boxes)              =
-          FullNudging(Nudging.Config(s.step.padding, s.step.use2ndHPass), routing, portsIn, graph, boxesIn)
-        _                                  <- UpdateStages(s, cache, stagesModified)((routes, ports, boxes))
+        (graph, boxesIn, routing) <- UseStages(s, cache, stagesUsed)
+        (routes, ports, boxes)     =
+          FullNudging(Nudging.Config(s.step.padding, s.step.use2ndHPass), routing, graph, boxesIn)
+        _                         <- UpdateStages(s, cache, stagesModified)((routes, ports, boxes))
       yield noRt
   end given
 end AlgorithmicSteps

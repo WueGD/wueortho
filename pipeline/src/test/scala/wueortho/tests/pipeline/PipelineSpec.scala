@@ -26,7 +26,7 @@ class PipelineSpec extends AnyFlatSpec, should.Matchers:
     val step0 = step.RandomGraph(12, 23, Seed(0x123), RandomGraphs.GraphCore.Tree, false)
     val step1 = step.FullNudging(0.2, true)
     val dummy =
-      Pipeline(List(withTags(step0, Some("main"))(), withTags(step1, None)(("routing", "main"), ("ports", "other"))))
+      Pipeline(List(withTags(step0, Some("main"))(), withTags(step1, None)(("routing", "main"), ("graph", "other"))))
 
     val rt   = Pipeline.coreRuntime
     val json = rt.asJson(dummy)
@@ -36,11 +36,11 @@ class PipelineSpec extends AnyFlatSpec, should.Matchers:
     p2.steps(0).iTags should be(empty)
     p2.steps(0).step.asInstanceOf[CoreStep] shouldBe (step0: CoreStep)
     p2.steps(1).tag shouldBe None
-    p2.steps(1).iTags.asInstanceOf[Map[String, String]] shouldBe Map("routing" -> "main", "ports" -> "other")
+    p2.steps(1).iTags.asInstanceOf[Map[String, String]] shouldBe Map("routing" -> "main", "graph" -> "other")
     p2.steps(1).step.asInstanceOf[CoreStep] shouldBe step1
 
   lazy val simpleAsJson  =
     """{"steps":[{"n":12,"m":24,"seed":"123","core":"Tree","allowLoops":false,"type":"RandomGraph","tag":null},{"padding":0.2,"use2ndHPass":true,"type":"FullNudging","tag":null},{"type":"EdgeRouting","tag":null}]}"""
   lazy val complexAsJson =
-    """{"steps":[{"n":12,"m":23,"seed":"123","core":"Tree","allowLoops":false,"type":"RandomGraph","tag":"main"},{"padding":0.2,"use2ndHPass":true,"type":"FullNudging","tag":null,"routing":"main","ports":"other"}]}"""
+    """{"steps":[{"n":12,"m":23,"seed":"123","core":"Tree","allowLoops":false,"type":"RandomGraph","tag":"main"},{"padding":0.2,"use2ndHPass":true,"type":"FullNudging","tag":null,"routing":"main","graph":"other"}]}"""
 end PipelineSpec

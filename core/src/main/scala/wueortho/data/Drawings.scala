@@ -27,7 +27,7 @@ object VertexBoxes:
   def fromVertexLayout(f: (Vec2D, Int) => Rect2D)(vl: VertexLayout) = VertexBoxes(vl.nodes.zipWithIndex.map(f.tupled))
   def lift(f: IndexedSeq[Rect2D] => IndexedSeq[Rect2D])             = (in: VertexBoxes) => VertexBoxes(f(in.asRects))
 
-case class EdgeRoute(terminals: EdgeTerminals, route: Seq[EdgeRoute.OrthoSeg]):
+case class EdgeRoute(terminals: EdgeTerminals, route: Seq[EdgeRoute.OrthoSeg]) derives CanEqual:
   import EdgeRoute.OrthoSeg, OrthoSeg.*, Direction.*
 
   assert(route.nonEmpty, "route must not be empty")
