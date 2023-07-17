@@ -8,7 +8,7 @@ import wueortho.routing.*
 import wueortho.metrics.Crossings
 import wueortho.util.GraphConversions, GraphConversions.toWeighted.*
 import wueortho.util.Codecs.given
-import wueortho.util.RunningTime, RunningTime.unit as noRt, StepUtils.unit, StepImpl.*
+import wueortho.util.RunningTime, RunningTime.unit as noRt, StepUtils.*
 import wueortho.util.EnumUtils.*
 import io.circe.derivation.ConfiguredEnumCodec
 

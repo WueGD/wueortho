@@ -65,6 +65,12 @@ object StepImpl:
   transparent inline def allImpls[T](using m: Mirror.SumOf[T]): List[Any] =
     summonAll[Tuple.Map[m.MirroredElemTypes, [z] =>> StepImpl[z]]].toList
 
+object StepUtils:
+  def resolve(t: Option[String]) = t.getOrElse("default")
+
+  extension [T, R](eth: Either[T, Unit])
+    def unit: Either[T, RunningTime.Measured[Unit]] = eth.map(_ => RunningTime.unit)
+
   trait UseStages[T]:
     type R <: Tuple
     def apply(s: WithTags[?], cache: StageCache, t: T): Either[String, R]
@@ -130,10 +136,4 @@ object StepImpl:
     def apply[T0, I0](s: WithTags[?], cache: StageCache, t: T0)(using
         update: UpdateStages[T0 *: EmptyTuple] { type In = I0 *: EmptyTuple },
     )(in: I0) = update(s, cache, t *: EmptyTuple, in *: EmptyTuple)
-end StepImpl
-
-object StepUtils:
-  def resolve(t: Option[String]) = t.getOrElse("default")
-
-  extension [T, R](eth: Either[T, Unit])
-    def unit: Either[T, RunningTime.Measured[Unit]] = eth.map(_ => RunningTime.unit)
+end StepUtils

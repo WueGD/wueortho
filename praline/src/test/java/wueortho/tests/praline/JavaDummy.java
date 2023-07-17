@@ -17,7 +17,7 @@ class JavaDummy {
 		api.setMainTag("praline");
 		var pipeline = api.loadPipeline(raw);
 		var result = api.run(pipeline);
-		System.out.println(result.runningTime().show());
+		// System.out.println(result.runningTime().show());
 		return result;
 	}
 

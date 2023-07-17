@@ -14,7 +14,7 @@ import scala.util.Try
 import java.nio.file.Files
 
 object InputSteps:
-  import wueortho.util.RunningTime.unit as noRt, StepUtils.unit, StepImpl.*
+  import wueortho.util.RunningTime.unit as noRt, StepUtils.*
 
   given StepImpl[step.RandomGraph] with
     override transparent inline def stagesUsed     = EmptyTuple

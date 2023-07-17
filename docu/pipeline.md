@@ -1,10 +1,10 @@
 WueOrtho Pipeline Format
 ========================
 
-*This document was generated on 2023-06-28. Use the appropriate main to generate an up-to-date version.*
+*This document was generated on 2023-07-17. Use the appropriate main to generate an up-to-date version.*
 
 A WueOrtho pipeline can be assembled using its JSON representation.
-The pipeline describes a selection and oder of algorithms to produce an orthogonal graph drawing.
+The pipeline describes a selection and order of algorithms to produce an orthogonal graph drawing.
 Each step may read and write intermediate results to a shared cache to persist results and to promote data to following steps.
 
 Intermediate results are grouped by type into so-called stages.
@@ -12,7 +12,7 @@ Currently, there are the following stages:
  - Graph
  - Layout
  - VertexLabels
- - Obstacles
+ - VertexBoxes
  - Ports
  - PortLabels
  - RoutingGraph
@@ -110,7 +110,7 @@ Create vertex boxes to host text labels
 Read inputs in Trivial Graph Layout Format.
  * `path` - read from this file.
  * `use` - select a list of extractors.
-    Possible values: `Graph`, `VertexLayout`, `Obstacles`, `EdgeRoutes`
+    Possible values: `Graph`, `VertexLayout`, `VertexBoxes`, `EdgeRoutes`
 
 *Input Tags*: -
 
@@ -121,7 +121,7 @@ Perform force-directed vertex layout for a given graph.
  * `seed` - The layout is initialized using a PRNG with this seed.
  * `iterations` - and the algorithm stops after so many steps.
  * `repetitions` - number of layouts will be calculated.
-    The algorithm takes the one with the least straight-line crossings
+    The algorithm chooses the one with the least straight-line crossings
 
 *Input Tags*: `graph`
 
@@ -164,20 +164,33 @@ Create a routing graph.
 *Input Tags*: `vertexBoxes`, `ports`
 
 
+**CenteredRoutingGraph**
+
+Create a routing graph with all edges starting at the centers of vertex boxes.
+
+*Input Tags*: `graph`, `vertexBoxes`
+
+
 **EdgeRouting**
 
 Perform edge routing (includes edge ordering).
 
-*Input Tags*: `routingGraph`, `ports`
+*Input Tags*: `graph`, `routingGraph`
 
 
 **PseudoRouting**
 
 Produce a fake edge routing from already routed edges
 (e.g. in order to apply a nudging step afterwards).
- * `fakePorts` [boolean] - also produce fake ports
 
-*Input Tags*: `routes`
+*Input Tags*: `graph`, `vertexBoxes`, `routes`
+
+
+**PseudoPorts**
+
+Produce a fake ports from an edge routing. These Ports may overlap.
+
+*Input Tags*: `routing`
 
 
 **NoNudging**
@@ -191,7 +204,7 @@ Perform no nudging.
 
 Perform constrained nudging.
 
-*Input Tags*: `routing`, `ports`, `vertexBoxes`
+*Input Tags*: `ports`, `vertexBoxes`, `routing`
 
 
 **FullNudging**
@@ -200,7 +213,7 @@ Perform full nudging (moves edge segments, ports, and vertex boxes).
  * `padding` - A minimum object distance is maintained.
  * `use2ndHPass` - enables an additional horizontal pass of full nudging.
 
-*Input Tags*: `routing`, `vertexBoxes`, `ports`, `graph`
+*Input Tags*: `graph`, `vertexBoxes`, `routing`
 
 
 **Metrics**
@@ -209,7 +222,7 @@ Calculate metrics.
  * `use` - select a list of metrics. Use `["all"]` to select all metrics.
     Otherwise select a subset of `[Crossings, BoundingBoxArea, ConvexHullArea, TotalEdgeLength, EdgeBends, EdgeLengthVariance, HasLoops, HasMultiEdges, IsConnected, AspectRatio, InterEdgeDistance]`.
 
-*Input Tags*: `routes`, `graph`, `vertexBoxes`
+*Input Tags*: `graph`, `vertexBoxes`, `routes`
 
 
 **SvgDrawing**
@@ -222,7 +235,7 @@ Draw as SVG.
    - `Praline` close to Praline but with colorful edges (ppu=1).
    - `Custom` full custom (see wueortho.io.svg.Svg for details).
 
-*Input Tags*: `routes`, `vertexBoxes`, `vertexLabels`, `portLabels`
+*Input Tags*: `vertexBoxes`, `routes`, `vertexLabels`, `portLabels`
 
 
 **SvgToFile**
@@ -254,7 +267,7 @@ Access the praline API via the ForeignData stage.
 Store pipeline contents to file as praline json.
 All available stages will be included. Use undefined tags to exclude stages.
 
-*Input Tags*: `graph`, `vertexBoxes`, `vertexLabels`, `routes`
+*Input Tags*: `graph`
 
 
 **StorePraline**
@@ -262,5 +275,5 @@ All available stages will be included. Use undefined tags to exclude stages.
 Store pipeline contents to the praline API via the ForeignData stage.
 All available stages will be included. Use undefined tags to exclude stages.
 
-*Input Tags*: `praline`, `graph`, `vertexBoxes`, `vertexLabels`, `routes`
+*Input Tags*: `praline`, `graph`
 

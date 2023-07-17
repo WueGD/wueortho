@@ -1,6 +1,7 @@
 package wueortho.pipeline
 
 import wueortho.util.EnumUtils.enumNames
+import java.time.LocalDate
 
 object HelpText:
   private lazy val stages = enumNames[Stage[?]].map(s => s" - $s").mkString("\n")
@@ -24,6 +25,8 @@ object HelpText:
   def apply(id: String, impls: Seq[StepImpl[?]]) =
     s"""WueOrtho Pipeline Format
        |========================
+       |
+       |*This document was generated on ${LocalDate.now()}. Use the appropriate main to generate an up-to-date version.*
        |
        |A WueOrtho pipeline can be assembled using its JSON representation.
        |The pipeline describes a selection and order of algorithms to produce an orthogonal graph drawing.

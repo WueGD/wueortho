@@ -5,7 +5,7 @@ import de.uniwue.informatik.praline.datastructure.graphs as P
 import wueortho.pipeline.*
 import wueortho.util.RunningTime.unit as noRt
 import wueortho.util.EnumUtils.enumNames
-import PralinePipelineExtensions.*, StepUtils.unit, StepImpl.*
+import PralinePipelineExtensions.*, StepUtils.*
 
 import wueortho.util.State
 import scala.util.Try

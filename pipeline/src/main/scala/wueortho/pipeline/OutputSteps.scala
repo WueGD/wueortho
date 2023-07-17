@@ -11,7 +11,7 @@ import scala.util.Try
 import java.nio.file.Files
 
 object OutputSteps:
-  import wueortho.util.RunningTime.unit as noRt, StepImpl.*
+  import wueortho.util.RunningTime.unit as noRt, StepUtils.*
 
   given StepImpl[step.Metrics] with
     override transparent inline def stagesUsed     =
