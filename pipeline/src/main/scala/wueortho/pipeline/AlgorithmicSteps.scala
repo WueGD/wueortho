@@ -7,9 +7,10 @@ import wueortho.ports.AngleHeuristic
 import wueortho.routing.*
 import wueortho.metrics.Crossings
 import wueortho.util.GraphConversions, GraphConversions.toWeighted.*
-import wueortho.util.Codecs.given
+import wueortho.util.GraphProperties.hasLoops
 import wueortho.util.RunningTime, RunningTime.unit as noRt, StepUtils.*
 import wueortho.util.EnumUtils.*
+import wueortho.util.Codecs.given
 import io.circe.derivation.ConfiguredEnumCodec
 
 import scala.util.Random
@@ -129,6 +130,7 @@ object AlgorithmicSteps:
 
     override def runToStage(s: WithTags[step.CenteredRoutingGraph], cache: StageCache) = for
       (graph, boxes) <- UseStages(s, cache, stagesUsed)
+      _              <- if graph.hasLoops then Left("self-loops are unsupported with centered routing") else Right(())
       _              <- UpdateSingleStage(s, cache, stagesModified)(RoutingGraph.withoutPorts(boxes, graph))
     yield noRt
   end given

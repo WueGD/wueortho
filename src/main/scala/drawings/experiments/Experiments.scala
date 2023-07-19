@@ -1,4 +1,4 @@
-package drawings
+package drawings.experiments
 
 import wueortho.data.*, Metadata.toMetadata
 import wueortho.pipeline.*, PipelineStep.*
@@ -31,9 +31,9 @@ object Experiments:
     "InterEdgeDistance",
   )
 
-  val inPath  = Path.of("data", "topozoo").nn
+  val inPath  = Path.of("data", "pseudoplans").nn
   val outPath = Path.of("results").nn
-  val batch   = "tz"
+  val batch   = "pp2*"
 
   trait Experiment(val name: String):
     def mkPipeline(inPath: Path): Pipeline
@@ -51,7 +51,7 @@ object Experiments:
         yield
           print("\b".repeat(11).nn + f"(${i + 1}%4d/${files.size}%4d)")
           val res =
-            try mainRuntime.run(mkPipeline(file))
+            try drawings.mainRuntime.run(mkPipeline(file))
             catch
               case throwable =>
                 println(s"\nFAILED at file $file ($throwable)")
@@ -104,7 +104,6 @@ object Experiments:
     override def mkPipeline(path: Path) = Pipeline:
         Seq(
           just(PPE.ReadPralineFile(path, List(Use.Graph, Use.VertexBoxes, Use.VertexLabels, Use.EdgeRoutes))),
-          // just(step.BoxesFromLabels(VertexLabelConfig.PralineDefaults)),
           just(step.GTreeOverlaps(Stretch.Original, Seed(0x99c0ffee), forceGeneralPosition = false)),
           just(step.PseudoRouting()),
           just(step.FullNudging(padding = 12, use2ndHPass = true)),
@@ -115,10 +114,9 @@ object Experiments:
         )
   ).run
 
-  private def commonSteps(gTreeStretch: Stretch, portMode: PortMode): Seq[WithTags[PipelineStep]] = Seq(
+  private def commonSteps(gTreeStretch: Stretch): Seq[WithTags[PipelineStep]] = Seq(
     just(step.GTreeOverlaps(gTreeStretch, Seed(0x99c0ffee), forceGeneralPosition = true)),
-    just(step.PortsByAngle(portMode)),
-    just(step.SimplifiedRoutingGraph(Stretch.Original)),
+    just(step.CenteredRoutingGraph()),
     just(step.EdgeRouting()),
     just(step.FullNudging(padding = 12, use2ndHPass = true)),
     just(step.Metrics(List("all"))),
@@ -134,7 +132,7 @@ object Experiments:
     def mkPipeline(path: Path) = Pipeline:
         just(PPE.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels, Use.VertexLayout)))
           +: just(step.BoxesFromLabels(VertexLabelConfig.PralineDefaults))
-          +: commonSteps(gTreeStretch = Stretch.Original, portMode = PortMode.Quadrants)
+          +: commonSteps(gTreeStretch = Stretch.Original)
           :+ just(step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` json2svg(path))),
   ).run
 
@@ -142,9 +140,9 @@ object Experiments:
     import PPE.PralineExtractor as Use
     def mkPipeline(path: Path) = Pipeline:
         just(PPE.ReadPralineFile(path, List(Use.Graph, Use.VertexLabels)))
-          +: just(step.ForceDirectedLayout(iterations = 800, Seed(0x98c0ffee), repetitions = 1))
+          +: just(step.ForceDirectedLayout(iterations = 800, Seed(0x99c0ffee), repetitions = 1))
           +: just(step.BoxesFromLabels(VertexLabelConfig.PralineDefaults))
-          +: commonSteps(gTreeStretch = Stretch.Uniform(1.2), portMode = PortMode.Quadrants)
+          +: commonSteps(gTreeStretch = Stretch.Uniform(1.2))
           :+ just(step.SvgToFile(outPath `resolve` s"${batch}_${name}_svgs" `resolve` json2svg(path))),
   ).run
 
