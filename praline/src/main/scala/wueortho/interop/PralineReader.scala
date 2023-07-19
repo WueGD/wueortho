@@ -17,6 +17,9 @@ object PralineReader:
   object fromString extends Serialization:
     def apply(s: String) = Try(Serialization.mapper.readValue(s, classOf[P.Graph]))
 
+  case class PralineEdgeSorter(edges: Map[P.Edge, Int]):
+    def apply(e: P.Edge) = edges(e)
+
   def fromFile(path: NioPath) = for
     str <- Try(Files.readString(path))
     g   <- fromString(str)
@@ -43,18 +46,25 @@ object PralineReader:
     //       acc.flatMap(more => portsFlat(pg.getPortCompositions().asScala.toSeq).map(more ++ _))
     //     case (acc, err)             => Left(s"unsupported port composition: ${err.getClass.getName()}")
 
+    mkEdges(g).map(_.sorted.foldLeft(Graph.builder())(_.addEdge.tupled(_)).mkBasicGraph)
+  end mkBasicGraph
+
+  private def mkEdges(g: P.Graph) =
     val lut = g.getVertices.asScala.zipWithIndex.toMap
 
     def mkEdge(e: P.Edge) =
       for
         (u, v) <- e.getPorts.asScala.toSeq match
                     case Seq(u, v) => Right(u -> v)
-                    case _         => Left("hyperedges are unsupported")
+                    case _         => Left(s"$e: dangling edges and hyperedges are unsupported")
         (i, j) <- (lut.get(u.getVertex) zip lut.get(v.getVertex)).toRight(s"could not find vertices $u and $v")
       yield NodeIndex(i min j) -> NodeIndex(i max j)
 
-    g.getEdges.asScala.toSeq.traverse(mkEdge).map(_.sorted.foldLeft(Graph.builder())(_.addEdge.tupled(_)).mkBasicGraph)
-  end mkBasicGraph
+    g.getEdges().asScala.toSeq.traverse(mkEdge)
+  end mkEdges
+
+  def mkEdgeSorter(g: P.Graph) = for edges <- mkEdges(g).map(_ zip g.getEdges().asScala)
+  yield PralineEdgeSorter(edges.sortBy(_._1).zipWithIndex.map((tup, i) => tup._2 -> i).toMap)
 
   def mkHypergraph(g: P.Graph) =
     val lut = g.getVertices.asScala.zipWithIndex.toMap

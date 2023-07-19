@@ -29,7 +29,7 @@ abstract class ForceDirectedLayouter(
           just(step.SimplifiedRoutingGraph(Stretch.Original)),
           just(step.EdgeRouting()),
           just(step.FullNudging(minObjDistance, use2ndHPass = true)),
-          just(PPE.StorePraline()),
+          just(PPE.UpdatePraline()),
         )
   end pipeline
 

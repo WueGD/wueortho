@@ -54,6 +54,11 @@ object PralineWriter:
   def engulf(g: P.Graph, routes: IndexedSeq[EdgeRoute]) =
     require(g.getEdges().nn.size() == routes.length, "praline edge list and edge routes differed in size")
     def route2poly(route: EdgeRoute) = PolygonalPath(route.points.map(v => AwtPoint(v.x1, -v.x2)).asJava)
-    for (edge, route) <- g.getEdges().nn.asScala zip routes do edge.addPath(route2poly(route))
+
+    val sorter = PralineReader.mkEdgeSorter(g).fold(err => sys.error(s"could not sort edges: $err"), identity)
+    for edge <- g.getEdges().nn.asScala do
+      edge.removeAllPaths()
+      edge.addPath(route2poly(routes(sorter(edge))))
     g
+  end engulf
 end PralineWriter

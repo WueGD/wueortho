@@ -17,6 +17,7 @@ object PralinePipelineExtensions:
   case class AccessPraline(use: List[PralineExtractor])                    extends PralineStep derives CC
   case class WritePralineFile(path: file.Path)                             extends PralineStep derives CC
   case class StorePraline()                                                extends PralineStep derives CC
+  case class UpdatePraline()                                               extends PralineStep derives CC
 
   enum PralineExtractor derives CanEqual, ConfiguredEnumCodec:
     case Graph, VertexLabels, VertexLayout, VertexBoxes, EdgeRoutes // todo Hypergraphs? Ports? PortOrder?

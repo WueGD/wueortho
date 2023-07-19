@@ -10,6 +10,7 @@ import PralinePipelineExtensions.*, StepUtils.*
 import wueortho.util.State
 import scala.util.Try
 import java.nio.file as nio
+import wueortho.interop.PralineWriter.syntax.toPraline
 
 object PralineStepImpls:
   given StepImpl[ReadPralineFile] with
@@ -60,10 +61,8 @@ object PralineStepImpls:
     yield noRt
   end given
 
-  val useGraphStage = ("graph", Stage.Graph)
-
   given StepImpl[WritePralineFile] with
-    override transparent inline def stagesUsed     = useGraphStage
+    override transparent inline def stagesUsed     = ("graph", Stage.Graph)
     override transparent inline def stagesModified = EmptyTuple
 
     override def tags     = GetSingleTag(stagesUsed)
@@ -76,27 +75,30 @@ object PralineStepImpls:
         json <- PralineWriter.writeJson(g)
         _    <- Try(nio.Files.writeString(s.step.path, json))
       yield ()
-      constructAll(s, cache).flatMap(toFile(_).toEither.left.map(_.toString())).unit
+      for
+        basic <- UseSingleStage(s, cache, stagesUsed)
+        g      = constructAll(s, cache, basic.toPraline)
+        _     <- toFile(g).toEither.left.map(_.toString())
+      yield noRt
     end runToStage
   end given
 
-  private def constructAll[S](s: WithTags[S], cache: StageCache) =
+  private def constructAll[S](s: WithTags[S], cache: StageCache, g: P.Graph) =
     import PralineWriter.syntax.*
 
     def maybe[T](stage: Stage[T], tag: String)(f: T => State[P.Graph, Unit]) =
       cache.getStageResult(stage, s.mkITag(tag)).fold(_ => State.pure(()), f)
 
-    for basic <- UseSingleStage(s, cache, useGraphStage)
-    yield List(
+    List(
       maybe(Stage.VertexBoxes, "vertexBoxes")(vb => State.modify(_ <~~ vb)),
       maybe(Stage.VertexLabels, "vertexLabels")(vl => State.modify(_ <~~ vl)),
       maybe(Stage.Routes, "routes")(er => State.modify(_ <~~ er)),
       // todo portLabels, usw...
-    ).reduce((s1, s2) => s1.flatMap(_ => s2)).runS(basic.toPraline)
+    ).reduce((s1, s2) => s1.flatMap(_ => s2)).runS(g)
   end constructAll
 
   given StepImpl[StorePraline] with
-    override transparent inline def stagesUsed     = ("praline" -> Stage.ForeignData, useGraphStage)
+    override transparent inline def stagesUsed     = ("praline" -> Stage.ForeignData, "graph" -> Stage.Graph)
     override transparent inline def stagesModified = EmptyTuple
 
     override def tags     = GetTags(stagesUsed)
@@ -105,9 +107,26 @@ object PralineStepImpls:
         |All available stages will be included. Use undefined tags to exclude stages.""".stripMargin
 
     override def runToStage(s: WithTags[StorePraline], cache: StageCache) = for
-      (ref, _) <- UseStages(s, cache, stagesUsed)
-      g        <- constructAll(s, cache)
-      _        <- Try(ref.set(g)).toEither.left.map(_.toString)
+      (ref, basic) <- UseStages(s, cache, stagesUsed)
+      g             = constructAll(s, cache, basic.toPraline)
+      _            <- Try(ref.set(g)).toEither.left.map(_.toString)
+    yield noRt
+  end given
+
+  given StepImpl[UpdatePraline] with
+    override transparent inline def stagesUsed     = "praline" -> Stage.ForeignData
+    override transparent inline def stagesModified = EmptyTuple
+
+    override def tags             = GetSingleTag(stagesUsed)
+    override def helpText: String =
+      """Update the Praline graph in the ForeignData stage with pipeline contents.
+        |All available stages will be included. Use undefined tags to exclude stages.""".stripMargin
+
+    override def runToStage(s: WithTags[UpdatePraline], cache: StageCache) = for
+      ref <- UseSingleStage(s, cache, stagesUsed)
+      g   <- Try(ref.get().asInstanceOf[P.Graph]).toEither.left.map(_.toString)
+      _    = constructAll(s, cache, g)
+      _   <- Try(ref.set(g)).toEither.left.map(_.toString)
     yield noRt
   end given
 end PralineStepImpls
