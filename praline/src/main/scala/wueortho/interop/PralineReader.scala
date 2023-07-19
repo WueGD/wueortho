@@ -46,7 +46,9 @@ object PralineReader:
     //       acc.flatMap(more => portsFlat(pg.getPortCompositions().asScala.toSeq).map(more ++ _))
     //     case (acc, err)             => Left(s"unsupported port composition: ${err.getClass.getName()}")
 
-    mkEdges(g).map(_.sorted.foldLeft(Graph.builder())(_.addEdge.tupled(_)).mkBasicGraph)
+    for edges <- mkEdges(g)
+    yield edges.map((i, j, _) => NodeIndex(i min j) -> NodeIndex(i max j)).sorted
+      .foldLeft(Graph.builder())(_.addEdge.tupled(_)).mkBasicGraph
   end mkBasicGraph
 
   private def mkEdges(g: P.Graph) =
@@ -58,13 +60,14 @@ object PralineReader:
                     case Seq(u, v) => Right(u -> v)
                     case _         => Left(s"$e: dangling edges and hyperedges are unsupported")
         (i, j) <- (lut.get(u.getVertex) zip lut.get(v.getVertex)).toRight(s"could not find vertices $u and $v")
-      yield NodeIndex(i min j) -> NodeIndex(i max j)
+      yield (i, j, e)
 
     g.getEdges().asScala.toSeq.traverse(mkEdge)
   end mkEdges
 
-  def mkEdgeSorter(g: P.Graph) = for edges <- mkEdges(g).map(_ zip g.getEdges().asScala)
-  yield PralineEdgeSorter(edges.sortBy(_._1).zipWithIndex.map((tup, i) => tup._2 -> i).toMap)
+  def mkEdgeSorter(g: P.Graph) = for edges <- mkEdges(g)
+  yield PralineEdgeSorter:
+      edges.sortBy((i, j, _) => (i min j) -> (i max j)).zipWithIndex.map((tup, i) => tup._3 -> i).toMap
 
   def mkHypergraph(g: P.Graph) =
     val lut = g.getVertices.asScala.zipWithIndex.toMap
@@ -106,22 +109,14 @@ object PralineReader:
       yield Rect2D(Vec2D(box.getCenterX, -box.getCenterY), Vec2D(box.getWidth / 2, box.getHeight / 2))
     rects.map(rs => VertexBoxes(rs.toIndexedSeq))
 
-  def mkEdgeRoutes(g: P.Graph) =
-    val lut        = g.getVertices.asScala.zipWithIndex.toMap
-    val maybeEdges = g.getEdges().asScala.toSeq.traverse: e =>
-      for
-        (u, v) <- e.getPorts.asScala.toSeq match
-                    case Seq(u, v) => Right(u -> v)
-                    case _         => Left(s"hyperedges are unsupported ($e has the wrong number of ports)")
-        (i, j) <- (lut.get(u.getVertex) zip lut.get(v.getVertex)).toRight(s"could not find vertices $u and $v")
-        paths  <- Option(e.getPaths()).toRight(s"path must not be null ($e)")
-        path   <- paths.asScala.toSeq match
-                    case Seq(one) => Right(one)
-                    case err      => Left(s"expected edge with exactly one path but was $err")
-        res    <- path2route(path)
-      yield ((i min j, i max j), if i <= j then res else res.reverse)
-    maybeEdges.map(_.sortBy(_._1).map(_._2).toIndexedSeq)
-  end mkEdgeRoutes
+  def mkEdgeRoutes(g: P.Graph) = mkEdges(g).flatMap(_.traverse: (i, j, e) =>
+    for
+      paths <- Option(e.getPaths()).toRight(s"path must not be null ($e)")
+      path  <- paths.asScala.toSeq match
+                 case Seq(one) => Right(one)
+                 case err      => Left(s"expected edge with exactly one path but was $err")
+      res   <- path2route(path)
+    yield (i min j, i max j) -> (if i <= j then res else res.reverse)).map(_.sortBy(_._1).map(_._2).toIndexedSeq)
 
   private def path2route(path: paths.Path) = path match
     case p: paths.PolygonalPath =>
