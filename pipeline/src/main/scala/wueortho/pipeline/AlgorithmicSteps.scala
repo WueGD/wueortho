@@ -5,6 +5,7 @@ import wueortho.layout.{ForceDirected as FDLayout}
 import wueortho.overlaps.Nachmanson
 import wueortho.ports.AngleHeuristic
 import wueortho.routing.*
+import wueortho.nudging.{Nudging, FullNudging, EdgeNudging}
 import wueortho.metrics.Crossings
 import wueortho.util.GraphConversions, GraphConversions.toWeighted.*
 import wueortho.util.GraphProperties.hasLoops

@@ -2,6 +2,7 @@ package wueortho.tests.layout
 
 import wueortho.data.*, Direction.*
 import wueortho.routing.*
+import wueortho.nudging.{Nudging, FullNudging, EdgeNudging}
 import wueortho.util.GraphProperties.*
 import wueortho.util.GraphSearch.bfs
 import wueortho.util.Debugging

@@ -1,8 +1,9 @@
-package wueortho.routing
+package wueortho.nudging
 
 import wueortho.data.*, Direction.*
 import wueortho.util.*
 import Constraint.CTerm, Constraint.builder.*, ORTools.{LPInstance, LPResult}
+import wueortho.routing.*
 
 import scala.collection.BitSet
 import scala.annotation.{tailrec, nowarn}

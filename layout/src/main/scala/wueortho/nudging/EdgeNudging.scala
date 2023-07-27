@@ -1,8 +1,9 @@
-package wueortho.routing
+package wueortho.nudging
 
 import wueortho.data.*
 import wueortho.util.*
 import Constraint.CTerm, Constraint.builder.*, GraphConversions.undirected.*, ORTools.LPResult
+import wueortho.routing.{RoutingGraph, PathOrder, Routed}
 
 import scala.annotation.tailrec
 
