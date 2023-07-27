@@ -10,12 +10,14 @@ object GraphConversions:
 
   trait SimpleMixin:
     extension (g: BasicGraph)
-      def directed: DiGraph        = sg2dg(g)
-      def withoutLoops: BasicGraph = noLoops(g)
+      def directed: DiGraph             = sg2dg(g)
+      def withoutLoops: BasicGraph      = noLoops(g)
+      def withoutMultiEdges: BasicGraph = noMultiEdges(g)
     extension (g: WeightedDiGraph) def unweighted: DiGraph = wd2dg(g)
     extension (g: WeightedGraph)
       def unweighted: BasicGraph    = wg2sg(g)
       def directed: WeightedDiGraph = wg2wd(g)
+  end SimpleMixin
 
   trait ToWeightedMixin:
     extension (g: BasicGraph) def withWeights(using f: WithWeightStrategy) = sg2wg(g, f)
@@ -83,6 +85,12 @@ object GraphConversions:
     .mkBasicGraph
 
   def noLoops(g: BasicGraph) = Graph.fromEdges(g.edges.filter(e => e.from != e.to)).mkBasicGraph
+
+  def noMultiEdges(g: BasicGraph) =
+    val simpleEdges = g.edges.map(e => e.from -> e.to).sorted.foldLeft(List.empty[(NodeIndex, NodeIndex)]):
+      case (Nil, edge)            => List(edge)
+      case (acc @ old :: _, edge) => if old == edge then acc else edge :: acc
+    Graph.fromEdges(simpleEdges.reverse.map(SimpleEdge.apply)).mkBasicGraph
 end GraphConversions
 
 object GraphProperties:

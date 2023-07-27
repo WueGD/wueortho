@@ -128,22 +128,20 @@ object InputSteps:
       (lay, labels) <- UseStages(s, cache, stagesUsed)
       _             <- UpdateSingleStage(s, cache, stagesModified)(labels2boxes(s.step.config, lay, labels))
     yield noRt
-
-    private def labels2boxes(c: VertexLabelConfig, vl: VertexLayout, l: Labels) =
-      extension (s: Vec2D) def withPadding = Vec2D(s.x1 + c.padding, s.x2 + c.padding)
-      l match
-        case Labels.Hide              =>
-          VertexBoxes
-            .fromVertexLayout((pos, _) => Rect2D(pos, Vec2D(c.minWidth, c.minHeight).scale(0.5).withPadding))(vl)
-        case Labels.PlainText(labels) =>
-          val textSize = TextUtils.TextSize(c.fontSize)
-          VertexBoxes:
-              for (pos, label) <- vl.nodes zip labels yield
-                val Vec2D(textWidth, textHeight) = textSize(label)
-                Rect2D(pos, Vec2D(textWidth max c.minWidth, textHeight max c.minHeight).scale(0.5).withPadding)
-      end match
-    end labels2boxes
   end given
+
+  def labels2boxes(c: VertexLabelConfig, vl: VertexLayout, l: Labels) =
+    extension (s: Vec2D) def withPadding = Vec2D(s.x1 + c.padding, s.x2 + c.padding)
+    l match
+      case Labels.Hide              =>
+        VertexBoxes.fromVertexLayout((pos, _) => Rect2D(pos, Vec2D(c.minWidth, c.minHeight).scale(0.5).withPadding))(vl)
+      case Labels.PlainText(labels) =>
+        val textSize = TextUtils.TextSize(c.fontSize)
+        VertexBoxes:
+            for (pos, label) <- vl.nodes zip labels yield
+              val Vec2D(textWidth, textHeight) = textSize(label)
+              Rect2D(pos, Vec2D(textWidth max c.minWidth, textHeight max c.minHeight).scale(0.5).withPadding)
+  end labels2boxes
 
   given StepImpl[step.ReadTglfFile] with
     override transparent inline def stagesUsed     = EmptyTuple

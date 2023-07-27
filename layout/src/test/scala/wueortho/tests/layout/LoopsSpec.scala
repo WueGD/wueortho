@@ -3,6 +3,7 @@ package wueortho.tests.layout
 import wueortho.data.*, Direction.*
 import wueortho.ports.AngleHeuristic
 import wueortho.tests.layout.TestUtils.{rawSE, Vec2DMatcher}
+import wueortho.util.GraphConversions.simple.*
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should
@@ -99,4 +100,20 @@ class LoopsSpec extends AnyFlatSpec, should.Matchers, Vec2DMatcher:
     uut(3)._2 shouldBe South
     uut(3)._1 shouldBe vec(0.0, -1) +- 1e-6
 
+  lazy val mGraph = Graph.fromEdges(
+    Seq(
+      rawSE(0, 1),
+      rawSE(1, 2),
+      rawSE(2, 1),
+      rawSE(1, 0),
+      rawSE(2, 0),
+    ),
+  ).mkBasicGraph
+
+  "A sample multi-graph" `should` "have a simple core" in:
+    val uut = mGraph.withoutMultiEdges.edges
+    uut should have size 3
+    uut(0) shouldBe rawSE(0, 1)
+    uut(1) shouldBe rawSE(0, 2)
+    uut(2) shouldBe rawSE(1, 2)
 end LoopsSpec

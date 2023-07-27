@@ -4,8 +4,8 @@ import wueortho.data.*, Metadata.toMetadata
 import wueortho.pipeline.*, PipelineStep.*
 import wueortho.io.tglf.TglfWriter
 import wueortho.io.random.RandomGraphs
-import wueortho.util.{Solidify, ConnectedComponents, TextUtils}, Solidify.*
-import wueortho.util.GraphConversions.simple.withoutLoops
+import wueortho.util.{Solidify, ConnectedComponents}, Solidify.*
+import wueortho.util.GraphConversions.simple.*
 import wueortho.interop.PralinePipelineExtensions as PPE
 import wueortho.interop.{PralineReader, PralineWriter}
 
@@ -31,9 +31,9 @@ object Experiments:
     "InterEdgeDistance",
   )
 
-  val inPath  = Path.of("data", "pseudoplans").nn
+  val inPath  = Path.of("data", "random").nn
   val outPath = Path.of("results").nn
-  val batch   = "pp2*"
+  val batch   = "rnd"
 
   trait Experiment(val name: String):
     def mkPipeline(inPath: Path): Pipeline
@@ -124,8 +124,9 @@ object Experiments:
     just(step.SvgDrawing(SvgConfig.Praline, overridePpu = None)),
   )
 
-  private def json2svg(path: Path) = path.getFileName().nn.toString().replaceAll(".json$", ".svg")
-  private def tglf2svg(path: Path) = path.getFileName().nn.toString().replaceAll(".tglf$", ".svg")
+  private def json2svg(path: Path)  = path.getFileName().nn.toString().replaceAll(".json$", ".svg")
+  private def tglf2svg(path: Path)  = path.getFileName().nn.toString().replaceAll(".tglf$", ".svg")
+  private def json2tglf(path: Path) = path.getFileName().nn.toString().replaceAll(".json$", ".tglf")
 
   @main def layoutFromPraline = (new Experiment("compactify"):
     import PPE.PralineExtractor as Use
@@ -185,7 +186,7 @@ object Experiments:
   @main def cleanupGraphs =
     import PralineReader.syntax.*, PralineWriter.syntax.*
 
-    val inPath  = Path.of("data", "raw-pseudo-plans").nn
+    val inPath  = Path.of("data", "pp_with_loops").nn
     val outPath = Path.of("data", "cleaned").nn
 
     Files.createDirectories(outPath)
@@ -194,64 +195,27 @@ object Experiments:
     for (file, i) <- files.zipWithIndex do
       print("\b".repeat(11).nn + f"(${i + 1}%4d/${files.size}%4d)")
       val res = for
-        raw <- PralineReader.fromFile(file).toEither.left.map(_.toString)
-        hg  <- raw.getHypergraph
-        vl  <- raw.getVertexLabels
+        raw        <- PralineReader.fromFile(file).toEither.left.map(_.toString)
+        hypergraph <- raw.getHypergraph
+        rawLabels  <- raw.getVertexLabels
+        rawBoxes   <- raw.getVertexBoxes
       yield
         import ConnectedComponents.*
-        val graph   = hg.solidify
+        val graph   = hypergraph.solidify
         val largest = largestComponent(graph)
         val labels  = reduceToComponent(
-          Labels.PlainText(vl.labels ++ Seq.fill(graph.numberOfVertices - hg.numberOfVertices)("")),
+          Labels.PlainText(rawLabels.labels ++ Seq.fill(graph.numberOfVertices - hypergraph.numberOfVertices)("")),
           largest,
         )
-        reduceToComponent(graph, largest).withoutLoops.toPraline <~~ labels
+        val boxes   = reduceToComponent(rawBoxes, largest)
+        val basic   = reduceToComponent(graph, largest).withoutLoops.withoutMultiEdges
+        (basic.toPraline <~~ labels, TglfWriter.writeGraph(basic, boxes))
 
-      Files.writeString(
-        outPath `resolve` file.getFileName(),
-        res.map(_.asJson.get).fold(sys.error, identity),
-      )
+      Files.writeString(outPath `resolve` file.getFileName(), res.map(_._1.asJson.get).fold(sys.error, identity))
+      Files.writeString(outPath `resolve` json2tglf(file), res.map(_._2).fold(sys.error, identity))
     end for
     println()
   end cleanupGraphs
-
-  private def estimatedVertexSize(textSize: TextUtils.TextSize)(label: String, degree: Int) =
-    val Vec2D(textWidth, textHeight) = textSize(label)
-    val (minWidth, minHeight)        = (12.0, 38.0)
-
-    val tmp = Vec2D(textWidth max minWidth, textHeight max minHeight)
-
-    if tmp.x1 * 2 + tmp.x2 * 2 < degree * 18.0 then tmp.copy(x1 = 18.0 * degree / 2 - tmp.x2)
-    else tmp
-
-  @main def convertToTglf =
-    import PralineReader.syntax.*
-
-    val outPath = Path.of("data", "cleaned").nn
-    Files.createDirectories(outPath)
-
-    val files = Files.list(inPath).nn.toScala(List).filter(_.toString().endsWith(".json"))
-    val vSize = estimatedVertexSize(TextUtils.TextSize(12))
-    print("running... " + " ".repeat(11))
-    for (file, i) <- files.zipWithIndex do
-      print("\b".repeat(11).nn + f"(${i + 1}%4d/${files.size}%4d)")
-      val res = for
-        raw <- PralineReader.fromFile(file).toEither.left.map(_.toString)
-        g   <- raw.getBasicGraph
-        vl  <- raw.getVertexLabels
-        vb  <- raw.getVertexBoxes
-      yield
-        val boxes = vl.labels.zipWithIndex.map((s, i) => vSize(s, g(NodeIndex(i)).neighbors.size))
-        val fixed = VertexBoxes(vb.asRects.zipWithIndex.map((r, i) => r.copy(span = boxes(i).scale(0.5))))
-        TglfWriter.writeGraph(g, fixed)
-
-      Files.writeString(
-        outPath `resolve` file.getFileName().toString().replaceAll(".json$", ".tglf"),
-        res.fold(sys.error, identity),
-      )
-    end for
-    println()
-  end convertToTglf
 
   def median(s: Seq[Int]) =
     val (lower, upper) = s.sorted.splitAt(s.size / 2)
