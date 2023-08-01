@@ -6,11 +6,12 @@ import wueortho.pipeline.*
 import wueortho.util.RunningTime.unit as noRt
 import wueortho.util.EnumUtils.enumNames
 import PralinePipelineExtensions.*, StepUtils.*
+import wueortho.interop.PralineWriter.syntax.pralineBuilder
 
 import wueortho.util.State
 import scala.util.Try
 import java.nio.file as nio
-import wueortho.interop.PralineWriter.syntax.toPraline
+import wueortho.interop.PralineWriter.syntax.builder
 
 object PralineStepImpls:
   given StepImpl[ReadPralineFile] with
@@ -77,24 +78,25 @@ object PralineStepImpls:
       yield ()
       for
         basic <- UseSingleStage(s, cache, stagesUsed)
-        g      = constructAll(s, cache, basic.toPraline)
+        g     <- constructAll(s, cache, basic.pralineBuilder)
         _     <- toFile(g).toEither.left.map(_.toString())
       yield noRt
     end runToStage
   end given
 
-  private def constructAll[S](s: WithTags[S], cache: StageCache, g: P.Graph) =
+  private def constructAll[S](s: WithTags[S], cache: StageCache, build: PralineWriter.MkPraline) =
     import PralineWriter.syntax.*
 
-    def maybe[T](stage: Stage[T], tag: String)(f: T => State[P.Graph, Unit]) =
+    def maybe[T](stage: Stage[T], tag: String)(f: T => State[PralineWriter.MkPraline, Unit]) =
       cache.getStageResult(stage, s.mkITag(tag)).fold(_ => State.pure(()), f)
 
     List(
       maybe(Stage.VertexBoxes, "vertexBoxes")(vb => State.modify(_ <~~ vb)),
       maybe(Stage.VertexLabels, "vertexLabels")(vl => State.modify(_ <~~ vl)),
       maybe(Stage.Routes, "routes")(er => State.modify(_ <~~ er)),
+      maybe(Stage.Ports, "ports")(pl => State.modify(_ <~~ pl)),
       // todo portLabels, usw...
-    ).reduce((s1, s2) => s1.flatMap(_ => s2)).runS(g)
+    ).reduce((s1, s2) => s1.flatMap(_ => s2)).runS(build).mkPralineGraph
   end constructAll
 
   given StepImpl[StorePraline] with
@@ -108,7 +110,7 @@ object PralineStepImpls:
 
     override def runToStage(s: WithTags[StorePraline], cache: StageCache) = for
       (ref, basic) <- UseStages(s, cache, stagesUsed)
-      g             = constructAll(s, cache, basic.toPraline)
+      g            <- constructAll(s, cache, basic.pralineBuilder)
       _            <- Try(ref.set(g)).toEither.left.map(_.toString)
     yield noRt
   end given
@@ -125,7 +127,7 @@ object PralineStepImpls:
     override def runToStage(s: WithTags[UpdatePraline], cache: StageCache) = for
       ref <- UseSingleStage(s, cache, stagesUsed)
       g   <- Try(ref.get().asInstanceOf[P.Graph]).toEither.left.map(_.toString)
-      _    = constructAll(s, cache, g)
+      _   <- constructAll(s, cache, g.builder)
       _   <- Try(ref.set(g)).toEither.left.map(_.toString)
     yield noRt
   end given

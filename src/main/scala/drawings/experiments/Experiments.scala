@@ -179,7 +179,7 @@ object Experiments:
         RandomGraphConfig(n, (n * density).round.toInt, Seed(rndm.nextLong), GraphCore.Tree, allowLoops = false)
       for i <- 1 to instancesPerSize do
         val g   = mkBasicGraph(conf).fold(sys.error, identity)
-        val res = g.toPraline <~~ mkVertexBoxes(n, minSpan, maxSpan, Seed(rndm.nextLong()))
+        val res = g.pralineBuilder <~~ mkVertexBoxes(n, minSpan, maxSpan, Seed(rndm.nextLong()))
         Files.writeString(outPath `resolve` s"rndm_n$n#$i.json", res.asJson.get)
   end randomGraphs
 
@@ -209,7 +209,7 @@ object Experiments:
         )
         val boxes   = reduceToComponent(rawBoxes, largest)
         val basic   = reduceToComponent(graph, largest).withoutLoops.withoutMultiEdges
-        (basic.toPraline <~~ labels, TglfWriter.writeGraph(basic, boxes))
+        (basic.pralineBuilder <~~ labels, TglfWriter.writeGraph(basic, boxes))
 
       Files.writeString(outPath `resolve` file.getFileName(), res.map(_._1.asJson.get).fold(sys.error, identity))
       Files.writeString(outPath `resolve` json2tglf(file), res.map(_._2).fold(sys.error, identity))
