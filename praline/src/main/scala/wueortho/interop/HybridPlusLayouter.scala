@@ -11,7 +11,7 @@ abstract class HybridPlusLayouter(graph: Graph, minObjDistance: Double) extends 
   protected val pipeline =
     Pipeline:
         Seq(
-          just(PPE.AccessPraline(List(Use.Graph, Use.VertexBoxes, Use.VertexLabels, Use.EdgeRoutes))),
+          just(PPE.AccessPraline(List(Use.Graph, Use.VertexBoxes, Use.EdgeRoutes))),
           just(step.PseudoRouting()),
           just(step.FullNudging(minObjDistance, use2ndHPass = true)),
           just(PPE.UpdatePraline()),

@@ -1,6 +1,6 @@
 package wueortho.interop
 
-import wueortho.pipeline.*, PipelineStep.just
+import wueortho.pipeline.*, PipelineStep.{just, withTags}
 import wueortho.data.Seed
 
 import de.uniwue.informatik.praline.layouting.PralineLayouter
@@ -29,7 +29,7 @@ abstract class ForceDirectedLayouter(
           just(step.SimplifiedRoutingGraph(Stretch.Original)),
           just(step.EdgeRouting()),
           just(step.FullNudging(minObjDistance, use2ndHPass = true)),
-          just(PPE.UpdatePraline()),
+          withTags(PPE.UpdatePraline(), None)("vertexLabels" -> "disabled"),
         )
   end pipeline
 
