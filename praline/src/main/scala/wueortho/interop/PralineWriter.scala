@@ -117,12 +117,18 @@ object PralineWriter:
         Right(r.setRect(pos.x1 - w / 2 + moveBy.x1, -pos.x2 - h / 2 + moveBy.x2, w, h))
       case Some(shape)          => Left(s"unsupported shape $shape")
 
-    (g.getEdges().asScala zip ports.byEdge).toSeq.traverse((edge, terms) =>
-      edge.getPorts().asScala.toSeq match
-        case Seq(from, to) =>
-          movePort(from, terms.uTerm).flatMap: _ =>
-            movePort(to, terms.vTerm)
-        case _             => Left(s"could not save ports for edge $edge"),
-    ).map(_ => g)
+    def mkPorts(sorter: PralineReader.PralineEdgeSorter) =
+      g.getEdges().asScala.toSeq.traverse: edge =>
+        edge.getPorts().asScala.toSeq match
+          case Seq(from, to) =>
+            val terms = ports.byEdge(sorter(edge))
+            movePort(from, terms.uTerm).flatMap: _ =>
+              movePort(to, terms.vTerm)
+          case _             => Left(s"could not save ports for edge $edge")
+
+    for
+      sorter <- PralineReader.mkEdgeSorter(g)
+      _      <- mkPorts(sorter)
+    yield g
   end engulf
 end PralineWriter
