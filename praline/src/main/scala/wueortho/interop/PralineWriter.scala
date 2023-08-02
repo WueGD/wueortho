@@ -113,7 +113,8 @@ object PralineWriter:
     def movePort(port: P.Port, pos: Vec2D) = Option(port.getShape()) match
       case None                 => Right(port.setShape(S.Rectangle(pos.x1 - 4 + moveBy.x1, -pos.x2 - 2 + moveBy.x2, 8, 4)))
       case Some(r: S.Rectangle) =>
-        Right(r.setRect(pos.x1 - r.width / 2 + moveBy.x1, -pos.x2 - r.height / 2 + moveBy.x2, r.width, r.height))
+        val (w, h) = (r.width when (_.isFinite) otherwise 8, r.height when (_.isFinite) otherwise 4)
+        Right(r.setRect(pos.x1 - w / 2 + moveBy.x1, -pos.x2 - h / 2 + moveBy.x2, w, h))
       case Some(shape)          => Left(s"unsupported shape $shape")
 
     (g.getEdges().asScala zip ports.byEdge).toSeq.traverse((edge, terms) =>
