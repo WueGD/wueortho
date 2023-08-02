@@ -1,6 +1,8 @@
 package wueortho.interop
 
 import de.uniwue.informatik.praline.datastructure.graphs as P
+import de.uniwue.informatik.praline.io.output.svg.SVGDrawer
+import de.uniwue.informatik.praline.io.output.util.DrawingInformation
 
 import wueortho.pipeline.*
 import wueortho.util.RunningTime.unit as noRt
@@ -130,5 +132,27 @@ object PralineStepImpls:
       _   <- constructAll(s, cache, g.builder)
       _   <- Try(ref.set(g)).toEither.left.map(_.toString)
     yield noRt
+  end given
+
+  given StepImpl[PralineDrawer] with
+    override transparent inline def stagesUsed     = "praline" -> Stage.ForeignData
+    override transparent inline def stagesModified = Stage.Svg
+
+    override def tags             = GetSingleTag(stagesUsed)
+    override def helpText: String =
+      "Draw the praline graph from the foreign data stage as svg using the praline drawer with default settings."
+
+    override def runToStage(s: WithTags[PralineDrawer], cache: StageCache) = for
+      ref   <- UseSingleStage(s, cache, stagesUsed)
+      graph <- Try(ref.get().asInstanceOf[P.Graph]).toEither.left.map(_.toString)
+      str   <- Try(draw(graph)).toEither.left.map(_.toString())
+      _     <- UpdateSingleStage(s, cache, stagesModified)(str)
+    yield noRt
+
+    private def draw(g: P.Graph) =
+      val writer = java.io.StringWriter()
+      SVGDrawer(g).draw(writer, DrawingInformation())
+      writer.flush()
+      writer.toString()
   end given
 end PralineStepImpls
