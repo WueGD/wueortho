@@ -8,12 +8,11 @@ import wueortho.pipeline.*
 import wueortho.util.RunningTime.unit as noRt
 import wueortho.util.EnumUtils.enumNames
 import PralinePipelineExtensions.*, StepUtils.*
-import wueortho.interop.PralineWriter.syntax.pralineBuilder
+import wueortho.interop.PralineWriter.syntax.{builder, pralineBuilder}
 
 import wueortho.util.State
 import scala.util.Try
 import java.nio.file as nio
-import wueortho.interop.PralineWriter.syntax.builder
 
 object PralineStepImpls:
   given StepImpl[ReadPralineFile] with

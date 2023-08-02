@@ -1,7 +1,7 @@
 WueOrtho Pipeline Format
 ========================
 
-*This document was generated on 2023-07-17. Use the appropriate main to generate an up-to-date version.*
+*This document was generated on 2023-08-02. Use the appropriate main to generate an up-to-date version.*
 
 A WueOrtho pipeline can be assembled using its JSON representation.
 The pipeline describes a selection and order of algorithms to produce an orthogonal graph drawing.
@@ -276,4 +276,20 @@ Store pipeline contents to the praline API via the ForeignData stage.
 All available stages will be included. Use undefined tags to exclude stages.
 
 *Input Tags*: `praline`, `graph`
+
+
+**UpdatePraline**
+
+Update the Praline graph in the ForeignData stage with pipeline contents.
+All available stages will be included. Use undefined tags to exclude stages.
+
+*Input Tags*: `praline`
+
+
+**PralineDrawer**
+
+Draw the praline graph from the foreign data stage as svg using the praline drawer with default settings.
+
+*Input Tags*: `praline`
+
 
