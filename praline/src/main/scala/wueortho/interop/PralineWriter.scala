@@ -101,7 +101,8 @@ object PralineWriter:
         route.points.map(v => AwtPoint(v.x1 + moveBy.x1, -v.x2 + moveBy.x2)).asJava
     def mkEdges(sorter: PralineReader.PralineEdgeSorter) = for edge <- g.getEdges().asScala do
       edge.removeAllPaths()
-      edge.addPath(route2poly(routes(sorter(edge))))
+      val (id, isReversed) = sorter(edge)
+      edge.addPath(route2poly(if !isReversed then routes(id) else routes(id).reverse))
 
     PralineReader.mkEdgeSorter(g).map: sorter =>
       mkEdges(sorter)
@@ -121,9 +122,10 @@ object PralineWriter:
       g.getEdges().asScala.toSeq.traverse: edge =>
         edge.getPorts().asScala.toSeq match
           case Seq(from, to) =>
-            val terms = ports.byEdge(sorter(edge))
-            movePort(from, terms.uTerm).flatMap: _ =>
-              movePort(to, terms.vTerm)
+            val (id, isReversed) = sorter(edge)
+            val terms            = ports.byEdge(id)
+            movePort(from, if isReversed then terms.vTerm else terms.uTerm).flatMap: _ =>
+              movePort(to, if isReversed then terms.uTerm else terms.vTerm)
           case _             => Left(s"could not save ports for edge $edge")
 
     for

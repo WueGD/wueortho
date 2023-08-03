@@ -17,7 +17,7 @@ object PralineReader:
   object fromString extends Serialization:
     def apply(s: String) = Try(Serialization.mapper.readValue(s, classOf[P.Graph]))
 
-  case class PralineEdgeSorter(edges: Map[P.Edge, Int]):
+  case class PralineEdgeSorter(edges: Map[P.Edge, (Int, Boolean)]):
     def apply(e: P.Edge) = edges(e)
 
   def fromFile(path: NioPath) = for
@@ -67,7 +67,9 @@ object PralineReader:
 
   def mkEdgeSorter(g: P.Graph) = for edges <- mkEdges(g)
   yield PralineEdgeSorter:
-      edges.sortBy((i, j, _) => (i min j) -> (i max j)).zipWithIndex.map((tup, i) => tup._3 -> i).toMap
+      val edgesWithIds = edges.sortBy((i, j, _) => (i min j) -> (i max j)).zipWithIndex.map:
+        case ((u, v, edge), i) => edge -> (i, u > v)
+      edgesWithIds.toMap
 
   def mkHypergraph(g: P.Graph) =
     val lut = g.getVertices.asScala.zipWithIndex.toMap

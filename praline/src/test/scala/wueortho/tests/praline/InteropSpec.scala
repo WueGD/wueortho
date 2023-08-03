@@ -13,8 +13,8 @@ import scala.util.Using
 import java.nio.file.{Files, Path}
 
 class InteropSpec extends AnyFlatSpec, should.Matchers:
-  lazy val rt    = PPE.InteropRuntime(CoreStep.allImpls ++ PPE.allImpls :+ DebuggingStep.impl)
-  lazy val input = Using.resource(getClass.getResourceAsStream("/sample.json").nn): stream =>
+  lazy val rt = PPE.InteropRuntime(CoreStep.allImpls ++ PPE.allImpls :+ DebuggingStep.impl)
+  def input   = Using.resource(getClass.getResourceAsStream("/sample.json").nn): stream =>
     PralineReader.fromInputStream(stream).get
 
   "A sample file in praline format" `should` "be parsable as praline graph" in:
@@ -34,6 +34,16 @@ class InteropSpec extends AnyFlatSpec, should.Matchers:
           just(step.SvgToFile(Path.of("test-results", "praline-updated.svg").nn)),
         )
     rt.run(pipeline)
+
+  it `should` "be consistent after updates" in:
+    import scala.language.unsafeNulls, scala.jdk.CollectionConverters.given
+    val graph = input
+    graph.getVertices().asScala.zipWithIndex.foreach((v, i) => v.setReference(s"vtx $i"))
+    graph.getEdges().asScala.zipWithIndex.foreach: (e, i) =>
+      e.setReference(s"edge $i")
+      e.getPorts().asScala.foreach(p => p.setReference(s"edge $i port at ${p.getVertex().getReference()}"))
+    LayouterDummy.run(graph, 12)
+    Files.writeString(Path.of("test-results", "praline-interop-update.json"), graph.builder.asJson.get)
 
   "A sample graph" `should` "be writable in praline format" in:
     val g = Sample.graph.pralineBuilder <~~ Sample.boxes <~~ Labels.PlainText(IndexedSeq("a", "b", "c"))
