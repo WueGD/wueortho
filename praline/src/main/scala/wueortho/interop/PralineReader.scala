@@ -15,7 +15,8 @@ import scala.language.unsafeNulls
 
 object PralineReader:
   object fromString extends Serialization:
-    def apply(s: String) = Try(Serialization.mapper.readValue(s, classOf[P.Graph]))
+    val mapper           = Serialization.mapper.nn
+    def apply(s: String) = Try(mapper.readValue(s, classOf[P.Graph]))
 
   case class PralineEdgeSorter(edges: Map[P.Edge, (Int, Boolean)]):
     def apply(e: P.Edge) = edges(e)
