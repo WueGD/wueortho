@@ -75,4 +75,29 @@ class GraphSearchSpec extends AnyFlatSpec, should.Matchers:
   "A disconnected graph" `should` "have a largest component" in:
     ConnectedComponents.largestComponent(disconnected) should contain allElementsOf (Seq(3, 4, 5))
 
+  lazy val chainSize = 42
+  s"A chain graph of size $chainSize" `should` "have a shortest path" ignore:
+    given dc: DijkstraCost[Double, Double] = _ + _
+
+    val graph     = chainGraph(chainSize)
+    val neighbors = (i: NodeIndex) => graph(i).neighbors.map(l => l.toNode -> l.weight)
+
+    dijkstra.shortestPath(neighbors, NodeIndex(0), NodeIndex(chainSize * 3), 0.0) match
+      case Right(Path(nodes)) => nodes should have size (2 * chainSize + 1)
+      case Left(err)          => fail(err.toString())
+
+  def chainGraph(x: Int) =
+    require(x >= 0, s"cannot construct chain of negative length: $x")
+    if x == 0 then Graph.builder().mkWeightedGraph
+    else
+      val builder = Graph.builder()
+      for i <- 0 until x do
+        val j = 3 * i
+        builder.addEdge(NodeIndex(j), NodeIndex(j + 1), weight = 1)
+        builder.addEdge(NodeIndex(j), NodeIndex(j + 2), weight = 1)
+        builder.addEdge(NodeIndex(j + 1), NodeIndex(j + 3), weight = 1)
+        builder.addEdge(NodeIndex(j + 2), NodeIndex(j + 3), weight = 1)
+      builder.mkWeightedGraph
+    end if
+  end chainGraph
 end GraphSearchSpec

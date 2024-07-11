@@ -8,4 +8,3 @@ KNOWN ISSUES
 * [POTENTIAL BUG] margins between segments of the same path might be desired (fixed for loops)
 * [IMPROVEMENT] we should add pseudo constraint edges for port -- port and port -- begin/end of vertex box pairs.
 * [IMPROVEMENT] close fixed segments should be joined before routing. Routed paths need to be separated (e.g. by adding an additional bend to one of them)
-* [IMPROVEMENT] interop: praline writer should restore ids (currently it creates new ones)

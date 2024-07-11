@@ -82,7 +82,7 @@ object PseudoRouting:
           else if (u.at.x2 - v.at.x2).abs < eps then HSeg(v.at.x1 - u.at.x1)
           else sys.error(s"grid graph not orthogonal at ${u.at} -- ${v.at}")
       val terms = orig.copy(uTerm = nodes(terminals(pId * 2)).at, vTerm = nodes(terminals(pId * 2 + 1)).at)
-      EdgeRoute(terms, route.toSeq)
+      EdgeRoute(terms, route.toSeq).withoutInnerZeroSegs()
     end mkRoute
 
     assert(!terminals.exists(_ == -1), "dangling terminal pointer")

@@ -75,9 +75,23 @@ object AlgorithmicSteps:
       if forceGP then result.forceGeneralPosition(seed.newRandom) else result
   end given
 
+  given StepImpl[step.StretchBoxes] with
+    override transparent inline def stagesUsed     = "vertexBoxes" -> Stage.VertexBoxes
+    override transparent inline def stagesModified = Stage.VertexBoxes
+
+    override def tags     = GetSingleTag(stagesUsed)
+    override def helpText = s"""Transform vertex boxes with `${field[step.GTreeOverlaps, "stretch"]}`
+                               |    Use ${Stretch.description}""".stripMargin
+
+    override def runToStage(s: WithTags[step.StretchBoxes], cache: StageCache) = for
+      boxes <- UseSingleStage(s, cache, stagesUsed)
+      _     <- UpdateSingleStage(s, cache, stagesModified)(VertexBoxes.lift(Stretch(s.step.stretch, _))(boxes))
+    yield noRt
+  end given
+
   given StepImpl[step.PortsByAngle] with
     override transparent inline def stagesUsed     = ("vertexBoxes" -> Stage.VertexBoxes, "graph" -> Stage.Graph)
-    override transparent inline def stagesModified = Stage.Ports *: EmptyTuple
+    override transparent inline def stagesModified = Stage.Ports
 
     override def tags     = GetTags(stagesUsed)
     override def helpText =
@@ -87,7 +101,7 @@ object AlgorithmicSteps:
 
     override def runToStage(s: WithTags[step.PortsByAngle], cache: StageCache) = for
       (boxes, graph) <- UseStages(s, cache, stagesUsed)
-      _              <- UpdateStages(s, cache, stagesModified)(mkPorts(s.step.mode, boxes, graph) *: EmptyTuple)
+      _              <- UpdateSingleStage(s, cache, stagesModified)(mkPorts(s.step.mode, boxes, graph))
     yield noRt
 
     private def mkPorts(mode: PortMode, boxes: VertexBoxes, graph: BasicGraph) =
