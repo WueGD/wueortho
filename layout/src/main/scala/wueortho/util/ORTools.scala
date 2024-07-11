@@ -23,7 +23,6 @@ object ORTools:
 
   private val PInf = MPSolver.infinity()
   private val NInf = -PInf
-  private val Eps  = 1e-8
 
   def vIdMax(cs: Seq[Constraint]) =
     def go(c: CTerm): Int = c match
@@ -46,10 +45,11 @@ object ORTools:
       case null                          => Left(s"instance $lp solved to null :(")
       case MPSolver.ResultStatus.OPTIMAL => Right(unsafeGetResult($))
       case err                           => Left(s"instance $lp failed as $err")
+  end solve
 
   private def prepareCTerm(term: CTerm) =
     def go(scale: Double, next: CTerm): (List[(Int, Double)], Double) = next match
-      case CTerm.Constant(c)  => Nil               -> c
+      case CTerm.Constant(c)  => Nil               -> scale * c
       case CTerm.Variable(id) => List(id -> scale) -> 0
       case CTerm.Sum(a, b)    =>
         val (va, ca) = go(scale, a)
@@ -60,15 +60,14 @@ object ORTools:
 
     val (cos, const) = go(1, term)
     cos.groupMapReduce(_._1)(_._2)(_ + _) -> const
+  end prepareCTerm
 
   private def prepareConstraint(c: Constraint) =
-    val (body, head)           = c.b.constValue match
-      case Some(x) => c.a         -> x
-      case None    => (c.a - c.b) -> 0.0
-    val (coefficients, consts) = prepareCTerm(body)
+    val (coefficients, const) = prepareCTerm(c.a - c.b)
     c match
-      case _: Constraint.SmallerOrEqual => MPC(coefficients, NInf, head - consts)
-      case _: Constraint.Equal          => MPC(coefficients, head - consts - Eps, head - consts + Eps)
+      case _: Constraint.SmallerOrEqual => MPC(coefficients, NInf, -const)
+      case _: Constraint.Equal          => MPC(coefficients, -const, -const)
+  end prepareConstraint
 
   private def unsafeMkObjective(
       coefficients: Map[Int, Double],
@@ -79,6 +78,7 @@ object ORTools:
     val obj = $.objective().nn
     for (i, a) <- coefficients do obj.setCoefficient(vars(i), a)
     if maximize then obj.setMaximization() else obj.setMinimization()
+  end unsafeMkObjective
 
   private def unsafeGetResult($ : MPSolver) =
     val objv = $.objective().nn.value()
@@ -91,3 +91,4 @@ object ORTools:
       for (i, a) <- coefficients do c.setCoefficient(vars(i), a)
 
   given CanEqual[MPSolver.ResultStatus | Null, MPSolver.ResultStatus | Null] = CanEqual.derived
+end ORTools
