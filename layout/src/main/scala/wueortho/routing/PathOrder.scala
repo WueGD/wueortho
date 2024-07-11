@@ -64,6 +64,7 @@ object PathOrder:
 
     for // init
       (path, i) <- paths.zipWithIndex
+      if path.nodes.head != path.nodes.last
       Seq(u, v) <- path.nodes.sliding(2)
     do
       rg.unsafeLinkDir(u, v) match
@@ -109,6 +110,12 @@ object PathOrder:
           toRight.insert(sev + 1, fromLeft(wnv))
       end if
     end for
+
+    for (loop, i) <- paths.zipWithIndex if loop.nodes.head == loop.nodes.last do
+      val center = loop.nodes.head
+      val north  = rg.neighbor(center, North).getOrElse(sys.error(s"center node $center has no top node"))
+      top(center.toInt).prepend(i)
+      right(north.toInt).prepend(i)
 
     new RoutingGraph with PathOrder:
       val (t, r) = (top.map(_.toSeq), right.map(_.toSeq))

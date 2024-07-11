@@ -16,7 +16,7 @@ class PathOrderSpec extends AnyFlatSpec, should.Matchers:
   "A sample with edge bundles" `should` "have segments with correct path order" in:
     routed.rightPaths(NodeIndex(43)) `shouldBe` Seq(2, 4)
     routed.rightPaths(NodeIndex(44)) `shouldBe` Seq(1, 0, 2, 4)
-    routed.rightPaths(NodeIndex(53)) `shouldBe` Seq(1, 0, 2, 4, 5)
+    routed.rightPaths(NodeIndex(53)) `shouldBe` Seq(1, 0, 4, 5)
     routed.rightPaths(NodeIndex(54)) `shouldBe` Seq(3, 1, 0, 4, 5)
     routed.rightPaths(NodeIndex(63)) `shouldBe` Seq(3, 1, 4, 5)
     routed.rightPaths(NodeIndex(64)) `shouldBe` Seq(3, 1)

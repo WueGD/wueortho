@@ -91,7 +91,7 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
   "Routing without ports" `should` "produce given routes" in:
     val routes = routedNoPorts.get.routes
     val spec1  = EdgeRoute(EdgeTerminals(Vec2D(5.5, 1), North, Vec2D(9, 5.5), West), List(VSeg(4.5), HSeg(3.5)))
-    val spec2  = EdgeRoute(EdgeTerminals(Vec2D(9, 5.5), North, Vec2D(1.5, 7.5), East), List(VSeg(2), HSeg(-7.5)))
+    val spec2  = EdgeRoute(EdgeTerminals(Vec2D(9, 5.5), West, Vec2D(1.5, 7.5), South), List(HSeg(-7.5), VSeg(2)))
     routes(0) shouldBe spec1
     routes(1) shouldBe spec1
     routes(2) shouldBe spec2

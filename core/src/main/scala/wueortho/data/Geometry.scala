@@ -62,6 +62,8 @@ object Direction:
   def numberOfBends(d1: Direction, d2: Direction) =
     Math.floorMod(d1.ordinal - d2.ordinal, 4) min Math.floorMod(d2.ordinal - d1.ordinal, 4)
 
+  def random(rand: scala.util.Random) = Direction.values(rand.nextInt(Direction.values.size))
+
   extension (d: Direction)
     def isHorizontal = d == Direction.West || d == Direction.East
     def isVertical   = d == Direction.North || d == Direction.South

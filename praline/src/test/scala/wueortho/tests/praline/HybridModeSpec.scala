@@ -2,7 +2,7 @@ package wueortho.tests.praline
 
 import wueortho.pipeline.*, PipelineStep.just
 import wueortho.interop.{PralinePipelineExtensions as PPE, PralineReader}, PPE.PralineExtractor as Use
-import wueortho.data.Labels
+import wueortho.data.{Labels, Seed}
 import scala.util.Using
 
 import java.nio.file
@@ -11,8 +11,12 @@ import org.scalatest.flatspec.AnyFlatSpec
 import DebuggingStep.defaultTag
 
 class HybridModeSpec extends AnyFlatSpec:
-  lazy val rt    = PPE.InteropRuntime(CoreStep.allImpls ++ PPE.allImpls :+ DebuggingStep.impl)
+  lazy val rt = PPE.InteropRuntime(CoreStep.allImpls ++ PPE.allImpls :+ DebuggingStep.impl)
+
   lazy val input = Using.resource(getClass.getResourceAsStream("/sample.json").nn): stream =>
+    PralineReader.fromInputStream(stream).get
+
+  lazy val inputWithLoops = Using.resource(getClass.getResourceAsStream("/loops.json").nn): stream =>
     PralineReader.fromInputStream(stream).get
 
   lazy val debugPrint = DebuggingStep: cache =>
@@ -61,6 +65,21 @@ class HybridModeSpec extends AnyFlatSpec:
           just(step.FullNudging(padding = 10, use2ndHPass = true)),
           just(step.SvgDrawing(SvgConfig.Praline, overridePpu = None)),
           just(step.SvgToFile(file.Path.of("test-results", "praline-hybrid-full.svg").nn)),
+        )
+    rt.run(pipeline)
+
+  it `should` "allow to reroute an original drawing with loops" in:
+    rt.ref.set(inputWithLoops)
+    val pipeline = Pipeline:
+        Seq(
+          just(PPE.AccessPraline(List(Use.Graph, Use.VertexBoxes))),
+          just(step.SyntheticVertexLabels(SyntheticLabels.Enumerate)),
+          just(step.CenteredRoutingGraph()),
+          just(step.EdgeRouting(Seed(0x99c0ffee))),
+          just(step.FullNudging(padding = 10, use2ndHPass = true)),
+          just(step.SyntheticPortLabels(SyntheticLabels.Hide)),
+          just(step.SvgDrawing(SvgConfig.Praline, overridePpu = None)),
+          just(step.SvgToFile(file.Path.of("test-results", "praline-hybrid-full-with-loops.svg").nn)),
         )
     rt.run(pipeline)
 end HybridModeSpec

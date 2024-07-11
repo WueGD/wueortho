@@ -4,6 +4,7 @@ import wueortho.data.*
 import Direction.*
 import Double.{PositiveInfinity, NegativeInfinity}
 import scala.collection.mutable
+import scala.Option.when
 
 trait RoutingGraph:
   def size: Int
@@ -14,8 +15,9 @@ trait RoutingGraph:
   def portId(node: NodeIndex): Option[Int]
   def isBlocked(node: NodeIndex): Boolean
 
-  def connection(u: NodeIndex, v: NodeIndex): Option[Direction] = neighbors(u).find(_._2 == v).map(_._1)
-  def unsafeLinkDir(u: NodeIndex, v: NodeIndex): Direction      =
+  def connection(u: NodeIndex, v: NodeIndex): Option[Direction] =
+    if u == v then Some(East) else neighbors(u).find(_._2 == v).map(_._1) // hack for loops :(
+  def unsafeLinkDir(u: NodeIndex, v: NodeIndex): Direction =
     connection(u, v) getOrElse sys.error(s"graph disconnected between $u and $v")
 
 end RoutingGraph
@@ -43,12 +45,14 @@ object RoutingGraph:
 
   class RGNode private[RoutingGraph] (private[RoutingGraph] val adj: Array[Int]):
     def neighbor(dir: Direction) = dir match
-      case West  => if adj(0) == -1 then None else Some(NodeIndex(adj(0)))
-      case North => if adj(1) == -1 then None else Some(NodeIndex(adj(1)))
-      case East  => if adj(2) == -1 then None else Some(NodeIndex(adj(2)))
-      case South => if adj(3) == -1 then None else Some(NodeIndex(adj(3)))
+      case West  => when(adj(0) != -1)(NodeIndex(adj(0)))
+      case North => when(adj(1) != -1)(NodeIndex(adj(1)))
+      case East  => when(adj(2) != -1)(NodeIndex(adj(2)))
+      case South => when(adj(3) != -1)(NodeIndex(adj(3)))
     def neighbors                = adj.toList.zip(dirs).filter(_._1 >= 0).map((i, d) => d -> NodeIndex(i))
     def edgeTo(node: Int)        = adj.toList.zip(dirs).find(_._1 == node).map(_._2)
+    def show: String             = adj.mkString(", ")
+  end RGNode
 
   object RGNode:
     def empty = new RGNode(Array(-1, -1, -1, -1))
