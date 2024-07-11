@@ -159,7 +159,7 @@ object AlgorithmicSteps:
 
     override def runToStage(s: WithTags[step.EdgeRouting], cache: StageCache) = for
       (graph, rg) <- UseStages(s, cache, stagesUsed)
-      res          = Routing(rg, graph)
+      res          = Routing(rg, graph, s.step.seed.newRandom)
       _           <- UpdateSingleStage(s, cache, stagesModified)(res.get)
     yield res
   end given

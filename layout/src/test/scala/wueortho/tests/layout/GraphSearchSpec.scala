@@ -5,13 +5,16 @@ import wueortho.util.GraphSearch.*
 import wueortho.util.GraphConversions.simple.*
 import wueortho.util.DifferenceConstraints, DifferenceConstraints.DifferenceConstraint
 import wueortho.util.ConnectedComponents
+import scala.util.Random
 
 import wueortho.tests.layout.TestUtils.{rawE, rawSE}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should
+import wueortho.data.WeightedLink
 
 @annotation.nowarn // todo fix unsound initialization warning
 class GraphSearchSpec extends AnyFlatSpec, should.Matchers:
+  lazy val rand  = Random(0xdeadbeef)
   // see https://upload.wikimedia.org/wikipedia/commons/5/57/Dijkstra_Animation.gif
   lazy val graph = Graph.fromWeightedEdges(
     Seq(
@@ -43,6 +46,23 @@ class GraphSearchSpec extends AnyFlatSpec, should.Matchers:
     bellmanFord.distances(graph.directed, NodeIndex(0)) match
       case None        => fail("bellman-ford returned None")
       case Some(dists) => dists shouldEqual Vector(0.0, 7.0, 9.0, 20.0, 20.0, 11.0)
+
+  it `should` "be traversable with the A* algorithm" in:
+    val setup = new AStarSetup[Int, Double]:
+      override val start: Int       = 0
+      override val size: Int        = graph.numberOfVertices
+      override val zero: Double     = 0
+      override val infinity: Double = Double.PositiveInfinity
+
+      override def index(s: Int): Int                    = s
+      override def isGoal(s: Int): Boolean               = s == 4
+      override def est(s: Int): Double                   = 0
+      override def random(): Double                      = rand.nextDouble()
+      override def sum(c1: Double, c2: Double): Double   = c1 + c2
+      override def neighbors(s: Int): Seq[(Int, Double)] =
+        graph(NodeIndex(s)).neighbors.map(l => l.toNode.toInt -> l.weight)
+
+    wueortho.util.GraphSearch.aStarSearch(setup) shouldEqual Seq(0, 2, 5, 4)
 
   // see Corman et al. Intro to Algorithms, 3rd ed. p. 664--667
   val constraints = Seq(
@@ -85,6 +105,26 @@ class GraphSearchSpec extends AnyFlatSpec, should.Matchers:
     dijkstra.shortestPath(neighbors, NodeIndex(0), NodeIndex(chainSize * 3), 0.0) match
       case Right(Path(nodes)) => nodes should have size (2 * chainSize + 1)
       case Left(err)          => fail(err.toString())
+
+  it `should` "have a shortest path (using a*)" in:
+    val graph = chainGraph(chainSize)
+    val setup = new AStarSetup[Int, Double]:
+      override val size: Int        = graph.numberOfVertices
+      override val infinity: Double = Double.PositiveInfinity
+      override val start: Int       = 0
+      override val zero: Double     = 0
+
+      override def index(s: Int): Int                    = s
+      override def isGoal(s: Int): Boolean               = s == chainSize * 3
+      override def random(): Double                      = rand.nextDouble()
+      override def est(s: Int): Double                   = 0
+      override def sum(c1: Double, c2: Double): Double   = c1 + c2
+      override def neighbors(s: Int): Seq[(Int, Double)] = graph(NodeIndex(s)).neighbors.map:
+        case WeightedLink(toNode, weight, _) => toNode.toInt -> weight
+
+    wueortho.util.GraphSearch.aStarSearch(setup) match
+      case Seq() => fail("path should not be empty")
+      case nodes => nodes should have size (2 * chainSize + 1)
 
   def chainGraph(x: Int) =
     require(x >= 0, s"cannot construct chain of negative length: $x")

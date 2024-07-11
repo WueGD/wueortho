@@ -11,6 +11,7 @@ import EdgeRoute.OrthoSeg.*
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should
+import scala.util.Random
 
 class RoutingSpec extends AnyFlatSpec, should.Matchers:
   lazy val (ovgGraph, ovgLayout, _, ovg) = OrthogonalVisibilityGraph.create(Sample.boxes.asRects, Sample.ports)
@@ -56,7 +57,7 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
     for v <- (NodeIndex(0) until withoutPorts.size).map(withoutPorts.neighbors) do v.size should (be > 0 and be < 5)
 
   lazy val adapter       = OrthogonalVisibilityGraph.RoutingGraphAdapter(ovg, ovgGraph, ovgLayout, Sample.ports)
-  lazy val ovgRouted     = Routing(adapter, Sample.graph).get
+  lazy val ovgRouted     = Routing(adapter, Sample.graph, Random(0xdeadbeef)).get
   lazy val gridWithPaths = deprecated.PathOrder(adapter, Sample.ports, ovgRouted.paths)
 
   "Routes on the orthogonal visibility graph" `should` "be given paths" in:
@@ -66,7 +67,7 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
       List(HSeg(-4.0), VSeg(2.0), HSeg(0.0)),
       List(VSeg(0.0), HSeg(-6.0), VSeg(-1.0), HSeg(-2.0), VSeg(0.0)),
     )
-    for (EdgeRoute(terms, segments), (termsSpec, segmentsSpec)) <- (ovgRouted.routes zip spec) do
+    for (EdgeRoute(terms, segments), (termsSpec, segmentsSpec)) <- (ovgRouted.routes `zip` spec) do
       terms shouldBe termsSpec
       segments should contain theSameElementsInOrderAs segmentsSpec
 
@@ -85,18 +86,18 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
     nudgedPorts.byEdge should have size Sample.edges.size
     nudgedBoxes.asRects should have size Sample.boxes.asRects.size
 
-  lazy val routedNoPorts = Routing(withoutPorts, Sample.graph)
+  lazy val routedNoPorts = Routing(withoutPorts, Sample.graph, Random(0xdeadbeef))
 
   "Routing without ports" `should` "produce given routes" in:
     val routes = routedNoPorts.get.routes
-    val spec1  = EdgeRoute(EdgeTerminals(Vec2D(5.5, 1), East, Vec2D(9, 5.5), South), List(HSeg(3.5), VSeg(4.5)))
-    val spec2  = EdgeRoute(EdgeTerminals(Vec2D(9, 5.5), West, Vec2D(1.5, 7.5), South), List(HSeg(-7.5), VSeg(2)))
+    val spec1  = EdgeRoute(EdgeTerminals(Vec2D(5.5, 1), North, Vec2D(9, 5.5), West), List(VSeg(4.5), HSeg(3.5)))
+    val spec2  = EdgeRoute(EdgeTerminals(Vec2D(9, 5.5), North, Vec2D(1.5, 7.5), East), List(VSeg(2), HSeg(-7.5)))
     routes(0) shouldBe spec1
     routes(1) shouldBe spec1
     routes(2) shouldBe spec2
     routes(3) shouldBe spec2
 
-  lazy val routed = Routing(routingGraph, Sample.graph).get
+  lazy val routed = Routing(routingGraph, Sample.graph, Random(0xdeadbeef)).get
   lazy val routes = EdgeNudging.calcEdgeRoutes(routed, Sample.ports, Sample.boxes)
 
   "Edge nudging of routes on the simplified routing graph" `should` "complete without errors" in:

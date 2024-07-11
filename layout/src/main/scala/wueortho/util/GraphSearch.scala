@@ -3,8 +3,8 @@ package wueortho.util
 import wueortho.data.*
 
 import scala.annotation.tailrec
-import scala.math.Ordering.Implicits.*
 import scala.collection.mutable
+import scala.math.Ordering.Implicits.*
 
 object GraphSearch:
   type DijNeighbors[T] = NodeIndex => Seq[(NodeIndex, T)]
@@ -130,4 +130,63 @@ object GraphSearch:
 
     result.toSeq
   end bfsTraverse
+
+  case class MinHeapEntry[S, C: Ordering](state: S, prio: C, nonce: Double)
+
+  object MinHeapEntry:
+    given [S, C: Ordering]: Ordering[MinHeapEntry[S, C]] with
+      def compare(a: MinHeapEntry[S, C], b: MinHeapEntry[S, C]): Int =
+        val res = Ordering[C].compare(b.prio, a.prio)
+        if res == 0 then b.nonce.compare(a.nonce) else res
+
+  trait AStarSetup[S, C: Ordering]:
+    def neighbors(s: S): Seq[(S, C)]
+    def index(s: S): Int
+    def sum(c1: C, c2: C): C
+    val zero: C
+    val infinity: C
+    def random(): Double
+    val size: Int
+    val start: S
+    def isGoal(s: S): Boolean
+    def est(s: S): C
+  end AStarSetup
+
+  private def reconstruct(from: mutable.IndexedSeq[Int], start: Int) =
+    start +: Seq.unfold(start)(i => Option.when(from(i) > -1)(from(i) -> from(i)))
+
+  def aStarSearch[S, C: Ordering](input: AStarSetup[S, C]): Seq[Int] =
+    import input.*
+    val queue    = mutable.PriorityQueue(MinHeapEntry(start, zero, random()))
+    val open     = mutable.BitSet(index(start))
+    val cameFrom = mutable.ArrayBuffer.fill(size)(-1)
+
+    val gScore = mutable.ArrayBuffer.fill(size)(infinity)
+    gScore(index(start)) = zero
+
+    val fScore = mutable.ArrayBuffer.fill(size)(infinity)
+    fScore(index(start)) = est(start)
+
+    while (queue.nonEmpty) do
+      val current = queue.dequeue();
+
+      if isGoal(current.state) then
+        val res = reconstruct(cameFrom, index(current.state)).reverse
+        if res.head != index(start) then sys.error(s"${res.mkString("[", ", ", "]")} does not start with ${start}")
+        return res
+
+      for (next, weight) <- neighbors(current.state) do
+        val tentative = sum(gScore(index(current.state)), weight)
+        if tentative < gScore(index(next)) then
+          cameFrom(index(next)) = index(current.state)
+          gScore(index(next)) = tentative
+          fScore(index(next)) = sum(tentative, est(next))
+          if !open(index(next)) then
+            open += index(next)
+            queue += MinHeapEntry(next, fScore(index(next)), random())
+      end for
+    end while
+
+    Seq.empty
+  end aStarSearch
 end GraphSearch

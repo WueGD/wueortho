@@ -37,7 +37,8 @@ class JavaDummy {
 					"type": "SimplifiedRoutingGraph",
 					"stretch": { "type": "Original" }
 				}, {
-					"type": "EdgeRouting"
+					"type": "EdgeRouting",
+					"seed": "c1a6f00d"
 				}, {
 					"type": "FullNudging",
 					"padding": 12,

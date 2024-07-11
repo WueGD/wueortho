@@ -2,6 +2,7 @@ package wueortho.tests.pipeline
 
 import wueortho.pipeline.{Debugging as _, *}
 import wueortho.routing.{RoutingGraph, PseudoRouting}
+import wueortho.data.Seed
 
 import wueortho.util.Debugging.rg2adj
 
@@ -40,7 +41,7 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
 
   lazy val commonSteps = use(
     step.SimplifiedRoutingGraph(Stretch.Original),
-    step.EdgeRouting(),
+    step.EdgeRouting(Seed(0xdeadbeef)),
     step.SyntheticPortLabels(SyntheticLabels.Enumerate),
   )
 

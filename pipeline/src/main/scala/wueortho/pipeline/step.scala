@@ -34,7 +34,7 @@ object step:
   case class PortsByAngle(mode: PortMode)                                               extends CS derives CC
   case class SimplifiedRoutingGraph(stretch: Stretch)                                   extends CS derives CC
   case class CenteredRoutingGraph()                                                     extends CS derives CC
-  case class EdgeRouting()                                                              extends CS derives CC
+  case class EdgeRouting(seed: Seed)                                                    extends CS derives CC
   case class PseudoRouting()                                                            extends CS derives CC
   case class PseudoPorts()                                                              extends CS derives CC
   case class NoNudging()                                                                extends CS derives CC

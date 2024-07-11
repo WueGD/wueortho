@@ -4,6 +4,8 @@ import wueortho.data.*
 import EdgeRoute.OrthoSeg, OrthoSeg.*
 import wueortho.util.GraphSearch.*
 import wueortho.util.RunningTime
+import scala.util.Random
+import wueortho.util.GraphSearch
 
 trait Routing:
   def paths: IndexedSeq[Path]
@@ -14,35 +16,47 @@ type Routed = RoutingGraph & PathOrder & Routing
 
 object Routing:
   import scala.collection.mutable
-
   val EPS = 1e-8
 
-  case class DijState(dist: Double, bends: Int, nonce: Double, dir: Option[Direction]):
-    def transitionCost(t: DijTrans) =
-      val bends = dir.map(Direction.numberOfBends(_, t.dir)).getOrElse(0)
-      DijState(dist + t.dist, this.bends + bends, this.nonce + nonce, Some(t.dir))
+  private def setupAStar(rg: RoutingGraph, rand: Random, startNode: NodeIndex, goalNode: NodeIndex) =
+    new AStarSetup[(NodeIndex, Direction), AStarCost]:
+      override val zero: AStarCost               = AStarCost(0, 0)
+      override val infinity: AStarCost           = AStarCost(Double.PositiveInfinity, 0)
+      override val size: Int                     = rg.size * 4
+      override val start: (NodeIndex, Direction) = (startNode, Direction.North)
+      override def random(): Double              = rand.nextDouble()
 
-  object DijState:
-    given Ordering[DijState] = (a, b) =>
-      val d = (a.dist - b.dist).abs
-      if d < EPS then Ordering[(Int, Double)].compare(a.bends -> a.nonce, b.bends -> b.nonce)
-      else a.dist.compare(b.dist)
+      override def neighbors(s: (NodeIndex, Direction)): Seq[((NodeIndex, Direction), AStarCost)] =
+        if s._1 != startNode && rg.isBlocked(s._1) then Seq.empty // todo: if !isStart && isBlocked then empty...
+        else
+          (if s._1 == startNode then rg.neighbors(startNode)
+           else rg.neighbors(s._1).filter((dir, _) => dir.reverse != s._2)).map: (dir, v) =>
+            val dist  = (rg.locate(s._1) - rg.locate(v)).len
+            val bends = Direction.numberOfBends(s._2, dir)
+            (v -> dir, AStarCost(dist, bends))
 
-  case class DijTrans(dir: Direction, dist: Double)
+      override def index(s: (NodeIndex, Direction)): Int        = 4 * s._1.toInt + s._2.ordinal
+      override def sum(c1: AStarCost, c2: AStarCost): AStarCost = AStarCost(c1._1 + c2._1, c1._2 + c2._2)
+      override def isGoal(s: (NodeIndex, Direction)): Boolean   = s._1 == goalNode
 
-  def apply(routing: RoutingGraph, graph: BasicGraph): RunningTime.Measured[Routed] =
-    def mkTransactions(start: NodeIndex) = (u: NodeIndex) =>
-      if u != start && routing.isBlocked(u) then Nil
-      else routing.neighbors(u).map((dir, v) => v -> DijTrans(dir, (routing.locate(v) - routing.locate(u)).len))
+      override def est(s: (NodeIndex, Direction)): AStarCost =
+        val (atI, atGoal) = (rg.locate(s._1), rg.locate(goalNode))
+        AStarCost((atGoal.x1 - atI.x1).abs + (atGoal.x2 - atI.x2).abs, 0)
+  end setupAStar
 
-    given dc: DijkstraCost[DijState, DijTrans] = (t, s0) => s0.transitionCost(t)
+  case class AStarCost(dist: Double, bends: Int)
 
+  object AStarCost:
+    given Ordering[AStarCost] with
+      override def compare(a: AStarCost, b: AStarCost): Int =
+        if (a.dist - b.dist).abs < EPS then a.bends.compare(b.bends) else a.dist.compare(b.dist)
+
+  def apply(routing: RoutingGraph, graph: BasicGraph, random: Random): RunningTime.Measured[Routed] =
     val routedPaths = RunningTime.of("route-paths"):
       for i <- 0 until graph.numberOfEdges
       yield
         val (u, v) = routing.resolveEdge(i)
-        dijkstra.shortestPath(mkTransactions(u), u, v, DijState(0, 0, 0, None))
-          .fold[Path](err => sys.error(s"cannot find shortest path between $u and $v: $err"), identity)
+        Path(GraphSearch.aStarSearch(setupAStar(routing, random, u, v)).map(i => NodeIndex(i / 4)).toIndexedSeq)
 
     val withoutEyes = routedPaths andThen (paths => RunningTime.of("remove-eyes")(removeEyes(paths)))
 
@@ -76,12 +90,6 @@ object Routing:
 
   def removeEyes(paths: IndexedSeq[Path]): IndexedSeq[Path] =
     def intersect(pa: Path, pb: Path) =
-      // for
-      //   (a, i) <- pa.nodes.zipWithIndex
-      //   (b, j) <- pb.nodes.zipWithIndex
-      //   if a == b
-      // yield i -> j
-
       val ia = (pa.nodes.iterator.zipWithIndex.flatMap: (a, i) =>
           pb.nodes.iterator.zipWithIndex.filter((b, _) => b == a).map((_, j) => i -> j))
         .nextOption()
