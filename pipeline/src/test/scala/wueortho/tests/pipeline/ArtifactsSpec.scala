@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024 Tim Hegemann <hegemann@informatik.uni-wuerzburg.de>
+// SPDX-License-Identifier: Apache-2.0
+
 package wueortho.tests.pipeline
 
 import wueortho.pipeline.{Debugging as _, *}

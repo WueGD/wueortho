@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024 Tim Hegemann <hegemann@informatik.uni-wuerzburg.de>
+// SPDX-License-Identifier: Apache-2.0
+
 package drawings.experiments
 
 import wueortho.data.*, Metadata.toMetadata

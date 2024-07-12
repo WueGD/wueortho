@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024 Tim Hegemann <hegemann@informatik.uni-wuerzburg.de>
+// SPDX-License-Identifier: Apache-2.0
+
 package wueortho.io.tglf
 
 import wueortho.data.*, Direction.*, EdgeRoute.OrthoSeg, EdgeRoute.OrthoSeg.*

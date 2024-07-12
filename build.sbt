@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024 Tim Hegemann <hegemann@informatik.uni-wuerzburg.de>
+// SPDX-License-Identifier: Apache-2.0
+
 import Deps._
 
 ThisBuild / scalaVersion := "3.4.2"

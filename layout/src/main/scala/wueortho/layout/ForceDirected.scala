@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024 Tim Hegemann <hegemann@informatik.uni-wuerzburg.de>
+// SPDX-License-Identifier: Apache-2.0
+
 package wueortho.layout
 
 import wueortho.data.{WeightedGraph, Vec2D, VertexLayout}
