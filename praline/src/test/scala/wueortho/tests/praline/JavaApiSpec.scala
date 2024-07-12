@@ -32,13 +32,22 @@ class JavaApiSpec extends AnyFlatSpec:
   lazy val rt = PPE.InteropRuntime(CoreStep.allImpls ++ PPE.allImpls :+ DebuggingStep.impl)
 
   "The force-directed PralineLayouter implementation" `should` "run without errors" in:
-    val layouter = new ForceDirectedLayouter(input, 12, 16, 34, 2, 12):
+    val layouter = new ForceDirectedLayouter(input, 12, 16, 34, 2, 12, true):
       override def getDrawingInformation()                              = sys.error("use of stupid api")
       override def setDrawingInformation(di: DrawingInformation | Null) = sys.error("use of stupid api")
 
     layouter.computeLayout()
     rt.ref.set(layouter.getGraph().nn)
     rt.run(DebuggingStep.justDraw("force-directed_java-api.svg"))
+
+  "The rerouting PralineLayouter implementation" `should` "run without errors" in:
+    val layouter = new ReroutingLayouter(input, 12, 16, 34, 2, 12, false):
+      override def getDrawingInformation()                              = sys.error("use of stupid api")
+      override def setDrawingInformation(di: DrawingInformation | Null) = sys.error("use of stupid api")
+
+    layouter.computeLayout()
+    rt.ref.set(layouter.getGraph().nn)
+    rt.run(DebuggingStep.justDraw("rerouting_java-api.svg"))
 
   "A Java hybrid+ PralineLayouter implementation" `should` "run when implemented as java class" in:
     rt.ref.set(LayouterDummy.run(input, 12).nn)

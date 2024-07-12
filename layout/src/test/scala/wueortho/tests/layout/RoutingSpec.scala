@@ -17,7 +17,7 @@ class RoutingSpec extends AnyFlatSpec, should.Matchers:
   lazy val (ovgGraph, ovgLayout, _, ovg) = OrthogonalVisibilityGraph.create(Sample.boxes.asRects, Sample.ports)
   lazy val routingGraph                  = RoutingGraph.withPorts(Sample.boxes, Sample.ports)
   lazy val (rgAsBasicGraph, _)           = Debugging.rg2adj(routingGraph)
-  lazy val withoutPorts                  = RoutingGraph.withoutPorts(Sample.boxes, Sample.graph)
+  lazy val withoutPorts                  = RoutingGraph.withoutPorts(Sample.boxes, Sample.graph, mkHorizontalPorts = true)
   lazy val (noPortsBasicGraph, _)        = Debugging.rg2adj(withoutPorts)
 
   "The orthogonal visibility graph" `should` "not have loops" in (ovgGraph.hasLoops shouldBe false)

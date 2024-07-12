@@ -116,7 +116,7 @@ object Experiments:
 
   private def commonSteps(gTreeStretch: Stretch): Seq[WithTags[PipelineStep]] = Seq(
     just(step.GTreeOverlaps(gTreeStretch, Seed(0x99c0ffee), forceGeneralPosition = true)),
-    just(step.CenteredRoutingGraph()),
+    just(step.CenteredRoutingGraph(useHorizontalPorts = true)),
     just(step.EdgeRouting(Seed(0x98c0ffee))),
     just(step.FullNudging(padding = 12, use2ndHPass = true)),
     just(step.Metrics(List("all"))),

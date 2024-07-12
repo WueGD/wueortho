@@ -144,7 +144,8 @@ object AlgorithmicSteps:
 
     override def runToStage(s: WithTags[step.CenteredRoutingGraph], cache: StageCache) = for
       (graph, boxes) <- UseStages(s, cache, stagesUsed)
-      _              <- UpdateSingleStage(s, cache, stagesModified)(RoutingGraph.withoutPorts(boxes, graph))
+      _              <- UpdateSingleStage(s, cache, stagesModified):
+                            RoutingGraph.withoutPorts(boxes, graph, s.step.useHorizontalPorts)
     yield noRt
   end given
 

@@ -8,7 +8,7 @@ import de.uniwue.informatik.praline.datastructure.graphs.Graph
 
 import PralinePipelineExtensions as PPE, PPE.PralineExtractor as Use
 
-abstract class ForceDirectedLayouter(
+abstract class ReroutingLayouter(
     graph: Graph,
     minObjDistance: Double,
     minVertexBoxWidth: Double,
@@ -22,12 +22,10 @@ abstract class ForceDirectedLayouter(
     val labelConfig = VertexLabelConfig.Custom(minVertexBoxWidth, minVertexBoxHeight, vertexLabelPadding, labelFontSize)
     Pipeline:
         Seq(
-          just(PPE.AccessPraline(List(Use.Graph, Use.VertexLabels))),
-          just(step.ForceDirectedLayout(iterations = 800, seed = Seed(0x99c0ffee), repetitions = 1)),
+          just(PPE.AccessPraline(List(Use.Graph, Use.VertexLayout, Use.VertexLabels))),
           just(step.BoxesFromLabels(labelConfig)),
-          just(step.GTreeOverlaps(Stretch.Uniform(1.4), Seed(0x99c0ffee), forceGeneralPosition = true)),
-          just(step.PortsByAngle(if useHorizontalPorts then PortMode.Octants else PortMode.OnlyVertical)),
-          just(step.SimplifiedRoutingGraph(Stretch.Original)),
+          just(step.GTreeOverlaps(Stretch.Original, Seed(0x99c0ffee), forceGeneralPosition = true)),
+          just(step.CenteredRoutingGraph(useHorizontalPorts)),
           just(step.EdgeRouting(seed = Seed(0x98c0ffee))),
           just(step.FullNudging(minObjDistance, use2ndHPass = true)),
           withTags(PPE.UpdatePraline(), None)("vertexLabels" -> "disabled"),
@@ -40,4 +38,4 @@ abstract class ForceDirectedLayouter(
     ()
 
   override def getGraph() = Option(runtime.ref.get()).getOrElse(graph)
-end ForceDirectedLayouter
+end ReroutingLayouter

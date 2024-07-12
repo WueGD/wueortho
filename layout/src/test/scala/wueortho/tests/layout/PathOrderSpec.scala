@@ -11,7 +11,7 @@ import PathOrderSpec.*
 
 class PathOrderSpec extends AnyFlatSpec, should.Matchers:
   lazy val random = Random(0xdeadbeef)
-  lazy val routed = Routing(RoutingGraph.withoutPorts(boxes, graph), graph, random).get
+  lazy val routed = Routing(RoutingGraph.withoutPorts(boxes, graph, mkHorizontalPorts = true), graph, random).get
 
   "A sample with edge bundles" `should` "have segments with correct path order" in:
     routed.rightPaths(NodeIndex(43)) `shouldBe` Seq(2, 4)

@@ -68,18 +68,24 @@ class HybridModeSpec extends AnyFlatSpec:
         )
     rt.run(pipeline)
 
-  it `should` "allow to reroute an original drawing with loops" in:
+  private def noPortsPipeline(useHorizontalPorts: Boolean) = Pipeline:
+      val filename = s"hybrid-noPorts-${if useHorizontalPorts then "H" else "V"}-full-with-loops.svg"
+      Seq(
+        just(PPE.AccessPraline(List(Use.Graph, Use.VertexBoxes))),
+        just(step.SyntheticVertexLabels(SyntheticLabels.Enumerate)),
+        just(step.CenteredRoutingGraph(useHorizontalPorts)),
+        just(step.EdgeRouting(Seed(0x99c0ffee))),
+        just(step.FullNudging(padding = 10, use2ndHPass = true)),
+        just(step.SyntheticPortLabels(SyntheticLabels.Hide)),
+        just(step.SvgDrawing(SvgConfig.Praline, overridePpu = None)),
+        just(step.SvgToFile(file.Path.of("test-results", filename).nn)),
+      )
+
+  it `should` "allow to reroute a drawing with loops (ports at all sides)" in:
     rt.ref.set(inputWithLoops)
-    val pipeline = Pipeline:
-        Seq(
-          just(PPE.AccessPraline(List(Use.Graph, Use.VertexBoxes))),
-          just(step.SyntheticVertexLabels(SyntheticLabels.Enumerate)),
-          just(step.CenteredRoutingGraph()),
-          just(step.EdgeRouting(Seed(0x99c0ffee))),
-          just(step.FullNudging(padding = 10, use2ndHPass = true)),
-          just(step.SyntheticPortLabels(SyntheticLabels.Hide)),
-          just(step.SvgDrawing(SvgConfig.Praline, overridePpu = None)),
-          just(step.SvgToFile(file.Path.of("test-results", "praline-hybrid-full-with-loops.svg").nn)),
-        )
-    rt.run(pipeline)
+    rt.run(noPortsPipeline(useHorizontalPorts = true))
+
+  it `should` "allow to reroute a drawing with loops (vertical ports only)" in:
+    rt.ref.set(inputWithLoops)
+    rt.run(noPortsPipeline(useHorizontalPorts = false))
 end HybridModeSpec
