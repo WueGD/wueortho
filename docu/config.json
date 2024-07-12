@@ -1,0 +1,69 @@
+{
+  "steps" : [
+    {
+      "type" : "RandomGraph",
+      "n" : 15,
+      "m" : 75,
+      "seed" : "99c0ffee",
+      "core" : "Tree",
+      "allowLoops" : false
+    },
+    {
+      "type" : "ForceDirectedLayout",
+      "iterations" : 1000,
+      "repetitions" : 1,
+      "seed" : "98c0ffee"
+    },
+    {
+      "type" : "RandomVertexBoxes",
+      "seed" : "97c0ffee",
+      "minSpan" : [1.0, 0.5],
+      "maxSpan" : [4.0, 1.5]
+    },
+    {
+      "type" : "GTreeOverlaps",
+      "seed" : "96c0ffee",
+      "stretch" : {
+        "type" : "Uniform",
+        "l" : 2
+      },
+      "forceGeneralPosition" : true
+    },
+    {
+      "type" : "SyntheticVertexLabels",
+      "config" : "Enumerate"
+    },
+
+    {
+      "type" : "CenteredRoutingGraph",
+      "useHorizontalPorts" : false
+    },
+    {
+      "type" : "EdgeRouting",
+      "seed" : "95c0ffee"
+    },
+    {
+      "type" : "FullNudging",
+      "use2ndHPass" : true,
+      "padding" : 0.5
+    },
+    {
+      "type" : "SyntheticPortLabels",
+      "config" : "Enumerate"
+    },
+    {
+      "type" : "SvgDrawing",
+      "config" : {
+        "type": "SmoothEdges"
+      }
+    },
+    {
+      "type" : "SvgToFile",
+      "path" : "pipeline-free-routing.svg"
+    },
+    {
+      "type" : "Metrics",
+      "use" : ["all"]
+    }
+  ]
+}
