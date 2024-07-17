@@ -84,16 +84,9 @@ class GraphSearchSpec extends AnyFlatSpec, should.Matchers:
       case None           => fail("it should be solvable")
       case Some(solution) => solution shouldEqual Vector(-5.0, -3.0, 0.0, -1.0, -4.0)
 
-  lazy val disconnected = Graph.fromEdges(
-    Seq(
-      rawSE(0, 1),
-      rawSE(2, 2),
-      rawSE(3, 4),
-      rawSE(4, 5),
-      rawSE(5, 4),
-      rawSE(6, 6),
-    ),
-  ).mkBasicGraph
+  lazy val disconnected = Graph.fromEdges:
+      Seq(rawSE(0, 1), rawSE(2, 2), rawSE(3, 4), rawSE(4, 5), rawSE(5, 4), rawSE(6, 6))
+    .mkBasicGraph
 
   "A disconnected graph" `should` "have a largest component" in:
     ConnectedComponents.largestComponent(disconnected) should contain allElementsOf (Seq(3, 4, 5))
@@ -143,4 +136,28 @@ class GraphSearchSpec extends AnyFlatSpec, should.Matchers:
       builder.mkWeightedGraph
     end if
   end chainGraph
+
+  // see https://en.wikipedia.org/wiki/Floyd%E2%80%93Warshall_algorithm#Example
+  lazy val directed = Graph.fromWeightedEdges:
+      Seq(rawE(0, 2, -2), rawE(1, 0, 4), rawE(1, 2, 3), rawE(2, 3, 2), rawE(3, 1, -1))
+    .mkWeightedDiGraph
+
+  "A weighted digraph" `should` "have a distance matrix" in:
+    val m = floydWarshallApsp(directed.numberOfVertices, directed.edges)
+
+    for v <- 0 until directed.numberOfVertices do m(v, v) shouldBe 0d +- 1e-9
+
+    m(0, 1) shouldBe -1d +- 1e-9
+    m(0, 2) shouldBe -2d +- 1e-9
+    m(0, 3) shouldBe 0d +- 1e-9
+    m(1, 0) shouldBe 4d +- 1e-9
+    m(1, 2) shouldBe 2d +- 1e-9
+    m(1, 3) shouldBe 4d +- 1e-9
+    m(2, 0) shouldBe 5d +- 1e-9
+    m(2, 1) shouldBe 1d +- 1e-9
+    m(2, 3) shouldBe 2d +- 1e-9
+    m(3, 0) shouldBe 3d +- 1e-9
+    m(3, 1) shouldBe -1d +- 1e-9
+    m(3, 2) shouldBe 1d +- 1e-9
+
 end GraphSearchSpec

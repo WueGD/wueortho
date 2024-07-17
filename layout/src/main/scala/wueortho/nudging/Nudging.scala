@@ -3,7 +3,7 @@
 
 package wueortho.nudging
 
-import wueortho.data.*, Direction.*
+import wueortho.data.{mutable as _, *}, Direction.*
 import wueortho.util.*
 import Constraint.CTerm, Constraint.builder.*, ORTools.{LPInstance, LPResult}
 import wueortho.routing.*

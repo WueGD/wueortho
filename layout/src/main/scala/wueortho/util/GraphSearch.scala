@@ -8,6 +8,7 @@ import wueortho.data.*
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.math.Ordering.Implicits.*
+import wueortho.data.mutable.MatrixView
 
 object GraphSearch:
   type DijNeighbors[T] = NodeIndex => Seq[(NodeIndex, T)]
@@ -192,4 +193,21 @@ object GraphSearch:
 
     Seq.empty
   end aStarSearch
+
+  /// for undirected graphs both (u,v) and (v,u) must be given in `edges`!
+  def floydWarshallApsp(numberOfVertices: Int, edges: Seq[WeightedEdge]): MatrixView[Double] =
+    val dist = wueortho.data.mutable.Matrix.fill(numberOfVertices, numberOfVertices)(Double.PositiveInfinity)
+
+    for WeightedEdge(NodeIndex(u), NodeIndex(v), w) <- edges do dist(u, v) = w
+
+    for v <- 0 until numberOfVertices do dist(v, v) = 0
+
+    for
+      k <- 0 until numberOfVertices
+      i <- 0 until numberOfVertices
+      j <- 0 until numberOfVertices
+    do if dist(i, j) > dist(i, k) + dist(k, j) then dist(i, j) = dist(i, k) + dist(k, j)
+
+    dist
+  end floydWarshallApsp
 end GraphSearch
