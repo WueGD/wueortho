@@ -15,11 +15,15 @@ object GraphConversions:
     extension (g: BasicGraph)
       def directed: DiGraph             = sg2dg(g)
       def withoutLoops: BasicGraph      = noLoops(g)
-      def withoutMultiEdges: BasicGraph = noMultiEdges(g)
-    extension (g: WeightedDiGraph) def unweighted: DiGraph = wd2dg(g)
+      def withoutMultiEdges: BasicGraph = dropMultiEdges(g)
+    extension (g: DiGraph) def withoutMultiEdges = dropMultiEdges(g)
     extension (g: WeightedGraph)
-      def unweighted: BasicGraph    = wg2sg(g)
-      def directed: WeightedDiGraph = wg2wd(g)
+      def unweighted: BasicGraph         = wg2sg(g)
+      def directed: WeightedDiGraph      = wg2wd(g)
+      def mergeMultiEdges: WeightedGraph = GraphConversions.mergeMultiEdges(g)
+    extension (g: WeightedDiGraph)
+      def unweighted: DiGraph              = wd2dg(g)
+      def mergeMultiEdges: WeightedDiGraph = GraphConversions.mergeMultiEdges(g)
   end SimpleMixin
 
   trait ToWeightedMixin:
@@ -31,6 +35,9 @@ object GraphConversions:
     extension (g: WeightedDiGraph)
       def undirected(using f: UndirectStrategy) = wd2wg(g, f)
       def basic(using f: UndirectStrategy)      = wd2sg(g, f)
+
+  trait WeightedToMultiMixin:
+    extension (g: WeightedGraph) def splitIntoMultiEdges(unit: Double = 1) = weightedToMulti(g, unit)
 
   def wg2sg(g: WeightedGraph)   = Graph.fromEdges(g.edges.map(_.unweighted), g.numberOfVertices).mkBasicGraph
   def wd2dg(g: WeightedDiGraph) = Graph.fromEdges(g.edges.map(_.unweighted), g.numberOfVertices).mkDiGraph
@@ -89,11 +96,28 @@ object GraphConversions:
 
   def noLoops(g: BasicGraph) = Graph.fromEdges(g.edges.filter(e => e.from != e.to)).mkBasicGraph
 
-  def noMultiEdges(g: BasicGraph) =
-    val simpleEdges = g.edges.map(e => e.from -> e.to).sorted.foldLeft(List.empty[(NodeIndex, NodeIndex)]):
+  def dropMultiEdges(g: BasicGraph)       = Graph.fromEdges(dropSimpleMultiEdges(g.edges)).mkBasicGraph
+  def dropMultiEdges(g: DiGraph)          = Graph.fromEdges(dropSimpleMultiEdges(g.edges)).mkDiGraph
+  def mergeMultiEdges(g: WeightedGraph)   = Graph.fromWeightedEdges(mergeWeightedMultiEdges(g.edges)).mkWeightedGraph
+  def mergeMultiEdges(g: WeightedDiGraph) = Graph.fromWeightedEdges(mergeWeightedMultiEdges(g.edges)).mkWeightedDiGraph
+
+  private def dropSimpleMultiEdges(edges: Seq[SimpleEdge]) = edges.map(e => e.from -> e.to).sorted
+    .foldLeft(List.empty[(NodeIndex, NodeIndex)]):
       case (Nil, edge)            => List(edge)
       case (acc @ old :: _, edge) => if old == edge then acc else edge :: acc
-    Graph.fromEdges(simpleEdges.reverse.map(SimpleEdge.apply)).mkBasicGraph
+    .reverse.map(SimpleEdge.apply)
+
+  private def mergeWeightedMultiEdges(edges: Seq[WeightedEdge]) = edges.map(e => (e.from, e.to, e.weight)).sorted
+    .foldLeft(List.empty[WeightedEdge]):
+      case (Nil, (from, to, weight))         => WeightedEdge(from, to, weight) :: Nil
+      case (old :: tail, (from, to, weight)) =>
+        if old.from == from && old.to == to then WeightedEdge(from, to, old.weight + weight) :: tail
+        else WeightedEdge(from, to, weight) :: old :: tail
+    .reverse
+
+  def weightedToMulti(g: WeightedGraph, unit: Double = 1) =
+    val edges = g.edges.flatMap(e => Seq.fill(Math.round(e.weight / unit).toInt)(SimpleEdge(e.from, e.to)))
+    Graph.fromEdges(edges).mkBasicGraph
 end GraphConversions
 
 object GraphProperties:

@@ -67,6 +67,46 @@ class GraphSearchSpec extends AnyFlatSpec, should.Matchers:
 
     wueortho.util.GraphSearch.aStarSearch(setup) shouldEqual Seq(0, 2, 5, 4)
 
+  it `should` "have a distance matrix" in:
+    val m = floydWarshallApsp(graph.numberOfVertices, graph.directed.edges)
+
+    for v <- 0 until directed.numberOfVertices do m(v, v) shouldBe 0d +- 1e-9
+
+    m(0, 1) shouldBe 7d +- 1e-9
+    m(1, 0) shouldBe 7d +- 1e-9
+    m(0, 2) shouldBe 9d +- 1e-9
+    m(2, 0) shouldBe 9d +- 1e-9
+    m(0, 3) shouldBe 20d +- 1e-9
+    m(3, 0) shouldBe 20d +- 1e-9
+    m(0, 4) shouldBe 20d +- 1e-9
+    m(4, 0) shouldBe 20d +- 1e-9
+    m(0, 5) shouldBe 11d +- 1e-9
+    m(5, 0) shouldBe 11d +- 1e-9
+
+    m(1, 2) shouldBe 10d +- 1e-9
+    m(2, 1) shouldBe 10d +- 1e-9
+    m(1, 3) shouldBe 15d +- 1e-9
+    m(3, 1) shouldBe 15d +- 1e-9
+    m(1, 4) shouldBe 21d +- 1e-9
+    m(4, 1) shouldBe 21d +- 1e-9
+    m(1, 5) shouldBe 12d +- 1e-9
+    m(5, 1) shouldBe 12d +- 1e-9
+
+    m(2, 3) shouldBe 11d +- 1e-9
+    m(3, 2) shouldBe 11d +- 1e-9
+    m(2, 4) shouldBe 11d +- 1e-9
+    m(4, 2) shouldBe 11d +- 1e-9
+    m(2, 5) shouldBe 2d +- 1e-9
+    m(5, 2) shouldBe 2d +- 1e-9
+
+    m(3, 4) shouldBe 6d +- 6e-9
+    m(4, 3) shouldBe 6d +- 6e-9
+    m(3, 5) shouldBe 13d +- 6e-9
+    m(5, 3) shouldBe 13d +- 6e-9
+
+    m(4, 5) shouldBe 9d +- 1e-9
+    m(5, 4) shouldBe 9d +- 1e-9
+
   // see Corman et al. Intro to Algorithms, 3rd ed. p. 664--667
   val constraints = Seq(
     DifferenceConstraint(0, 1, 0),
