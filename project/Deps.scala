@@ -10,7 +10,8 @@ object Deps {
   val orTools   = "com.google.ortools" % "ortools-java" % "9.5.2237"
 
   val circe = Seq("circe-core", "circe-parser").map("io.circe" %% _ % "0.14.4")
-  val cats  = "org.typelevel" %% "cats-core" % "2.9.0"
+  val cats  = "org.typelevel"          %% "cats-core"                % "2.9.0"
+  val spc   = "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0"
 
   val scalatest = Seq("scalatest", "scalatest-flatspec").map("org.scalatest" %% _ % "3.2.15" % "test")
 

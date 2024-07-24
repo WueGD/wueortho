@@ -3,45 +3,99 @@
 
 package wueortho.data
 
+/** Base class for all graph types
+  *
+  * All graphs are represented as some kind of adjecency matrix.
+  * @tparam V
+  *   the type of link. Each vertex has a sequence of links to its neighbors.
+  * @tparam E
+  *   the type of edge. This type is used when the adjacency list is converted to an edge list.
+  */
 trait Graph[V, E]:
   def numberOfVertices: Int
   def numberOfEdges: Int
   def apply(i: NodeIndex): Vertex[V]
   def vertices: IndexedSeq[Vertex[V]]
   def edges: Seq[E]
+end Graph
 
+/** A sequence of links */
 case class Vertex[V](neighbors: IndexedSeq[V])
 
+/** A link in an unweighted multigraph
+  * @param toNode
+  *   target node index
+  * @param reverseIndex
+  *   index of this node in the target node's neighbors list (relevant for multi edges)
+  */
 case class BasicLink(toNode: NodeIndex, reverseIndex: Int):
   def withWeight(w: Double) = WeightedLink(toNode, w, reverseIndex)
+
+/** A link in a weighted multigraph
+  * @param toNode
+  *   target node index
+  * @param weight
+  * @param reverseIndex
+  *   index of this node in the target node's neighbors list (relevant for multi edges)
+  */
 case class WeightedLink(toNode: NodeIndex, weight: Double, reverseIndex: Int):
   def unweighted = BasicLink(toNode, reverseIndex)
+
+/** A link in a weighted directed multigraph
+  * @param toNode
+  *   target node index
+  * @param weight
+  */
 case class WeightedDiLink(toNode: NodeIndex, weight: Double)
 
+/** A unweighted (directed) edge */
 case class SimpleEdge(from: NodeIndex, to: NodeIndex) derives CanEqual:
   def withWeight(w: Double) = WeightedEdge(from, to, w)
+
+/** A weighted (directed) edge */
 case class WeightedEdge(from: NodeIndex, to: NodeIndex, weight: Double) derives CanEqual:
   def unweighted = SimpleEdge(from, to)
 
-sealed trait BasicGraph      extends Graph[BasicLink, SimpleEdge]
-sealed trait WeightedGraph   extends Graph[WeightedLink, WeightedEdge]
-sealed trait DiGraph         extends Graph[NodeIndex, SimpleEdge]
+/** A unweighted undirected multigraph */
+sealed trait BasicGraph extends Graph[BasicLink, SimpleEdge]
+
+/** A weighted undirected multigraph */
+sealed trait WeightedGraph extends Graph[WeightedLink, WeightedEdge]
+
+/** A unweighted directed multigraph */
+sealed trait DiGraph extends Graph[NodeIndex, SimpleEdge]
+
+/** A weighted directed multigraph */
 sealed trait WeightedDiGraph extends Graph[WeightedDiLink, WeightedEdge]
 
 object Graph:
+  /** Convert unweighted edge lists to adjacency lists
+    * @param edges
+    * @param size
+    *   limit the number of vertices (negative values mean no limit)
+    */
   case class fromEdges(edges: Seq[SimpleEdge], size: Int = -1):
     def mkBasicGraph: BasicGraph =
       fromEdgesUndirected[SimpleEdge](e => (e.from, e.to, 0.0), edges, size).mkBasicGraph
     def mkDiGraph: DiGraph       =
       fromEdgesDirected[SimpleEdge](e => (e.from, e.to, 0.0), edges, size).mkDiGraph
 
+  /** Convert weighted edge list to adjacency lists
+    * @param edges
+    * @param size
+    *   limit the number of vertices (negative values mean no limit)
+    */
+  end fromEdges
   case class fromWeightedEdges(edges: Seq[WeightedEdge], size: Int = -1):
     def mkWeightedGraph: WeightedGraph     =
       fromEdgesUndirected[WeightedEdge](e => (e.from, e.to, e.weight), edges, size).mkWeightedGraph
     def mkWeightedDiGraph: WeightedDiGraph =
       fromEdgesDirected[WeightedEdge](e => (e.from, e.to, e.weight), edges, size).mkWeightedDiGraph
 
-  def builder()   = Builder.empty
+  /** An empty builder for undirected graphs */
+  def builder() = Builder.empty
+
+  /** An empty builder for directed graphs */
   def diBuilder() = DiBuilder.empty
 
   private def fromEdgesUndirected[E](ex: E => (NodeIndex, NodeIndex, Double), edges: Seq[E], size: Int) =
@@ -152,6 +206,7 @@ object Graph:
 
 end Graph
 
+/** An ordered path of node inideces */
 case class Path(nodes: IndexedSeq[NodeIndex]) derives CanEqual
 
 case class NodeData[T](id: NodeIndex, data: T) derives CanEqual
