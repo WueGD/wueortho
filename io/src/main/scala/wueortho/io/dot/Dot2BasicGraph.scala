@@ -19,7 +19,6 @@ object Dot2BasicGraph:
         v <- ctxt.nodes(to)
         e <- SimpleEdge(u, v) :: (if !isDirected && u != v then SimpleEdge(v, u) :: Nil else Nil)
       yield e
-      println(edges)
       modify(edges.toList ++ _)
   end DirectedVisitor
 

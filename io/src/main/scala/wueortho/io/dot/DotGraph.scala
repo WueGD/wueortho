@@ -18,20 +18,30 @@ case class DotGraph(tpe: GraphType, isStrict: Boolean, id: Option[String], state
     val continue: Res[(Vis, S), Unit]          = EitherT.rightT(())
     def fail(msg: String): Res[(Vis, S), Unit] = EitherT.leftT(msg)
 
-    def visitNode(node: Node) = for
+    def visitNode(node: Node, updateNode: Boolean = true) = for
       isKnown <- getInternalState[S].map(_.nodes.contains(node.id))
-      _       <- if isKnown then knownNode(node) else continue
+      _       <- if isKnown && updateNode then knownNode(node) else continue
       _       <- if isKnown then continue else unknownNode(node)
     yield ()
 
     def knownNode(node: Node) = for
       s <- getInternalState[S]
+      _ <- nodeUpdated(node, s).fold(fail(s"could not update node $node")): u =>
+             replaceL[Vis, S](s => s.copy(nodes = s.nodes + (node.id -> u)))
+      s <- getInternalState[S]
       _ <- liftR(visitor.nodeUpdate(node.id, node.port, s.mkCtxt(s.plainAttrs ++ s.nodeAttrs ++ node.attrs)))
     yield ()
 
+    def nodeUpdated(node: Node, state: Vis) = for
+      u   <- state.nodes.get(node.id)
+      res <- if u.parents.exists(_.uuid == state.cursor) then Some(u)
+             else state.subgraphs.get(state.cursor).map(cursor => u.copy(parents = cursor.self +: u.parents))
+    yield res
+
     def unknownNode(node: Node) = for
       idx <- getInternalState[S].map(_.nodes.size)
-      _   <- replaceL[Vis, S](s => s.copy(nodes = s.nodes + (node.id -> DiscoveredNode(idx, s.subgraphs(s.cursor).self))))
+      _   <- replaceL[Vis, S]: s =>
+               s.copy(nodes = s.nodes + (node.id -> DiscoveredNode(idx, Seq(s.subgraphs(s.cursor).self))))
       s   <- getInternalState[S]
       _   <- liftR(visitor.node(node.id, idx, node.port, s.mkCtxt(s.plainAttrs ++ s.nodeAttrs ++ node.attrs)))
     yield ()
@@ -47,6 +57,7 @@ case class DotGraph(tpe: GraphType, isStrict: Boolean, id: Option[String], state
       isKnown = subgraph.id.flatMap(id => outer.subgraphs.values.find(_.id == Some(id)))
       uuid    = isKnown.fold(UUID.randomUUID().nn)(_.uuid)
       _      <- isKnown.fold(unknownSubgraph(uuid, subgraph.id))(_ => continue)
+      _      <- replaceL[Vis, S](_.copy(cursor = uuid))
       _      <- visitStatements(subgraph.children)
       _      <- updateSubgraph(uuid)
       _      <- replaceL[Vis, S](_.exitScope(outer))
@@ -64,12 +75,12 @@ case class DotGraph(tpe: GraphType, isStrict: Boolean, id: Option[String], state
       _ <- liftR(visitor.subgraphUpdate(uuid, s.mkCtxt(s.plainAttrs ++ s.graphAttrs)))
     yield ()
 
-    def visitNodeOrSubgraph(nos: NodeIdOrSubgraph) = nos match
-      case NodeIdOrSubgraph.NodeId(id, port)       => visitNode(Node(id, port, Map.empty)).as(End.Node(id, port))
+    def visitNodeOrSubgraph(nos: NodeIdOrSubgraph, updateNode: Boolean) = nos match
+      case NodeIdOrSubgraph.NodeId(id, port)       => visitNode(Node(id, port, Map.empty), updateNode).as(End.Node(id, port))
       case NodeIdOrSubgraph.Subgraph(id, children) => visitSubgraph(Subgraph(id, children)).map(End.Subgraph.apply)
 
     def visitEdge(edge: Edge) =
-      val head = visitNodeOrSubgraph(edge.from)
+      val head = visitNodeOrSubgraph(edge.from, updateNode = false)
       edge.chain.foldLeft(head):
           case state -> (op, to) =>
             for
@@ -77,7 +88,7 @@ case class DotGraph(tpe: GraphType, isStrict: Boolean, id: Option[String], state
               _       <- if op == EdgeOp.Directed && !isDirected then fail(s"directed edge $edge in undirected graph")
                          else continue
               fromEnd <- state
-              toEnd   <- visitNodeOrSubgraph(to)
+              toEnd   <- visitNodeOrSubgraph(to, updateNode = false)
               _       <- if isStrict && s.containsEdge(fromEnd, op, toEnd) then knownEdge(fromEnd, op, toEnd, edge.attrs)
                          else unknownEdge(fromEnd, op, toEnd, edge.attrs)
             yield toEnd
@@ -115,7 +126,7 @@ case class DotGraph(tpe: GraphType, isStrict: Boolean, id: Option[String], state
     val initExternal = visitor.graphInit(uuid, id, isDirected, isStrict)
     val visited      = for
       main <- (liftR(initExternal) *> visitStatements(statements)).value
-      last <- liftS(visitor.finish)
+      last <- liftSR(visitor.finish)
     yield main >> last
     visited.runA(initInternal -> visitor.init).value
   end accept
@@ -125,10 +136,10 @@ case class DotGraph(tpe: GraphType, isStrict: Boolean, id: Option[String], state
   private def liftR[SL, SR, A](
       s: EitherT[[AA] =>> State[SR, AA], String, A],
   ): EitherT[[AA] =>> State[(SL, SR), AA], String, A] =
-    s.mapK(FunctionK.lift([X] => t => liftS[SL, SR, X](t)))
+    s.mapK(FunctionK.lift([X] => t => liftSR[SL, SR, X](t)))
 
-  private def liftS[S1, S2, A](s: State[S2, A]): State[(S1, S2), A] =
-    IndexedStateT((s1, s2) => s.run(s2).map((s1, _) -> _))
+  private def liftSR[SL, SR, A](s: State[SR, A]): State[(SL, SR), A] =
+    IndexedStateT((sl, sr) => s.run(sr).map((sl, _) -> _))
 
   private def replaceL[SL, SR](f: SL => SL): Res[(SL, SR), Unit] =
     EitherT.right(State.modify[(SL, SR)]((sl, sr) => f(sl) -> sr))
@@ -165,7 +176,7 @@ object DotGraph:
     case Subgraph(id: Option[String], children: Seq[Statement])
 
   private case class DotAncestor(uuid: UUID, parent: UUID) derives CanEqual
-  private case class DiscoveredNode(index: Int, parent: DotAncestor) derives CanEqual
+  private case class DiscoveredNode(index: Int, parents: Seq[DotAncestor]) derives CanEqual
   private case class DiscoveredSubgraph(id: Option[String], uuid: UUID, parent: DotAncestor) derives CanEqual:
     def self: DotAncestor = DotAncestor(uuid, parent.uuid)
 
@@ -194,16 +205,17 @@ object DotGraph:
       override def resolveNodeIndex(id: String): Int = nodes.get(id).fold(-1)(_.index)
 
       override def isContainedIn(inner: UUID, outer: UUID): Boolean = outer == inner
-        || subgraphs.get(inner).fold(false)(p => p.parent.uuid == outer || isContainedIn(outer, p.parent.uuid))
+        || subgraphs.get(inner).fold(false)(in => in.parent.uuid == outer || isContainedIn(in.parent.uuid, outer))
 
-      override def ancestors(nodeId: String): Seq[UUID] = nodes.get(nodeId).fold(Seq.empty): node =>
-        node.parent.uuid +: Seq.unfold(node.parent.parent): uuid =>
-          subgraphs.get(uuid).filter(sg => sg.uuid != sg.parent.uuid).map(sg => sg.parent.uuid -> sg.parent.uuid)
+      override def ancestors(nodeId: String): Seq[UUID] =
+        def ancestors(x: DotAncestor): Seq[UUID] = if x.uuid == x.parent then Seq(x.uuid)
+        else x.uuid +: subgraphs.get(x.parent).fold(Nil)(sg => ancestors(sg.self))
+        nodes.get(nodeId).fold(Nil)(_.parents.flatMap(ancestors)).distinct
 
       override def attrs: Map[String, String] = attrsOverride
 
       override def discoveredNodesInSubgraph(graph: UUID): Seq[String] =
-        nodes.filter((_, node) => isContainedIn(node.parent.uuid, graph)).map(_._1).toSeq
+        nodes.keySet.filter(nodeId => ancestors(nodeId).contains(graph)).toSeq
     end mkCtxt
 
     def containsEdge(from: End, op: EdgeOp, to: End) = op match
