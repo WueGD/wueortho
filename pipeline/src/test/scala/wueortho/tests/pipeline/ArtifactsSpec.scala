@@ -44,7 +44,7 @@ class ArtifactsSpec extends AnyFlatSpec, TestPipelineSyntax:
 
   lazy val commonSteps = use(
     step.SimplifiedRoutingGraph(Stretch.Original),
-    step.EdgeRouting(Seed(0xdeadbeef)),
+    step.EdgeRouting(Seed(0xdeadbeef), useCenteredRouting = false),
     step.SyntheticPortLabels(SyntheticLabels.Enumerate),
   )
 

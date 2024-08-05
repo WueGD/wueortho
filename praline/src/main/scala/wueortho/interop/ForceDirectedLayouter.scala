@@ -31,7 +31,7 @@ abstract class ForceDirectedLayouter(
           just(step.GTreeOverlaps(Stretch.Uniform(1.4), Seed(0x99c0ffee), forceGeneralPosition = true)),
           just(step.PortsByAngle(if useHorizontalPorts then PortMode.Octants else PortMode.OnlyVertical)),
           just(step.SimplifiedRoutingGraph(Stretch.Original)),
-          just(step.EdgeRouting(seed = Seed(0x98c0ffee))),
+          just(step.EdgeRouting(seed = Seed(0x98c0ffee), useCenteredRouting = false)),
           just(step.FullNudging(minObjDistance, use2ndHPass = true)),
           withTags(PPE.UpdatePraline(), None)("vertexLabels" -> "disabled"),
         )

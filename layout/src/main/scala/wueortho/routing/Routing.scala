@@ -21,7 +21,13 @@ object Routing:
   import scala.collection.mutable
   val EPS = 1e-8
 
-  private def setupAStar(rg: RoutingGraph, rand: Random, startNode: NodeIndex, goalNode: NodeIndex) =
+  private def setupAStar(
+      rg: RoutingGraph,
+      rand: Random,
+      startNode: NodeIndex,
+      goalNode: NodeIndex,
+      freeTermianls: Boolean,
+  ) =
     val startDir = Direction.random(rand)
 
     new AStarSetup[(NodeIndex, Direction), AStarCost]:
@@ -36,7 +42,9 @@ object Routing:
         else
           (if s._1 == startNode then rg.neighbors(startNode)
            else rg.neighbors(s._1).filter((dir, _) => dir.reverse != s._2)).map: (dir, v) =>
-            val dist  = (rg.locate(s._1) - rg.locate(v)).len
+            val dist  =
+              if (freeTermianls && (isGoal(v, dir) || s._1 == startNode)) then 0
+              else (rg.locate(s._1) - rg.locate(v)).len
             val bends = Direction.numberOfBends(s._2, dir)
             (v -> dir, AStarCost(dist, bends))
 
@@ -57,7 +65,12 @@ object Routing:
       override def compare(a: AStarCost, b: AStarCost): Int =
         if (a.dist - b.dist).abs < EPS then a.bends.compare(b.bends) else a.dist.compare(b.dist)
 
-  def apply(routing: RoutingGraph, graph: BasicGraph, random: Random): RunningTime.Measured[Routed] =
+  def apply(
+      routing: RoutingGraph,
+      graph: BasicGraph,
+      random: Random,
+      useCenteredRouting: Boolean,
+  ): RunningTime.Measured[Routed] =
     val routedPaths = RunningTime.of("route-paths"):
       for i <- 0 until graph.numberOfEdges
       yield
@@ -65,7 +78,10 @@ object Routing:
         if u == v then
           val north = routing.neighbor(u, Direction.North).getOrElse(sys.error(s"center node $u has no top node"))
           Path(IndexedSeq(u, north, north, v))
-        else Path(GraphSearch.aStarSearch(setupAStar(routing, random, u, v)).map(i => NodeIndex(i / 4)).toIndexedSeq)
+        else
+          Path:
+              GraphSearch.aStarSearch(setupAStar(routing, random, u, v, useCenteredRouting)).map(i => NodeIndex(i / 4))
+                .toIndexedSeq
 
     val withoutEyes = routedPaths andThen (paths => RunningTime.of("remove-eyes")(removeEyes(paths)))
 

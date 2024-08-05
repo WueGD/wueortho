@@ -29,7 +29,7 @@ abstract class ReroutingLayouter(
           just(step.BoxesFromLabels(labelConfig)),
           just(step.GTreeOverlaps(Stretch.Original, Seed(0x99c0ffee), forceGeneralPosition = true)),
           just(step.CenteredRoutingGraph(useHorizontalPorts)),
-          just(step.EdgeRouting(seed = Seed(0x98c0ffee))),
+          just(step.EdgeRouting(seed = Seed(0x98c0ffee), useCenteredRouting = true)),
           just(step.FullNudging(minObjDistance, use2ndHPass = true)),
           withTags(PPE.UpdatePraline(), None)("vertexLabels" -> "disabled"),
         )

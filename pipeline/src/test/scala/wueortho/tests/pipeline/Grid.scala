@@ -36,7 +36,7 @@ class GridSpec extends AnyFlatSpec, TestPipelineSyntax:
       setStage(Stage.VertexBoxes, grid.boxes),
       step.PortsByAngle(PortMode.Octants),
       step.SimplifiedRoutingGraph(Stretch.Original),
-      step.EdgeRouting(Seed(0xdeadbeef)),
+      step.EdgeRouting(Seed(0xdeadbeef), useCenteredRouting = false),
       step.SyntheticVertexLabels(SyntheticLabels.Enumerate),
       step.SyntheticPortLabels(SyntheticLabels.Hide),
     )

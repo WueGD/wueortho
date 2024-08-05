@@ -38,7 +38,8 @@ class JavaDummy {
 					"stretch": { "type": "Original" }
 				}, {
 					"type": "EdgeRouting",
-					"seed": "c1a6f00d"
+					"seed": "c1a6f00d",
+					"useCenteredRouting": false
 				}, {
 					"type": "FullNudging",
 					"padding": 12,

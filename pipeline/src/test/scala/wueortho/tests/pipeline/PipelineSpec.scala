@@ -14,12 +14,12 @@ class PipelineSpec extends AnyFlatSpec, should.Matchers:
   "A simple pipeline" `should` "permit json encoding" in:
     val step0: CoreStep = step.RandomGraph(12, 24, Seed(0x123), RandomGraphs.GraphCore.Tree, false)
     val step1: CoreStep = step.FullNudging(0.2, true)
-    val step2: CoreStep = step.EdgeRouting(Seed(0x456))
+    val step2: CoreStep = step.EdgeRouting(Seed(0x456), useCenteredRouting = true)
     val dummy           = Pipeline(List(just(step0), just(step1), just(step2)))
 
     val rt   = Pipeline.coreRuntime
     val json = rt.asJson(dummy)
-    json.noSpaces shouldBe simpleAsJson
+    json.noSpacesSortKeys shouldBe simpleAsJson
     val p2   = rt.fromJson(json).getOrElse(fail("failed to decode pipeline"))
     p2.steps(0).step.asInstanceOf[CoreStep] shouldBe step0
     p2.steps(1).step.asInstanceOf[CoreStep] shouldBe step1
@@ -33,7 +33,7 @@ class PipelineSpec extends AnyFlatSpec, should.Matchers:
 
     val rt   = Pipeline.coreRuntime
     val json = rt.asJson(dummy)
-    json.noSpaces shouldBe complexAsJson
+    json.noSpacesSortKeys shouldBe complexAsJson
     val p2   = rt.fromJson(json).getOrElse(fail("failed to decode pipeline"))
     p2.steps(0).tag shouldBe Some("main")
     p2.steps(0).iTags should be(empty)
@@ -43,7 +43,7 @@ class PipelineSpec extends AnyFlatSpec, should.Matchers:
     p2.steps(1).step.asInstanceOf[CoreStep] shouldBe step1
 
   lazy val simpleAsJson  =
-    """{"steps":[{"n":12,"m":24,"seed":"123","core":"Tree","allowLoops":false,"type":"RandomGraph","tag":null},{"padding":0.2,"use2ndHPass":true,"type":"FullNudging","tag":null},{"seed":"456","type":"EdgeRouting","tag":null}]}"""
+    """{"steps":[{"allowLoops":false,"core":"Tree","m":24,"n":12,"seed":"123","tag":null,"type":"RandomGraph"},{"padding":0.2,"tag":null,"type":"FullNudging","use2ndHPass":true},{"seed":"456","tag":null,"type":"EdgeRouting","useCenteredRouting":true}]}"""
   lazy val complexAsJson =
-    """{"steps":[{"n":12,"m":23,"seed":"123","core":"Tree","allowLoops":false,"type":"RandomGraph","tag":"main"},{"padding":0.2,"use2ndHPass":true,"type":"FullNudging","tag":null,"routing":"main","graph":"other"}]}"""
+    """{"steps":[{"allowLoops":false,"core":"Tree","m":23,"n":12,"seed":"123","tag":"main","type":"RandomGraph"},{"graph":"other","padding":0.2,"routing":"main","tag":null,"type":"FullNudging","use2ndHPass":true}]}"""
 end PipelineSpec

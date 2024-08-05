@@ -77,7 +77,7 @@ class HybridModeSpec extends AnyFlatSpec:
         just(PPE.AccessPraline(List(Use.Graph, Use.VertexBoxes))),
         just(step.SyntheticVertexLabels(SyntheticLabels.Enumerate)),
         just(step.CenteredRoutingGraph(useHorizontalPorts)),
-        just(step.EdgeRouting(Seed(0x99c0ffee))),
+        just(step.EdgeRouting(Seed(0x99c0ffee), useCenteredRouting = true)),
         just(step.FullNudging(padding = 10, use2ndHPass = true)),
         just(step.SyntheticPortLabels(SyntheticLabels.Hide)),
         just(step.SvgDrawing(SvgConfig.Praline, overridePpu = None)),
