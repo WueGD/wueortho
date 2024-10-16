@@ -91,7 +91,7 @@ object DotParser extends Parsers:
       case _ ~ a ~ _ => a.getOrElse(Map.empty)
     .foldLeft(Map.empty[String, String])(_ ++ _))
 
-  def aList = rep1sep(attr, (Semicolon | Comma).?) ^^ (_.fold(Map.empty)(_ ++ _))
+  def aList = (rep1sep(attr, (Semicolon | Comma).?) ^^ (_.fold(Map.empty)(_ ++ _))) <~ (Semicolon | Comma).?
 
   def attr = id ~ Equals ~ id ^^ { case lhs ~ _ ~ rhs => Map(lhs -> rhs) }
 

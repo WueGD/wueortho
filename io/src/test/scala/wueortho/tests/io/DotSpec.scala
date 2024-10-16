@@ -103,4 +103,12 @@ class DotSpec extends AnyFlatSpec, should.Matchers:
         Map.empty,
       )
     ).fold(fail(_), _ => {})
+
+  "the dot parser" `should` "support tailing semicolons" in:
+    val res = for
+      tokens <- DotLexer("""graph { node [a=true;b=false;]; 1 -- 2; }""")
+      graph  <- DotParser(tokens)
+    yield graph
+    res.fold(fail(_), _ => {})
+
 end DotSpec
