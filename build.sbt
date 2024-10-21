@@ -5,7 +5,7 @@ import Deps._
 
 ThisBuild / scalaVersion := "3.4.2"
 ThisBuild / organization := "de.wueortho"
-ThisBuild / version      := "0.1.2"
+ThisBuild / version      := "0.1.3"
 ThisBuild / scalacOptions ++= compilerOptions
 
 lazy val core = project.settings(

@@ -111,4 +111,18 @@ class DotSpec extends AnyFlatSpec, should.Matchers:
     yield graph
     res.fold(fail(_), _ => {})
 
+  "the dot parser" `should` "support named digraphs" in:
+    val res = for
+      tokens <- DotLexer("""digraph graph0 { splines=ortho; 1 [width=1 ]; 1 -> 2[some=none] }""")
+      graph  <- DotParser(tokens)
+    yield graph
+    res.fold(fail(_), _ => {})
+
+  "the dot parser" `should` "support named nodes" in:
+    val res = for
+      tokens <- DotLexer("""DIGRAPH{ splines=ortho; node1 [width=1 ]; 1 -> 2[some=none] }""")
+      graph  <- DotParser(tokens)
+    yield graph
+    res.fold(fail(_), _ => {})
+
 end DotSpec

@@ -21,31 +21,31 @@ object DotLexer extends RegexParsers:
     case Success(result, _)   => Right(result)
     case NoSuccess(msg, next) => Left(s"${next.pos.line}:${next.pos.column}: $msg")
 
-  def alpha   = positioned("""[a-zA-Z\0200-\0377_][a-zA-Z\0200-\0377_0-9]*""".r ^^ Id.apply)
-  def numeral = positioned("""-?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)""".r ^^ Id.apply)
-  def quoted  = positioned(""""(?:[^"\\]|\\.|\\\n)*"""".r ^^ (s => Id(sanitizeQuoted(s))))
+  def alpha: Parser[Id] = positioned("""[a-zA-Z\0200-\0377_][a-zA-Z\0200-\0377_0-9]*""".r ^^ Id.apply)
+  def numeral           = positioned("""-?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)""".r ^^ Id.apply)
+  def quoted            = positioned(""""(?:[^"\\]|\\.|\\\n)*"""".r ^^ (s => Id(sanitizeQuoted(s))))
   // HTML string ... »the content must be legal XML« ... I don't want to be rude here, but I do not support XML!
 
   def identifier = alpha | numeral | quoted
 
-  def graph    = positioned("(?i)graph".r ^^ (_ => Graph))
-  def digraph  = positioned("(?i)digraph".r ^^ (_ => Digraph))
-  def subgraph = positioned("(?i)subgraph".r ^^ (_ => Subgraph))
-  def node     = positioned("(?i)node".r ^^ (_ => Node))
-  def edge     = positioned("(?i)edge".r ^^ (_ => Edge))
-  def strict   = positioned("(?i)strict".r ^^ (_ => Strict))
+  def graph    = positioned(alpha.filter(_.str.matches("(?i)graph")) ^^^ Graph)
+  def digraph  = positioned(alpha.filter(_.str.matches("(?i)digraph")) ^^^ Digraph)
+  def subgraph = positioned(alpha.filter(_.str.matches("(?i)subgraph")) ^^^ Subgraph)
+  def node     = positioned(alpha.filter(_.str.matches("(?i)node")) ^^^ Node)
+  def edge     = positioned(alpha.filter(_.str.matches("(?i)edge")) ^^^ Edge)
+  def strict   = positioned(alpha.filter(_.str.matches("(?i)strict")) ^^^ Strict)
 
-  def comma        = positioned("," ^^ (_ => Comma))
-  def colon        = positioned(":" ^^ (_ => Colon))
-  def semicolon    = positioned(";" ^^ (_ => Semicolon))
-  def equalSign    = positioned("=" ^^ (_ => Equals))
-  def plusSign     = positioned("+" ^^ (_ => Plus))
-  def braceOpen    = positioned("{" ^^ (_ => BraceOpen))
-  def braceClose   = positioned("}" ^^ (_ => BraceClose))
-  def bracketOpen  = positioned("[" ^^ (_ => BracketOpen))
-  def bracketClose = positioned("]" ^^ (_ => BracketClose))
-  def edgeOp       = positioned("--" ^^ (_ => EdgeOp))
-  def arcOp        = positioned("->" ^^ (_ => ArcOp))
+  def comma        = positioned("," ^^^ Comma)
+  def colon        = positioned(":" ^^^ Colon)
+  def semicolon    = positioned(";" ^^^ Semicolon)
+  def equalSign    = positioned("=" ^^^ Equals)
+  def plusSign     = positioned("+" ^^^ Plus)
+  def braceOpen    = positioned("{" ^^^ BraceOpen)
+  def braceClose   = positioned("}" ^^^ BraceClose)
+  def bracketOpen  = positioned("[" ^^^ BracketOpen)
+  def bracketClose = positioned("]" ^^^ BracketClose)
+  def edgeOp       = positioned("--" ^^^ EdgeOp)
+  def arcOp        = positioned("->" ^^^ ArcOp)
 
   private val keywords = graph | digraph | subgraph | node | edge | strict
   private val ops      =
