@@ -77,6 +77,23 @@ object OutputSteps:
     end drawAll
   end given
 
+  given StepImpl[step.SvgStraightLineDrawing] with
+    override transparent inline def stagesUsed     = ("graph" -> Stage.Graph, "layout" -> Stage.Layout)
+    override transparent inline def stagesModified = Stage.Svg
+
+    override def tags     = GetTags(stagesUsed)
+    override def helpText =
+      s"""Draw a simple node-link diagram with straight edges
+         |(use ${field[step.SvgStraightLineDrawing, "overridePpu"]} to set pixels per unit [optional])""".stripMargin
+
+    override def runToStage(s: WithTags[step.SvgStraightLineDrawing], cache: StageCache) = for
+      (graph, layout) <- UseStages(s, cache, stagesUsed)
+      svg              = s.step.overridePpu.fold(Svg.withDefaults)(ppu => Svg.withDefaults.copy(pixelsPerUnit = ppu))
+      _               <- UpdateSingleStage(s, cache, stagesModified):
+                             svg.make(svg.drawStraightEdges(graph, layout) ++ svg.drawNodes(layout))
+    yield noRt
+  end given
+
   given StepImpl[step.SvgToFile] with
     override transparent inline def stagesUsed     = ("svg", Stage.Svg)
     override transparent inline def stagesModified = EmptyTuple

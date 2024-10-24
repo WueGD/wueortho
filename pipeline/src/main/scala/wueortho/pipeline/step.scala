@@ -47,6 +47,7 @@ object step:
   // output steps
   case class Metrics(use: List[String])                                 extends CS derives CC
   case class SvgDrawing(config: SvgConfig, overridePpu: Option[Double]) extends CS derives CC
+  case class SvgStraightLineDrawing(overridePpu: Option[Double])        extends CS derives CC
   case class SvgToFile(path: FSPath)                                    extends CS derives CC
 end step
 
