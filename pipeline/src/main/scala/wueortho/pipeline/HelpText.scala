@@ -10,7 +10,6 @@ object HelpText:
   private lazy val stages = enumNames[Stage[?]].map(s => s" - $s").mkString("\n")
 
   private lazy val exampleStep =
-    import AlgorithmicSteps.given
     val pba = PipelineStep.withTags(step.PortsByAngle(PortMode.OnlyVertical), Some("vertical"))("graph" -> "sample")
     AlgorithmicSteps.given_StepImpl_PortsByAngle.codec(pba).spaces2
 

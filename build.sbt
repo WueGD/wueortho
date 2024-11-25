@@ -3,7 +3,7 @@
 
 import Deps._
 
-ThisBuild / scalaVersion := "3.4.2"
+ThisBuild / scalaVersion := "3.5.2"
 ThisBuild / organization := "de.wueortho"
 ThisBuild / version      := "0.1.2"
 ThisBuild / scalacOptions ++= compilerOptions
@@ -41,7 +41,7 @@ lazy val compilerOptions = Seq(
   "-release:17",
   "-Xmax-inlines:256",
   "-Yexplicit-nulls",
-  "-Ysafe-init",
+  "-Wsafe-init",
   "-language:strictEquality",
   "-deprecation",
   "-feature",

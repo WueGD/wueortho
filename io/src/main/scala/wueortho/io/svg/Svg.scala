@@ -7,7 +7,7 @@ import wueortho.data.*, Direction.*
 import wueortho.util.Codecs.given
 
 import scala.annotation.targetName
-import scalatags.Text, Text.{Frag, svgAttrs as ^}, Text.svgTags.*, Text.implicits.*
+import scalatags.Text, Text.svgAttrs as ^, Text.svgTags.*, Text.implicits.*
 import io.circe.derivation.ConfiguredCodec
 
 import Svg.*
@@ -86,7 +86,7 @@ case class Svg(
 
   def drawStraightSegments(segs: List[(Vec2D, Vec2D)]) =
     val lines = segs.map((u, v) => lineFrag(u, v, "black", edgeStrokeWidth))
-    SvgFrag(bbox(segs.map(_.toList).flatten), lines)
+    SvgFrag(bbox(segs.flatMap[Vec2D]((v1, v2) => List(v1, v2))), lines)
 
   def drawNodes(vl: VertexLayout) =
     SvgFrag(bbox(vl.nodes), vl.nodes.map(node => circleFrag(node, nodeSize / 2, nodeColor)))
